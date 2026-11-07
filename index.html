@@ -2256,13 +2256,22 @@ const BANK_ACTS = [
   ['💸 사채 100 갚기', () => repay('debt', 100)], ['💸 사채 1,000 갚기', () => repay('debt', 1000)],
   ['💸 사채 가진 만큼 갚기', () => repay('debt', coins)], ['🏦 은행빚 전부 갚기', () => repay('bank', coins)],
   ['💰 대출 100 받기', () => borrow(100)], ['💰 대출 한도까지 받기', () => borrow(loanLimit())],
-  ['📖 스토리 다시 보기', () => startStory('intro', 'bank')], ['← 나가기', () => toTitle()]
+  ['📖 스토리 다시 보기', () => startStory('intro', 'bank')], ['🗑️ 데이터 전체 초기화', () => resetAll()],
+  ['← 나가기', () => toTitle()]
 ];
+// 모든 기록(코인·빚·티어·냉장고·스토리 등) 삭제. 실수 방지로 3초 안에 두 번 눌러야 실행
+let resetAsk = -999;
+function resetAll() {
+  if (gT - resetAsk > 180) { resetAsk = gT; SFX.block(); toast('⚠️ 한 번 더 누르면 모든 기록이 지워져요!'); return; }
+  if (RANK_DB) fetch(`${RANK_DB}/rank/${pid}.json`, { method: 'DELETE' }).catch(() => {});   // 내 랭킹 기록도 삭제
+  try { Object.keys(localStorage).filter(k => k.startsWith('sgf_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  setTimeout(() => location.reload(), 300);
+}
 function updateBank() {
   const n = BANK_ACTS.length;
   if (pressed.KeyW || pressed.ArrowUp) { bk.sel = (bk.sel + n - 2) % n; SFX.select(); }
   if (pressed.KeyS || pressed.ArrowDown) { bk.sel = (bk.sel + 2) % n; SFX.select(); }
-  if (pressed.KeyA || pressed.ArrowLeft || pressed.KeyD || pressed.ArrowRight) { bk.sel ^= 1; SFX.select(); }
+  if (pressed.KeyA || pressed.ArrowLeft || pressed.KeyD || pressed.ArrowRight) { if ((bk.sel ^ 1) < n) bk.sel ^= 1; SFX.select(); }
   if (pressed.Enter || pressed.Space || pressed.KeyI) BANK_ACTS[bk.sel][1]();
   if (pressed.Escape) toTitle();
 }
@@ -2289,11 +2298,11 @@ function drawBank() {
   txt('멧돼지 실장', 168, 430, 13, '#ffab91', null, 0, 'left'); txt(say, 168, 456, 14, '#fff', null, 0, 'left');
   // 오른쪽: 행동
   BANK_ACTS.forEach(([label], i) => {
-    const x = 474 + (i % 2) * 230, y = 70 + (i >> 1) * 96, on = bk.sel === i;
-    ctx.fillStyle = on ? '#1e88e5' : 'rgba(255,255,255,0.08)'; rr(x, y, 218, 84, 14); ctx.fill();
-    if (on) { ctx.strokeStyle = '#90caf9'; ctx.lineWidth = 2; rr(x, y, 218, 84, 14); ctx.stroke(); }
-    txt(label, x + 109, y + 42, 16, '#fff', null);
-    addHot(x, y, 218, 84, () => { bk.sel = i; pressed.Enter = true; });   // 한 번 탭하면 바로 실행
+    const x = 474 + (i % 2) * 230, y = 64 + (i >> 1) * 76, on = bk.sel === i;
+    ctx.fillStyle = on ? '#1e88e5' : 'rgba(255,255,255,0.08)'; rr(x, y, 218, 66, 14); ctx.fill();
+    if (on) { ctx.strokeStyle = '#90caf9'; ctx.lineWidth = 2; rr(x, y, 218, 66, 14); ctx.stroke(); }
+    txt(label, x + 109, y + 34, 16, i === 7 ? '#ff8a80' : '#fff', null);
+    addHot(x, y, 218, 66, () => { bk.sel = i; pressed.Enter = true; });   // 한 번 탭하면 바로 실행
   });
   txt('대출 수수료 10% · 사채는 판마다 이자 0.3% · W/A/S/D 이동, Enter 실행', 690, 470, 12, '#90a4ae', null);
   drawParts();
