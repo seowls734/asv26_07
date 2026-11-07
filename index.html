@@ -256,6 +256,7 @@ function initAudio() {
     const comp = AC.createDynamicsCompressor(); comp.threshold.value = -8; comp.ratio.value = 10; comp.knee.value = 4; comp.attack.value = 0.002; comp.release.value = 0.12; comp.connect(AC.destination);   // 큰 소리도 덜 눌러서 타격감 살림
     master = AC.createGain(); master.gain.value = 0.85; master.connect(comp);
     sfxOut = AC.createGain(); sfxOut.gain.value = 1.6; sfxOut.connect(master);   // 효과음 음량 (전보다 훨씬 크게)
+    loadSamples();   // 펀치 녹음 파일 불러오기
     rev = AC.createConvolver(); rev.buffer = makeImpulse(1.8);
     const rg = AC.createGain(); rg.gain.value = 0.25; rev.connect(rg); rg.connect(comp);
     const send = AC.createGain(); send.gain.value = 0.12; master.connect(send); send.connect(rev);
@@ -316,67 +317,86 @@ let lastImpact = 0;
 function impact(p, kind) {
   if (!AC) return;
   p = clamp(p);
-  const now = AC.currentTime, rapid = now - lastImpact < 0.04; lastImpact = now;   // 연타가 한꺼번에 겹치면 가볍게
-  nz(0.012, { v: rapid ? 0.3 : 0.55, freq: 3200, type: 'highpass' });                                          // 탁: 맞는 순간 (아주 짧은 노이즈)
-  nz(0.05 + p * 0.07, { v: 0.6 + p * 0.3, freq: kind === 'kick' ? 900 : 1400, f2: 170 });                       // 퍽: 둔탁한 살 소리
-  osc(rnd(95, 115) - p * 30, 0.09 + p * 0.14, { v: (rapid ? 0.35 : 0.6) + p * 0.3, f2: 34, atk: 0.002 });       // 쿵: 낮은 저음 (음높이가 거의 안 들리는 북소리)
-  if (rapid) return;
-  if (p > 0.4) nz(0.18 + p * 0.25, { v: 0.25 * p, freq: 350, f2: 80, at: 0.01 });                                // 묵직한 여운
-  if (p > 0.75) { osc(45, 0.35, { v: 0.45, f2: 22 }); nz(0.3, { v: 0.16, freq: 1200, f2: 300, type: 'bandpass', q: 0.8, at: 0.02 }); }   // 아주 셀 때: 더 깊은 쿵 + 공기 터짐
+  const now = AC.currentTime, rapid = now - lastImpact < 0.04; lastImpact = now;   // 연타가 겹치면 가볍게
+  // 기본 공격 = 펀치 녹음 그대로. 킥은 조금 낮게, 셀수록 더 낮고 크게
+  const rate = (kind === 'kick' ? 0.86 : 1.04) * rnd(0.96, 1.05) - p * 0.12;
+  thump(rate, (rapid ? 0.55 : 0.85) + p * 0.35, 0, { pan: rnd(-0.12, 0.12) });
+  if (!rapid && p > 0.6) thump(rate * 0.72, 0.5 * p, 0.012, { lp: 1800 });   // 센 공격: 낮은 펀치를 한 겹 더 (묵직함)
 }
 function whoosh(d = 0.15, v = 0.2, lo = 500, hi = 3200, at = 0) { nz(d, { v, freq: lo, f2: hi, type: 'bandpass', q: 1.4, at, atk: d * 0.4 }); }
+// ---- 실제 녹음된 펀치 소리(universfield-punch-04) 를 타격음 재료로 사용 ----
+// 높낮이(재생 속도)만 바꿔서 펀치·킥·센 공격·스킬 타격·폭발까지 만듦. 못 불러오면(내 컴퓨터 파일로 열 때 등) 노이즈로 대신함
+let punchBuf = null;
+function loadSamples() {
+  if (!AC || punchBuf || location.protocol === 'file:') return;
+  fetch('universfield-punch-04-383965.mp3').then(r => { if (!r.ok) throw r.status; return r.arrayBuffer(); })
+    .then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no))).then(buf => { punchBuf = buf; }).catch(() => {});
+}
+function playS(buf, o = {}) {
+  if (!AC || !buf) return;
+  const { rate = 1, v = 0.8, at = 0, pan = 0, hp, lp, out } = o;
+  const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = buf; s.playbackRate.value = rate; g.gain.value = v;
+  let node = s;
+  for (const [type, fr] of [['highpass', hp], ['lowpass', lp]]) if (fr) { const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = fr; node.connect(f); node = f; }
+  node.connect(g);
+  const dest = out || sfxOut || master;
+  if (pan && AC.createStereoPanner) { const p = AC.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(dest); } else g.connect(dest);
+  s.start(AC.currentTime + at);
+}
+// 타격 한 방: rate 낮을수록 묵직(0.6~0.8), 높을수록 가볍고 빠름(1.1~1.4)
+function thump(rate = 1, v = 0.8, at = 0, o = {}) {
+  if (punchBuf) playS(punchBuf, { rate, v, at, ...o });
+  else nz(0.09, { v: v * 0.6, freq: 1100 * rate, f2: 150, at, out: o.out });
+}
 const SFX = {
-  // ---- 싸움 소리: 음높이 있는 '띵·삑' 없이 노이즈(퍽·쉬익·쾅) + 아주 낮은 저음(쿵)만 ----
+  // ---- 싸움 소리: 펀치 녹음(높낮이 바꿔 씀) + 노이즈(쉬익·촤악). 낮은 '뚱·뜨등' 합성음은 쓰지 않음 ----
   punch(dmg = 6) { impact(dmg / 20, 'punch'); },
   kick(dmg = 9) { impact(dmg / 17, 'kick'); },
   heavy(dmg = 16) { impact(Math.max(0.8, dmg / 16), 'kick'); },
-  counterHit() { nz(0.09, { v: 0.4, freq: 2600, f2: 500, type: 'bandpass', q: 0.9 }); osc(65, 0.25, { v: 0.45, f2: 28 }); },
-  block() { nz(0.025, { v: 0.4, freq: 3200, type: 'highpass' }); nz(0.07, { v: 0.35, freq: 1700, type: 'bandpass', q: 1.2 }); osc(85, 0.07, { v: 0.3, f2: 48 }); },
+  counterHit() { thump(1.25, 0.5, 0.03, { hp: 900 }); },                                   // 카운터: 짧고 높은 펀치 한 번 더
+  block() { thump(1.45, 0.5, 0, { hp: 1200 }); nz(0.03, { v: 0.25, freq: 3000, type: 'highpass' }); },   // 막기: 가볍고 높은 '탁'
   whiff() { whoosh(0.13, 0.18, 500, 2800); },
   jump() { whoosh(0.15, 0.12, 250, 1100); },
-  special() { whoosh(0.3, 0.22, 300, 2600); osc(80, 0.2, { v: 0.35, f2: 38 }); },
-  boom() {   // 폭발: 쾅 + 넓게 퍼지는 울림 + 파편
+  special() { whoosh(0.3, 0.22, 300, 2600); thump(0.9, 0.5, 0.05); },
+  boom() {   // 폭발: 아주 낮게 늘인 펀치 + 넓게 퍼지는 노이즈 + 파편
     if (!AC) return; const b = bus(0, 0.6);
-    osc(68, 0.8, { v: 0.8, f2: 24 }); osc(40, 1.0, { v: 0.45, f2: 20 });
-    nz(0.9, { v: 0.6, freq: 1800, f2: 80, q: 0.9, out: b }); nz(0.04, { v: 0.45, freq: 3500, type: 'highpass' });
+    thump(0.5, 1.0, 0, { lp: 1200 }); thump(0.7, 0.6, 0.02);
+    nz(0.9, { v: 0.55, freq: 1800, f2: 80, q: 0.9, out: b });
     for (let i = 0; i < 8; i++) nz(0.03, { v: 0.12, freq: rnd(1500, 3500), type: 'bandpass', q: 1, at: rnd(0.1, 0.6), out: bus(rnd(-0.6, 0.6), 0.2) });
   },
-  splash() {   // 국물 쏟아짐: 촤아악 + 퐁퐁 (전엔 '삑' 같은 음이 섞였음)
+  splash() {   // 국물 쏟아짐: 촤아악 + 퐁퐁
     if (!AC) return; const b = bus(0, 0.3);
     nz(0.45, { v: 0.35, freq: 2500, f2: 400, type: 'bandpass', q: 0.9, atk: 0.03, out: b });
     for (let i = 0; i < 8; i++) nz(0.03, { v: 0.14, freq: rnd(300, 700), type: 'bandpass', q: 1.5, at: 0.06 + i * 0.045, out: b });
   },
-  oink() { for (const t of [0, 0.14]) { nz(0.11, { v: 0.3, freq: 380, type: 'bandpass', q: 3, at: t }); osc(105, 0.1, { v: 0.25, f2: 80, at: t }); } },   // 꿀꿀: 낮은 콧소리
-  squeal() { nz(0.35, { v: 0.15, freq: 1100, f2: 1500, type: 'bandpass', q: 2.5 }); },   // 꽥 (작고 짧게)
-  ko() { impact(1, 'kick'); osc(48, 1.1, { v: 0.55, f2: 22, at: 0.05 }); nz(1.0, { v: 0.35, freq: 800, f2: 70, at: 0.05 }); },
-  chop() { nz(0.08, { v: 0.55, freq: 2200, type: 'bandpass', q: 1 }); osc(90, 0.1, { v: 0.4, f2: 45 }); },
+  oink() { for (const t of [0, 0.14]) nz(0.11, { v: 0.3, freq: 380, type: 'bandpass', q: 3, at: t }); },
+  squeal() { nz(0.3, { v: 0.12, freq: 1100, f2: 1500, type: 'bandpass', q: 2.5 }); },
+  ko() { thump(0.62, 1.0, 0, { lp: 2500 }); thump(0.85, 0.7, 0.02); nz(1.0, { v: 0.35, freq: 800, f2: 70, at: 0.05 }); },   // KO: 크고 낮은 펀치 두 겹
+  chop() { nz(0.08, { v: 0.5, freq: 2200, type: 'bandpass', q: 1 }); thump(1.15, 0.45); },
   snip() { nz(0.04, { v: 0.3, freq: 5000, type: 'highpass' }); },
-  bell() { tone(880, 0.3, 'sine', 0.12); setTimeout(() => tone(1320, 0.4, 'sine', 0.1), 120); },   // 메뉴용 (작고 부드럽게)
+  bell() { tone(880, 0.3, 'sine', 0.12); setTimeout(() => tone(1320, 0.4, 'sine', 0.1), 120); },
   tick() { nz(0.015, { v: 0.2, freq: 3000, type: 'highpass' }); },
-  gong() {   // 숙성 패링: '탱!' 짧게 (길게 울리던 종소리 대신)
-    nz(0.04, { v: 0.5, freq: 4000, type: 'highpass' }); nz(0.25, { v: 0.35, freq: 1800, f2: 800, type: 'bandpass', q: 1.5, out: bus(0, 0.5) }); osc(75, 0.22, { v: 0.4, f2: 35 });
+  gong() { thump(1.3, 0.7, 0, { hp: 700 }); nz(0.25, { v: 0.3, freq: 1800, f2: 800, type: 'bandpass', q: 1.5, out: bus(0, 0.5) }); },   // 숙성 패링: 탁! 튕겨냄
+  ultStart() {   // 필살기: 바람이 0.8초 차오르다가 아주 낮은 펀치 '쾅'
+    nz(0.85, { v: 0.32, freq: 150, f2: 4500, type: 'bandpass', q: 0.7, atk: 0.6, out: bus(0, 0.4) });
+    thump(0.55, 1.0, 0.78, { lp: 1500 }); thump(0.8, 0.6, 0.79); nz(0.9, { v: 0.45, freq: 1500, f2: 80, at: 0.78, out: bus(0, 0.5) });
   },
-  ultStart() {   // 필살기: 0.8초 동안 바람이 차오르다가 '쾅'
-    nz(0.85, { v: 0.3, freq: 150, f2: 4500, type: 'bandpass', q: 0.7, atk: 0.6, out: bus(0, 0.4) });
-    osc(45, 0.8, { v: 0.35, f2: 90, atk: 0.6 });
-    osc(55, 0.9, { v: 0.8, f2: 24, at: 0.78 }); nz(0.9, { v: 0.5, freq: 1500, f2: 80, at: 0.78, out: bus(0, 0.5) });
-  },
-  transform() { nz(0.6, { v: 0.3, freq: 200, f2: 3500, type: 'bandpass', q: 0.8, atk: 0.4 }); osc(55, 0.5, { v: 0.5, f2: 25, at: 0.4 }); },
+  transform() { nz(0.6, { v: 0.3, freq: 200, f2: 3500, type: 'bandpass', q: 0.8, atk: 0.4 }); thump(0.65, 0.8, 0.4); },
   fire() {   // 화염구 날아감: 화르르륵 + 타닥
     if (!AC) return; const b = bus(0, 0.35);
-    nz(0.5, { v: 0.4, freq: 250, f2: 2200, q: 1, atk: 0.08, out: b }); osc(60, 0.3, { v: 0.3, f2: 30 });
+    nz(0.5, { v: 0.4, freq: 250, f2: 2200, q: 1, atk: 0.08, out: b });
     for (let i = 0; i < 6; i++) nz(0.02, { v: 0.14, freq: rnd(2000, 4000), type: 'bandpass', q: 1, at: rnd(0.03, 0.45), out: b });
   },
-  ice() {   // 얼음 표창 날아감: 쉬익 + 얼음 바스락 (종소리 '띵' 없앰)
+  ice() {   // 얼음 표창 날아감: 쉬익 + 바스락
     if (!AC) return; const b = bus(0, 0.4);
     nz(0.25, { v: 0.25, freq: 6000, f2: 2000, type: 'highpass', out: b });
     for (let i = 0; i < 6; i++) nz(0.02, { v: 0.15, freq: rnd(4000, 7000), type: 'bandpass', q: 1, at: i * 0.03, out: b });
   },
-  slam() { impact(1, 'kick'); osc(45, 0.5, { v: 0.55, f2: 22, at: 0.01 }); nz(0.4, { v: 0.4, freq: 350, f2: 80 }); },
-  thud() { impact(0.5, 'kick'); },
-  tender() { osc(110, 0.06, { v: 0.3, f2: 60 }); nz(0.04, { v: 0.35, freq: 1200 }); },
+  slam() { thump(0.6, 1.0, 0, { lp: 2000 }); thump(0.8, 0.7, 0.015); nz(0.4, { v: 0.4, freq: 350, f2: 80 }); },   // 메치기: 바닥에 쿵
+  thud() { thump(0.8, 0.6); },
+  tender() { thump(1.2, 0.4); },
   partBreak() { nz(0.2, { v: 0.4, freq: 2000 }); },
-  stamp() { osc(70, 0.25, { v: 0.55, f2: 32 }); nz(0.15, { v: 0.5, freq: 700 }); },
+  stamp() { thump(0.7, 0.8, 0, { lp: 1500 }); },
   hot() { noise(0.15, 0.12, 4000, 'highpass'); },
   select() { tone(620, 0.05, 'sine', 0.06); },
   confirm() { tone(523, 0.08, 'sine', 0.08); setTimeout(() => tone(784, 0.12, 'sine', 0.08), 80); }
@@ -632,7 +652,7 @@ function drawParts() {
 const backLookCache = new WeakMap();
 function shadeHex(c, k) {
   if (typeof c !== 'string' || !/^#[0-9a-f]{6}$/i.test(c)) return c;
-  const v = [1, 3, 5].map(i => Math.round(parseInt(c.slice(i, i + 2), 16) * k));
+  const v = [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(c.slice(i, i + 2), 16) * k)));   // k>1이면 밝게
   return '#' + v.map(x => x.toString(16).padStart(2, '0')).join('');
 }
 function shadeLook(C) {
@@ -2235,27 +2255,26 @@ function fm(f, ratio, index, d, o = {}) {   // FM: 쇳소리·종·칼날처럼 
 }
 function sub(f, d, v = 0.5, at = 0, out) { osc(f, d, { v, f2: Math.max(20, f * 0.35), at, atk: 0.004, out }); }   // 묵직한 저음 '둥'
 function sweep(d, v, lo, hi, o = {}) { nz(d, { v, freq: lo, f2: hi, type: 'bandpass', q: o.q ?? 2.5, at: o.at || 0, atk: o.atk ?? d * 0.5, out: o.out }); }   // 바람 가르는 '쉬익'
-// 스킬 쓰는 순간 공통 '파밧!': 짧은 노이즈 + 낮은 쿵 (음높이 있는 소리 없음)
+// 스킬 쓰는 순간 공통 '파밧!': 바람 터짐 + 짧은 펀치 (낮은 합성음 없음)
 function castPunch() {
   if (!AC) return;
-  nz(0.02, { v: 0.45, freq: 4000, type: 'highpass' });
-  osc(80, 0.18, { v: 0.6, f2: 34 });
-  nz(0.16, { v: 0.3, freq: 3500, f2: 700, type: 'bandpass', q: 0.9, out: bus(0, 0.3) });
+  nz(0.16, { v: 0.32, freq: 3500, f2: 700, type: 'bandpass', q: 0.9, out: bus(0, 0.3) });
+  thump(1.15, 0.45, 0, { hp: 600 });
 }
-// 스킬마다 다른 소리: 바람(쉬익)·땅울림(우르릉)·타격 노이즈 위주로, '띵·삑' 같은 음은 쓰지 않음
+// 스킬마다 다른 소리: 바람(쉬익)·땅울림 노이즈 + 펀치 녹음을 높낮이 바꿔서
 const SKILL_SFX = {
-  dash() { const b = bus(0, 0.25); nz(0.5, { v: 0.4, freq: 90, f2: 500, atk: 0.25, out: b }); osc(42, 0.5, { v: 0.4, f2: 70, atk: 0.25 }); whoosh(0.3, 0.3, 250, 2200, 0.15); },   // 우르르릉 → 휙
-  armorShoulder() { const b = bus(0, 0.35); nz(0.45, { v: 0.45, freq: 120, f2: 400, atk: 0.15, out: b }); osc(40, 0.45, { v: 0.5, f2: 28 }); nz(0.06, { v: 0.35, freq: 1500, type: 'bandpass', q: 1.5, at: 0.05, out: b }); whoosh(0.3, 0.25, 200, 1400, 0.1); },   // 쿠웅 + 철컥
-  launcher() { const b = bus(0, 0.3); whoosh(0.2, 0.32, 3500, 400); for (let i = 0; i < 6; i++) nz(0.025, { v: 0.16, freq: 2200, type: 'bandpass', q: 1.2, at: 0.08 + i * 0.035, out: b }); osc(70, 0.15, { v: 0.35, f2: 35, at: 0.2 }); },   // 휙 걸고 촤르륵 끌어옴
-  roll() { [0, 0.09, 0.18, 0.27].forEach((t, i) => { osc(95 - i * 8, 0.09, { v: 0.4, f2: 50, at: t }); nz(0.06, { v: 0.18, freq: 600, at: t }); }); whoosh(0.4, 0.15, 250, 1100); },   // 데굴데굴 둥둥
+  dash() { const b = bus(0, 0.25); nz(0.5, { v: 0.4, freq: 90, f2: 500, atk: 0.25, out: b }); whoosh(0.3, 0.3, 250, 2200, 0.15); thump(0.75, 0.6, 0.3, { lp: 2200 }); },   // 우르르릉 → 휙 → 쿵
+  armorShoulder() { const b = bus(0, 0.35); nz(0.45, { v: 0.45, freq: 120, f2: 400, atk: 0.15, out: b }); thump(0.65, 0.75, 0.05, { lp: 1800 }); nz(0.05, { v: 0.3, freq: 1500, type: 'bandpass', q: 1.5, at: 0.08, out: b }); },   // 쿠웅 + 철컥
+  launcher() { const b = bus(0, 0.3); whoosh(0.2, 0.32, 3500, 400); for (let i = 0; i < 6; i++) nz(0.025, { v: 0.16, freq: 2200, type: 'bandpass', q: 1.2, at: 0.08 + i * 0.035, out: b }); thump(1.1, 0.45, 0.22); },   // 휙 걸고 촤르륵
+  roll() { [0, 0.09, 0.18, 0.27].forEach((t, i) => thump(0.9 - i * 0.05, 0.35, t, { lp: 1500 })); whoosh(0.4, 0.15, 250, 1100); },   // 데굴데굴
   iceProj() { whoosh(0.15, 0.2, 2000, 6000); },
-  fireProj() { const b = bus(0, 0.3); nz(0.4, { v: 0.45, freq: 150, f2: 2500, atk: 0.12, out: b }); osc(55, 0.3, { v: 0.35, f2: 30, at: 0.05 }); },   // 화악
+  fireProj() { const b = bus(0, 0.3); nz(0.4, { v: 0.45, freq: 150, f2: 2500, atk: 0.12, out: b }); },   // 화악
   stewSplash() { nz(0.25, { v: 0.25, freq: 600, f2: 1400, type: 'bandpass', q: 0.9 }); },
   spinKick() { [0, 0.11, 0.2, 0.27].forEach((t, i) => whoosh(0.13, 0.3, 350 + i * 250, 3000 + i * 500, t)); },   // 휘익휘익휘익휙
-  counter() { const b = bus(0, 0.4); whoosh(0.2, 0.3, 2500, 8000); nz(0.03, { v: 0.35, freq: 5000, type: 'highpass', at: 0.18, out: b }); osc(70, 0.15, { v: 0.3, f2: 35, at: 0.18 }); },   // 스르릉 → 착
-  teleport() { nz(0.15, { v: 0.3, freq: 6000, f2: 500, type: 'bandpass', q: 1, out: bus(-0.6, 0.4) }); nz(0.15, { v: 0.3, freq: 500, f2: 6000, type: 'bandpass', q: 1, at: 0.2, out: bus(0.6, 0.4) }); osc(60, 0.12, { v: 0.35, f2: 30, at: 0.2 }); },   // 슉 사라졌다 슉 나타남
-  uppercut() { whoosh(0.25, 0.35, 300, 5000); osc(55, 0.2, { v: 0.4, f2: 90 }); },   // 아래에서 위로 슈웅
-  boneSwing() { const b = bus(0, 0.25); whoosh(0.38, 0.38, 150, 1100); nz(0.04, { v: 0.4, freq: 1400, type: 'bandpass', q: 1.2, at: 0.3, out: b }); osc(80, 0.1, { v: 0.35, f2: 40, at: 0.3 }); },   // 부웅~ 딱
+  counter() { const b = bus(0, 0.4); whoosh(0.2, 0.3, 2500, 8000); nz(0.03, { v: 0.35, freq: 5000, type: 'highpass', at: 0.18, out: b }); },   // 스르릉 → 착
+  teleport() { nz(0.15, { v: 0.3, freq: 6000, f2: 500, type: 'bandpass', q: 1, out: bus(-0.6, 0.4) }); nz(0.15, { v: 0.3, freq: 500, f2: 6000, type: 'bandpass', q: 1, at: 0.2, out: bus(0.6, 0.4) }); },   // 슉 … 슉
+  uppercut() { whoosh(0.25, 0.35, 300, 5000); },   // 아래에서 위로 슈웅
+  boneSwing() { const b = bus(0, 0.25); whoosh(0.38, 0.38, 150, 1100); thump(1.2, 0.4, 0.3, { hp: 800 }); },   // 부웅~ 딱
 };
 SFX.coin = () => { tone(1320, 0.08, 'sine', 0.08); setTimeout(() => tone(1760, 0.16, 'sine', 0.07), 70); };
 
@@ -2303,17 +2322,31 @@ function updateMarket() {
 // 좌표는 접시 위 약 ±110 × ±45 기준. 아이콘·선택 카드·완성 접시가 모두 같은 그림을 크기만 바꿔서 씀
 const DC = { grill: '#9c4e26', lean: '#b9734a', fatRim: '#f3d9a8', golden: '#d98a1c', goldenHi: '#f6c05a', red: '#b3281b',
   dark: '#4e2310', darkHi: '#7a3d1d', bone: '#f5ecd8', boneE: '#cdbb98' };
-function blob(x, y, rx, ry, rot, c, hi) { ctx.fillStyle = c; ell(x, y, rx, ry, rot); ctx.fill(); if (hi) { ctx.fillStyle = hi; ell(x - rx * 0.25, y - ry * 0.3, rx * 0.45, ry * 0.35, rot); ctx.fill(); } }
-function slab(x, y, w, h, rot, c, o = {}) {   // 고기 한 조각 + (지방 테두리·속살·그릴 자국·마블링·윤기) 선택
+function blob(x, y, rx, ry, rot, c, hi) {   // 둥근 덩어리(튀김·고기): 그림자 + 둥근 입체 그라데이션 + 테두리 + 빛 반사
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ell(x + 2, y + 3, rx, ry, rot); ctx.fill();
+  const g = ctx.createRadialGradient(x - rx * 0.35, y - ry * 0.4, 1, x, y, Math.max(rx, ry) * 1.1);
+  g.addColorStop(0, shadeHex(hi || c, 1.15)); g.addColorStop(0.55, c); g.addColorStop(1, shadeHex(c, 0.7));
+  ctx.fillStyle = g; ell(x, y, rx, ry, rot); ctx.fill(); ctx.strokeStyle = shadeHex(c, 0.55); ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ell(x - rx * 0.3, y - ry * 0.45, rx * 0.3, ry * 0.18, rot); ctx.fill();
+}
+function slab(x, y, w, h, rot, c, o = {}) {   // 고기 한 조각: 그림자 + 위는 밝고 아래는 어두운 입체감 + 테두리 (+ 지방·속살·그릴 자국·마블링·튀김옷·윤기)
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
   const r = Math.min(w, h) * 0.3;
-  ctx.fillStyle = c; rr(-w / 2, -h / 2, w, h, r); ctx.fill(); ctx.clip();   // 자국·마블링이 고기 밖으로 안 나가게
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; rr(-w / 2 + 2, -h / 2 + 3, w, h, r); ctx.fill();
+  const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2); g.addColorStop(0, shadeHex(c, 1.2)); g.addColorStop(1, shadeHex(c, 0.78));
+  ctx.fillStyle = g; rr(-w / 2, -h / 2, w, h, r); ctx.fill();
+  ctx.strokeStyle = shadeHex(c, 0.55); ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.save(); rr(-w / 2, -h / 2, w, h, r); ctx.clip();   // 자국·마블링이 고기 밖으로 안 나가게
   if (o.rim) { ctx.fillStyle = o.rim; rr(-w / 2, -h / 2, w, h * 0.24, Math.min(r, h * 0.12)); ctx.fill(); }
   if (o.inner) { ctx.fillStyle = o.inner; rr(-w * 0.36, -h * 0.2, w * 0.72, h * 0.45, 3); ctx.fill(); }
   if (o.marble) { ctx.strokeStyle = 'rgba(255,232,200,0.6)'; ctx.lineWidth = 1.6; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-w * 0.4, -h * 0.3 + i * h * 0.2); ctx.quadraticCurveTo(0, -h * 0.12 + i * h * 0.18, w * 0.4, -h * 0.26 + i * h * 0.2); ctx.stroke(); } }
-  if (o.marks) { ctx.strokeStyle = 'rgba(40,15,5,0.6)'; ctx.lineWidth = Math.max(2, h * 0.12); for (let i = -1; i <= 1; i++) line(i * w * 0.28 - h * 0.3, h / 2 - 2, i * w * 0.28 + h * 0.3, -h / 2 + 2); }
-  if (o.gloss) { ctx.fillStyle = 'rgba(255,255,255,0.3)'; rr(-w * 0.35, -h * 0.38, w * 0.4, h * 0.16, 2); ctx.fill(); }
-  ctx.restore();
+  if (o.marks) {
+    ctx.strokeStyle = 'rgba(40,15,5,0.6)'; ctx.lineWidth = Math.max(2, h * 0.12); for (let i = -1; i <= 1; i++) line(i * w * 0.28 - h * 0.3, h / 2 - 2, i * w * 0.28 + h * 0.3, -h / 2 + 2);
+    ctx.fillStyle = 'rgba(50,20,5,0.35)'; for (let i = 0; i < 8; i++) { ell(Math.sin(i * 2.7) * w * 0.4, Math.cos(i * 1.9) * h * 0.35, 1.6, 1.2); ctx.fill(); }   // 탄 자국 점
+  }
+  if (o.crumb) { ctx.fillStyle = 'rgba(255,236,170,0.75)'; for (let i = 0; i < Math.round(w * h / 60); i++) { ell(Math.sin(i * 2.3) * w * 0.45, Math.cos(i * 1.7) * h * 0.42, 1.6, 1.2, i); ctx.fill(); } }   // 바삭한 튀김옷
+  if (o.gloss) { ctx.fillStyle = 'rgba(255,255,255,0.32)'; rr(-w * 0.35, -h * 0.38, w * 0.4, h * 0.16, 2); ctx.fill(); }
+  ctx.restore(); ctx.restore();
 }
 function boneStick(x1, y1, x2, y2, w = 7) {
   ctx.lineCap = 'round'; ctx.strokeStyle = DC.boneE; ctx.lineWidth = w + 3; line(x1, y1, x2, y2);
@@ -2328,8 +2361,8 @@ const DISH_ART = {
     for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) drawStrip(-100 + c * 58 + r * 14, -30 + r * 26, 52, 20, 1, 1);
     for (let i = 0; i < 4; i++) { ctx.fillStyle = '#fff3e0'; ell(86 + (i % 2) * 12, -22 + i * 11, 7, 5); ctx.fill(); ctx.fillStyle = '#ffcc80'; ell(86 + (i % 2) * 12, -22 + i * 11, 3, 2); ctx.fill(); }
   },
-  '보쌈'() { drawSliceFan(-25, 42, 7, 0.4, '#d9b8a0', '#f3e3d8'); drawKimchi(82, -4, 0.62); },
-  '삼겹 튀김'() { for (let i = 0; i < 5; i++) slab(-72 + i * 34, (i % 2) * 10 - 5, 26, 66, 0.25, DC.golden, { rim: DC.goldenHi, gloss: true }); dipBowl(98, 22, '#ffcc80', 0.9); },
+  '보쌈'() { drawSliceFan(-25, 52, 8, 0.5, '#d9b8a0', '#f3e3d8'); drawKimchi(84, -4, 0.68); },
+  '삼겹 튀김'() { for (let i = 0; i < 5; i++) slab(-72 + i * 34, (i % 2) * 10 - 5, 26, 66, 0.25, DC.golden, { crumb: true, gloss: true }); dipBowl(98, 22, '#ffcc80', 0.9); },
   '목살 스테이크'() {   // 두툼한 스테이크 한 덩이 + 마블링 + 허브
     slab(-14, 0, 150, 78, -0.08, DC.grill, { marks: true, marble: true });
     ctx.strokeStyle = '#558b2f'; ctx.lineWidth = 3; line(68, -26, 104, -42);
@@ -2347,7 +2380,7 @@ const DISH_ART = {
     ctx.fillStyle = '#8d6e63'; ell(98, -12, 13, 9); ctx.fill(); ctx.fillStyle = '#d7ccc8'; ctx.fillRect(94, -6, 8, 13);
   },
   '등심 장조림'() {   // 간장 국물 + 잘게 찢은 고기 + 메추리알
-    ctx.fillStyle = 'rgba(93,50,20,0.85)'; ell(-10, 8, 108, 34); ctx.fill();
+    ctx.fillStyle = 'rgba(93,50,20,0.85)'; ell(-10, 8, 108, 34); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.18)'; ell(-40, -6, 50, 8, -0.1); ctx.fill();   // 국물 윤기
     for (let i = 0; i < 16; i++) slab(-74 + (i % 8) * 18, -6 + (i > 7 ? 16 : 0), 8, 24, (i % 3 - 1) * 0.4, '#6d3a1a');
     for (const [ex, ey, s] of [[70, -4, 1], [46, 18, 0.85]]) { ctx.fillStyle = '#7a4a22'; ell(ex, ey, 15 * s, 12 * s); ctx.fill(); ctx.fillStyle = '#ffb300'; ell(ex + 1, ey + 1, 7 * s, 6 * s); ctx.fill(); }
   },
@@ -2357,7 +2390,7 @@ const DISH_ART = {
     drizzle([[-66, -14], [-36, 6], [-6, -12], [24, 6], [48, -10]], '#c62828', 5);
     ctx.fillStyle = '#fafafa'; ell(96, 6, 20, 17); ctx.fill(); ctx.strokeStyle = '#bdbdbd'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#263238'; ctx.fillRect(87, 10, 18, 12);   // 주먹밥(테두리) + 김
   },
-  '족발'() { drawSliceFan(-25, 42, 7, 0.4, DC.dark, DC.darkHi); boneStick(68, 22, 100, -22, 12); },
+  '족발'() { drawSliceFan(-25, 52, 8, 0.5, DC.dark, DC.darkHi); boneStick(66, 24, 100, -24, 13); },
   '불족발 볶음'() {   // 빨간 양념 족발 조각 + 고추 + 깨
     for (let i = 0; i < 8; i++) slab(-72 + (i % 4) * 42, i > 3 ? 16 : -14, 36, 24, i % 2 ? 0.3 : -0.2, DC.red, { rim: '#5d1a10', gloss: true });
     for (let i = 0; i < 5; i++) { ctx.fillStyle = i % 2 ? '#d32f2f' : '#43a047'; ell(-64 + i * 32, -2, 6, 2.5, i); ctx.fill(); }
@@ -2366,11 +2399,11 @@ const DISH_ART = {
   '족발 튀김'() { for (let i = 0; i < 4; i++) { const x = -64 + i * 40, y = (i % 2) * 12 - 4; blob(x, y, 20, 17, i, DC.golden, DC.goldenHi); boneStick(x + 10, y - 10, x + 22, y - 26, 5); } dipBowl(98, 20, '#9e9e9e', 0.8); },
   '돼지갈비'() { for (let i = 0; i < 3; i++) { const y = -26 + i * 26; boneStick(-96, y, -74, y, 8); slab(-12, y, 124, 20, 0, '#7b3214', { marks: true, gloss: true }); } },   // 뼈 붙은 갈비 3대
   '갈비찜'() {   // 진한 국물 + 뼈 갈비 덩어리 + 당근·밤
-    ctx.fillStyle = 'rgba(78,35,16,0.9)'; ell(0, 6, 112, 38); ctx.fill();
+    ctx.fillStyle = 'rgba(78,35,16,0.9)'; ell(0, 6, 112, 38); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.16)'; ell(-30, -8, 55, 9, -0.1); ctx.fill();   // 국물 윤기
     for (let i = 0; i < 6; i++) { const x = -62 + i * 25, y = (i % 2) * 12 - 6; blob(x, y, 15, 12, i, '#5d2810', '#8a4a24'); boneStick(x - 4, y - 10, x + 4, y - 22, 5); }
     ctx.fillStyle = '#ef6c00'; ell(72, -8, 10, 7); ctx.fill(); ell(-84, 14, 9, 6); ctx.fill(); ctx.fillStyle = '#ffe0b2'; ell(42, 18, 8, 7); ctx.fill();
   },
-  '갈비 튀김'() { for (let i = 0; i < 4; i++) { const y = -26 + i * 17; slab(-8, y, 102, 14, 0.05, DC.golden, { gloss: true }); boneStick(48, y, 74, y, 6); } greenOnion(-64, 28, 5, 20); },
+  '갈비 튀김'() { for (let i = 0; i < 4; i++) { const y = -26 + i * 17; slab(-8, y, 102, 14, 0.05, DC.golden, { crumb: true, gloss: true }); boneStick(48, y, 74, y, 6); } greenOnion(-64, 28, 5, 20); },
   '항정살 구이'() {   // 얇고 하얀 항정살 + 옅은 그릴 자국 + 소금
     for (let i = 0; i < 6; i++) slab(-74 + (i % 3) * 48, i > 2 ? 16 : -14, 42, 22, i % 2 ? 0.15 : -0.1, '#d8a07a', { inner: '#f3d1b0', marks: true });
     ctx.fillStyle = '#e0e0e0'; ell(98, 0, 15, 10); ctx.fill(); ctx.fillStyle = '#fff'; ell(98, -2, 10, 5); ctx.fill();
@@ -2382,6 +2415,15 @@ function drawDishArt(name, method, x, y, sc = 1) {
   ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
   const f = DISH_ART[name];
   if (f) f(); else drawDishIcon(method, 0, 0, 4);   // 목록에 없는 요리는 조리법 그림
+  if (sc >= 0.5) {   // 크게 그릴 때(선택 카드·완성 접시)만: 모락모락 김
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const sx = -50 + i * 50, ph = gT * 0.06 + i * 2;
+      ctx.beginPath(); ctx.moveTo(sx, -40);
+      for (let k = 1; k <= 6; k++) ctx.lineTo(sx + Math.sin(ph + k * 0.9) * 7, -40 - k * 9);
+      ctx.stroke();
+    }
+  }
   ctx.restore();
 }
 function drawDishIcon(k, x, y, sc = 1) {
@@ -3638,7 +3680,8 @@ function drawSliceFan(cx, cy, n, sc, skin, inner, shown = n) {
   ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
   for (let j = 0; j < Math.min(n, shown); j++) {
     ctx.save(); ctx.rotate(-0.7 + j * (1.4 / Math.max(1, n - 1)));
-    ctx.fillStyle = skin; rr(-16, -150, 32, 112, 10); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; rr(-13, -147, 32, 112, 10); ctx.fill();   // 그림자
+    ctx.fillStyle = skin; rr(-16, -150, 32, 112, 10); ctx.fill(); ctx.strokeStyle = shadeHex(skin, 0.6); ctx.lineWidth = 3; ctx.stroke();
     ctx.fillStyle = inner; rr(-12, -144, 24, 98, 8); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(-12, -120, 24, 6);
     ctx.restore();
