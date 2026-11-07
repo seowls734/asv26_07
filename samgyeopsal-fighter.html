@@ -321,7 +321,7 @@ function impact(p, kind) {
   const pan = rnd(-0.12, 0.12), jit = rnd(0.96, 1.05);
   if (kind === 'kick') thump((0.9 - p * 0.15) * jit, (rapid ? 0.55 : 0.85) + p * 0.3, 0, { pan });   // 킥: 묵직한 펀치 녹음
   else knock((1.02 - p * 0.12) * jit, (rapid ? 0.5 : 0.8) + p * 0.3, 0, { pan });                    // 손: 밝은 너클 펀치 녹음
-  if (!rapid && p > 0.6) thump(0.72 * jit, 0.5 * p, 0.012, { lp: 1800 });                          // 센 공격: 낮은 펀치 한 겹 더
+  if (!rapid && p > 0.6) { if (!smp('hard', { v: 0.55 * p, at: 0.008, rate: jit })) thump(0.72 * jit, 0.5 * p, 0.012, { lp: 1800 }); }   // 센 공격: 아주 묵직한 펀치 한 겹
 }
 function whoosh(d = 0.15, v = 0.2, lo = 500, hi = 3200, at = 0) { nz(d, { v, freq: lo, f2: hi, type: 'bandpass', q: 1.4, at, atk: d * 0.4 }); }
 // 녹음 파일들. off = 앞쪽 무음을 건너뛰는 위치(초) — 안 건너뛰면 맞는 순간보다 0.07~0.17초 늦게 들림
@@ -330,6 +330,10 @@ const SAMPLES = {
   knuckle: { file: 'khoamthanh-punch-knuckle-blunt-medium-503895.mp3', off: 0.16 },  // 밝고 딱 끊기는 너클 펀치 → 손 공격
   whip:    { file: 'freesound_community-whip01-6952.mp3', off: 0.1 },                // 휘익~착 → 휘두르는 스킬
   gun:     { file: 'dragon-studio-machine-gun-sfx-631486.mp3', off: 0.02 },          // 빠른 연타 13번 → 연타 필살기
+  hard:    { file: 'dragon-studio-hard-punch-sfx-515251.mp3', off: 0.015 },        // 아주 크고 낮은 펀치 → KO·메치기·센 공격 마무리
+  boom:    { file: 'dragon-studio-explosion-with-debris-494320.mp3', off: 0.015 }, // 폭발 + 파편 → 화염구 폭발
+  deep:    { file: 'dragon-studio-large-underwater-explosion-sfx-450455.mp3', off: 0.015 },   // 아주 낮고 깊은 울림 → 필살기 '쾅'
+  sizzle:  { file: '99DF20505CF11BED30.mp3', off: 0 },                            // 지글지글 굽는 소리 (27초) → 요리 장면
 };
 const BUF = {};
 let punchBuf = null;   // (예전 이름 유지) = BUF.punch
@@ -364,7 +368,7 @@ const SFX = {
   // ---- 싸움 소리: 펀치 녹음(높낮이 바꿔 씀) + 노이즈(쉬익·촤악). 낮은 '뚱·뜨등' 합성음은 쓰지 않음 ----
   punch(dmg = 6) { impact(dmg / 20, 'punch'); },
   kick(dmg = 9) { impact(dmg / 17, 'kick'); },
-  heavy(dmg = 16) { impact(Math.max(0.8, dmg / 16), 'kick'); },
+  heavy(dmg = 16) { impact(Math.max(0.8, dmg / 16), 'kick'); smp('hard', { v: 0.6, rate: rnd(0.95, 1.05) }); },
   counterHit() { knock(1.3, 0.55, 0.03, { hp: 900 }); },                                   // 카운터: 짧고 높은 너클 한 번 더
   block() { knock(1.5, 0.45, 0, { hp: 1300 }); },   // 막기: 가볍고 높은 '탁'
   whiff() { whoosh(0.13, 0.18, 500, 2800); },
@@ -372,6 +376,7 @@ const SFX = {
   special() { whoosh(0.3, 0.22, 300, 2600); thump(0.9, 0.5, 0.05); },
   boom() {   // 폭발: 아주 낮게 늘인 펀치 + 넓게 퍼지는 노이즈 + 파편
     if (!AC) return; const b = bus(0, 0.6);
+    if (smp('boom', { v: 0.9, dur: 1.6 })) return;   // 녹음된 폭발이 있으면 그것만
     thump(0.5, 1.0, 0, { lp: 1200 }); thump(0.7, 0.6, 0.02);
     nz(0.9, { v: 0.55, freq: 1800, f2: 80, q: 0.9, out: b });
     for (let i = 0; i < 8; i++) nz(0.03, { v: 0.12, freq: rnd(1500, 3500), type: 'bandpass', q: 1, at: rnd(0.1, 0.6), out: bus(rnd(-0.6, 0.6), 0.2) });
@@ -383,7 +388,7 @@ const SFX = {
   },
   oink() { for (const t of [0, 0.14]) nz(0.11, { v: 0.3, freq: 380, type: 'bandpass', q: 3, at: t }); },
   squeal() { nz(0.3, { v: 0.12, freq: 1100, f2: 1500, type: 'bandpass', q: 2.5 }); },
-  ko() { thump(0.62, 1.0, 0, { lp: 2500 }); thump(0.85, 0.7, 0.02); nz(1.0, { v: 0.35, freq: 800, f2: 70, at: 0.05 }); },   // KO: 크고 낮은 펀치 두 겹
+  ko() { if (!smp('hard', { v: 1.0, rate: 0.9 })) thump(0.62, 1.0, 0, { lp: 2500 }); thump(0.85, 0.5, 0.02); nz(1.0, { v: 0.35, freq: 800, f2: 70, at: 0.05 }); },   // KO: 크고 낮은 펀치 두 겹
   chop() { nz(0.08, { v: 0.5, freq: 2200, type: 'bandpass', q: 1 }); thump(1.15, 0.45); },
   snip() { nz(0.04, { v: 0.3, freq: 5000, type: 'highpass' }); },
   bell() { tone(880, 0.3, 'sine', 0.12); setTimeout(() => tone(1320, 0.4, 'sine', 0.1), 120); },
@@ -391,7 +396,8 @@ const SFX = {
   gong() { thump(1.3, 0.7, 0, { hp: 700 }); nz(0.25, { v: 0.3, freq: 1800, f2: 800, type: 'bandpass', q: 1.5, out: bus(0, 0.5) }); },   // 숙성 패링: 탁! 튕겨냄
   ultStart() {   // 필살기: 바람이 0.8초 차오르다가 아주 낮은 펀치 '쾅'
     nz(0.85, { v: 0.32, freq: 150, f2: 4500, type: 'bandpass', q: 0.7, atk: 0.6, out: bus(0, 0.4) });
-    thump(0.55, 1.0, 0.78, { lp: 1500 }); thump(0.8, 0.6, 0.79); nz(0.9, { v: 0.45, freq: 1500, f2: 80, at: 0.78, out: bus(0, 0.5) });
+    if (!smp('deep', { v: 0.95, at: 0.78, dur: 1.6 })) { thump(0.55, 1.0, 0.78, { lp: 1500 }); nz(0.9, { v: 0.45, freq: 1500, f2: 80, at: 0.78, out: bus(0, 0.5) }); }
+    smp('hard', { v: 0.7, at: 0.78, rate: 0.85 });   // 깊은 울림 + 묵직한 한 방
   },
   transform() { nz(0.6, { v: 0.3, freq: 200, f2: 3500, type: 'bandpass', q: 0.8, atk: 0.4 }); thump(0.65, 0.8, 0.4); },
   fire() {   // 화염구 날아감: 화르르륵 + 타닥
@@ -404,7 +410,7 @@ const SFX = {
     nz(0.25, { v: 0.25, freq: 6000, f2: 2000, type: 'highpass', out: b });
     for (let i = 0; i < 6; i++) nz(0.02, { v: 0.15, freq: rnd(4000, 7000), type: 'bandpass', q: 1, at: i * 0.03, out: b });
   },
-  slam() { thump(0.6, 1.0, 0, { lp: 2000 }); thump(0.8, 0.7, 0.015); nz(0.4, { v: 0.4, freq: 350, f2: 80 }); },   // 메치기: 바닥에 쿵
+  slam() { if (!smp('hard', { v: 0.95, rate: 0.95 })) thump(0.6, 1.0, 0, { lp: 2000 }); thump(0.8, 0.5, 0.015); nz(0.4, { v: 0.4, freq: 350, f2: 80 }); },   // 메치기: 바닥에 쿵
   thud() { thump(0.8, 0.6); },
   tender() { thump(1.2, 0.4); },
   partBreak() { nz(0.2, { v: 0.4, freq: 2000 }); },
@@ -416,14 +422,20 @@ const SFX = {
   confirm() { tone(523, 0.08, 'sine', 0.08); setTimeout(() => tone(784, 0.12, 'sine', 0.08), 80); }
 };
 let sizzleNode = null, sizzleGain = null;
-function sizzleOn() {
+function sizzleOn() {   // 요리 장면 지글지글: 녹음(27초, 반복)이 있으면 그것, 없으면 노이즈
   if (!AC || sizzleNode) return;
-  sizzleNode = AC.createBufferSource(); sizzleNode.buffer = getNoise(); sizzleNode.loop = true;
-  const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 3500;
-  sizzleGain = AC.createGain(); sizzleGain.gain.value = 0;
-  sizzleNode.connect(f); f.connect(sizzleGain); sizzleGain.connect(master); sizzleNode.start();
+  sizzleNode = AC.createBufferSource(); sizzleGain = AC.createGain(); sizzleGain.gain.value = 0;
+  if (BUF.sizzle) {
+    sizzleNode.buffer = BUF.sizzle; sizzleNode.loop = true; sizzleBoost = 4;   // 녹음이 작게 녹음돼 있어서 키움
+    sizzleNode.connect(sizzleGain); sizzleGain.connect(sfxOut || master); sizzleNode.start(AC.currentTime, rnd(0, 20));
+  } else {
+    sizzleNode.buffer = getNoise(); sizzleNode.loop = true; sizzleBoost = 1;
+    const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 3500;
+    sizzleNode.connect(f); f.connect(sizzleGain); sizzleGain.connect(master); sizzleNode.start();
+  }
 }
-function sizzleSet(v) { if (sizzleGain) sizzleGain.gain.setTargetAtTime(v, AC.currentTime, 0.05); }
+let sizzleBoost = 1;
+function sizzleSet(v) { if (sizzleGain) sizzleGain.gain.setTargetAtTime(v * sizzleBoost, AC.currentTime, 0.05); }
 function sizzleOff() { if (sizzleNode) { try { sizzleNode.stop(); } catch (e) {} } sizzleNode = null; sizzleGain = null; }
 
 // ================= characters =================
@@ -2179,7 +2191,7 @@ function scheduleStep(tr, s, t, sp) {
   if (tr.arp && tr.arp[i] === 'x') { const ns = [...iv, ...iv.map(x => x + 12)]; mPluck(t, mtof(root + 24 + ns[(i + (bar % 2) * 3) % ns.length]), i % 4 === 0 ? 1 : 0.6); }
 }
 function musicTick() {
-  if (!AC || !music || !bgm.name) return;
+  if (!AC || !music || !bgm.name || bgm.file) return;   // 파일 배경음이 나오는 중이면 합성 음악은 안 만듦
   const tr = TRACKS[bgm.name], sp = 60 / tr.bpm / 4;
   if (bgm.next < AC.currentTime) bgm.next = AC.currentTime + 0.05;
   while (bgm.next < AC.currentTime + 0.15) {
@@ -2188,8 +2200,26 @@ function musicTick() {
   }
 }
 setInterval(musicTick, 30);
+// ---- 배경음 파일 (One_Last_Challenger): 요리 장면을 뺀 모든 화면에서 반복 재생 ----
+// 3분짜리라 통째로 풀지 않고 <audio>로 조금씩 읽으며 재생 → 음악 볼륨(music)을 거쳐서 M(음소거)도 그대로 적용
+const BGM_FILE = 'One_Last_Challenger.mp3', FILE_TRACKS = { title: 1, fight: 1 };
+let bgmEl = null, bgmOk = false;
+function bgmFile() {
+  if (bgmEl || !AC || location.protocol === 'file:') return bgmEl;   // 내 컴퓨터 파일로 열면 브라우저가 막음 → 합성 음악
+  try {
+    bgmEl = new Audio(BGM_FILE); bgmEl.loop = true; bgmEl.preload = 'auto';
+    const src = AC.createMediaElementSource(bgmEl), g = AC.createGain(); g.gain.value = 1.15;
+    src.connect(g); g.connect(music); bgmOk = true;
+  } catch (e) { bgmEl = null; bgmOk = false; }
+  return bgmEl;
+}
 function setMusic(name) {
-  if (!AC || !music || bgm.name === name) return;
+  if (!AC || !music) return;
+  const useFile = FILE_TRACKS[name] && bgmFile() && bgmOk;
+  if (useFile && bgmEl.paused && !musicMuted && AC.state === 'running') bgmEl.play().catch(() => {});   // 첫 터치 전엔 막힐 수 있어서 계속 다시 시도
+  if (bgm.name === name) return;
+  bgm.file = !!useFile;
+  if (!useFile && bgmEl && !bgmEl.paused) bgmEl.pause();   // 요리 장면: 파일 멈추고 합성 요리 음악 (돌아오면 이어서 재생)
   bgm.name = name; bgm.step = 0; bgm.next = AC.currentTime + 0.3;
   if (!musicMuted) { const n = AC.currentTime; music.gain.cancelScheduledValues(n); music.gain.setValueAtTime(0, n); music.gain.linearRampToValueAtTime(0.3 * TRACKS[name].vol, n + 0.8); }
 }
