@@ -318,17 +318,17 @@ const look = (body, dark, belly, snout, hoof, brow, band, acc, bw = 1) => ({ bod
 const CHARS = [
   { name: '분홍이', title: '근본 삼겹살', type: '밸런스', hp: 102, power: 1.04, speed: 1.0, scale: 1.15,
     look: look('#ffb5c5', '#d9718c', '#ffd6df', '#ff93ac', '#7a3b4a', '#5a2030', '#e53935', ['band']),
-    skill: { name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진' },
+    skill: { name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진해 상대를 띄움' },
     tf: { name: '불꽃 분홍', type: 'fire', color: '#ff5722', desc: '공격력↑ · 화상' },
     ult: { name: '삼겹 폭풍 연타', type: 'rush', desc: '돌진 후 폭풍 연타' } },
   { name: '깜돌이', title: '제주 흑돼지', type: '파워', hp: 82, power: 1.03, speed: 0.9, scale: 1.2,
     look: look('#4b3d44', '#1f181b', '#62525a', '#7d6670', '#0d090b', '#0a0a0a', '#1e88e5', ['band', 'scar']),
-    skill: { name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 돌진' },
+    skill: { name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 · 막아도 가드를 부수는 돌진' },
     tf: { name: '한라산 돌돼지', type: 'stone', color: '#9e9e9e', desc: '받는 피해↓ · 슈퍼아머' },
     ult: { name: '한라산 대분화', type: 'eruption', desc: '앞으로 용암 기둥' } },
   { name: '멧돌이', title: '산속 멧돼지', type: '돌격', hp: 110, power: 1.18, speed: 1.05, scale: 1.2,
     look: look('#a1887f', '#4e342e', '#bcaaa4', '#8d6e63', '#3e2723', '#2b1a14', '#ff9800', ['tusks', 'bristle']),
-    skill: { name: '엄니 올려치기', type: 'launcher', cd: 140, desc: '상대를 띄운다' },
+    skill: { name: '엄니 걸어당기기', type: 'launcher', cd: 140, desc: '엄니로 걸어 내 앞으로 끌어당김 · 긴 경직' },
     tf: { name: '야생 폭주', type: 'wild', color: '#ff9800', desc: '이동·공격 속도↑' },
     ult: { name: '멧돼지 대돌진', type: 'charge', desc: '화면 끝까지 무적 돌진' } },
   { name: '꼬미', title: '미니피그', type: '스피드', hp: 84, power: 1.0, speed: 1.3, scale: 0.92,
@@ -353,7 +353,7 @@ const CHARS = [
     ult: { name: '스모 대압살', type: 'bodySlam', desc: '하늘에서 깔아뭉개기' } },
   { name: '양념이', title: '고추장 불돼지', type: '원거리', hp: 100, power: 1.05, speed: 1.0, scale: 1.12,
     look: look('#ff8a65', '#bf360c', '#ffab91', '#ff7043', '#5d1a0a', '#4a1000', '#ffeb3b', ['chili']),
-    skill: { name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '화염구 · 화상' },
+    skill: { name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '포물선으로 던져 땅에서 펑! · 넓은 범위 화상' },
     tf: { name: '청양 각성', type: 'spicy', color: '#ff1744', desc: '화염구 2연발 · 쿨↓' },
     ult: { name: '지옥불 양념 빔', type: 'beam', desc: '화면을 가르는 불 빔' } },
   { name: '항정', title: '그림자 닌자', type: '기술', hp: 86, power: 1.03, speed: 1.25, scale: 1.08,
@@ -363,17 +363,17 @@ const CHARS = [
     ult: { name: '비전 · 천살', type: 'thousandCuts', desc: '보이지 않는 천 번 베기' } },
   { name: '목살', title: '복싱 챔프', type: '펀치', hp: 92, power: 1.08, speed: 1.05, scale: 1.15,
     look: look('#ffb59e', '#c75b39', '#ffd2c4', '#ff9a80', '#6d2a1a', '#4a1a0a', '#ffd600', ['band', 'gloves']),
-    skill: { name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼' },
+    skill: { name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼 · 점프한 상대 격추' },
     tf: { name: '챔피언 모드', type: 'champion', color: '#ffd600', desc: '펀치 피해·속도↑' },
     ult: { name: '메가톤 펀치', type: 'megaton', desc: '가드 파괴 한 방' } },
   { name: '갈비', title: '숯불 양념갈비', type: '리치', hp: 108, power: 1.08, speed: 0.95, scale: 1.15,
     look: look('#c8743f', '#7a3a18', '#e3a173', '#d98a58', '#4e2410', '#3a1a0a', '#ffb300', ['scar', 'belt']),
-    skill: { name: '갈빗대 휘두르기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 멀리서 후려침' },
+    skill: { name: '갈빗대 다리걸기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 다리를 후려 넘어뜨림 (하단)' },
     tf: { name: '숯불 직화', type: 'fire', color: '#ff7043', desc: '공격력↑ · 화상' },
     ult: { name: '숯불 화산', type: 'eruption', desc: '앞으로 숯불 기둥' } },
   { name: '감자탕', title: '뼈해장국 장인', type: '지구력', hp: 128, power: 1.06, speed: 0.9, scale: 1.22,
     look: look('#e8b48a', '#9a5a32', '#f5d2b2', '#e09a6e', '#5d3a1a', '#4a2a10', '#d84315', ['band', 'scarf'], 1.08),
-    skill: { name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 타고 가는 뜨거운 국물 · 화상' },
+    skill: { name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 천천히 흐르는 국물 · 밟으면 여러 번 화상' },
     tf: { name: '뚝배기 갑옷', type: 'stone', color: '#8d6e63', desc: '받는 피해↓ · 슈퍼아머' },
     ult: { name: '펄펄 국물 대방출', type: 'beam', desc: '끓는 국물로 화면을 가른다' } }
 ];
@@ -484,17 +484,17 @@ const NORM = {
 };
 const SKILLDEF = {
   dash:          { startup: 10, active: 18, recovery: 18, dmg: 16, range: 150, height: 'mid', kb: 14, stun: 34, launch: -9, dash: 15, pose: 'dash', hitstop: 10, shake: 12, txt: ['꾸에엑!!', '쿠아앙!!'] },
-  armorShoulder: { startup: 12, active: 14, recovery: 20, dmg: 17, range: 150, height: 'mid', kb: 16, stun: 30, dash: 11, armor: true, pose: 'dash', hitstop: 12, shake: 12, txt: ['쿵!!'] },
-  launcher:      { startup: 9,  active: 9,  recovery: 18, dmg: 16, range: 160, height: 'mid', kb: 3, stun: 40, launch: -17, dash: 6, pose: 'uppercut', hitstop: 9, shake: 8, txt: ['엄니!!'] },
+  armorShoulder: { startup: 12, active: 14, recovery: 22, dmg: 14, range: 150, height: 'mid', kb: 18, stun: 30, dash: 11, armor: true, guardBreak: true, pose: 'dash', hitstop: 12, shake: 14, txt: ['쿵!!', '가드 박살!'] },   // 막아도 뚫는 어깨 돌진 (띄우지 않고 멀리 밀어냄)
+  launcher:      { startup: 9,  active: 8,  recovery: 18, dmg: 10, range: 175, height: 'low', kb: -11, stun: 48, dash: 4, pose: 'uppercut', hitstop: 8, shake: 6, txt: ['이리 와!', '엄니 걸기!'] },   // 엄니로 걸어 내 쪽으로 끌어당기고 오래 경직 (앉아도 맞음)
   // 밸런스: 전에는 너무 멀리(288px) 굴러 상대를 지나쳐 등 뒤에서 반격당함 → 이동거리↓ 사거리↑
   roll:          { startup: 4,  active: 18, recovery: 12, dmg: 12, range: 140, height: 'low', kb: 6, stun: 22, dash: 9, knockdown: true, invuln: true, invulnF: 14, pose: 'roll', txt: ['데굴!'] },
   iceProj:       { startup: 12, active: 1,  recovery: 20, proj: { kind: 'ice', speed: 9, dmg: 9, slow: 120, height: 'mid' }, pose: 'throw' },
-  fireProj:      { startup: 12, active: 1,  recovery: 20, proj: { kind: 'fire', speed: 7, dmg: 11, burn: 120, height: 'mid' }, pose: 'throw' },
+  fireProj:      { startup: 14, active: 1,  recovery: 22, proj: { kind: 'fire', speed: 5.5, vy: -10, g: 0.42, boom: 95, dmg: 13, burn: 120, height: 'mid' }, pose: 'throw' },   // 포물선으로 던져 땅에 닿으면 펑 (넓은 범위)
   spinKick:      { startup: 8,  active: 24, recovery: 16, dmg: 6, hits: 3, hitEvery: 8, range: 165, height: 'mid', kb: 3, stun: 18, dash: 4, pose: 'spin', kind: 'kick', txt: ['휙!', '팍!', '빡!'] },
   counter:       { startup: 2,  active: 40, recovery: 16, counter: true, pose: 'counter' },
   teleport:      { startup: 16, active: 5,  recovery: 14, dmg: 12, range: 150, height: 'mid', kb: 8, stun: 24, teleport: true, invuln: true, invulnF: 13, pose: 'punch', txt: ['슉!'] },
-  boneSwing:     { startup: 11, active: 8,  recovery: 20, dmg: 15, range: 215, height: 'mid', kb: 12, stun: 28, dash: 3, pose: 'punch', hitstop: 9, shake: 8, txt: ['갈비!!', '뼈다귀!!'] },
-  stewSplash:    { startup: 14, active: 1,  recovery: 22, proj: { kind: 'fire', speed: 6, dmg: 10, burn: 160, height: 'low', y: 28 }, pose: 'throw' },
+  boneSwing:     { startup: 12, active: 8,  recovery: 22, dmg: 11, range: 220, height: 'low', kb: 5, stun: 28, knockdown: true, dash: 3, pose: 'punch', hitstop: 9, shake: 8, txt: ['갈비!!', '다리 걸기!'] },   // 긴 갈빗대로 다리를 후려 넘어뜨림 (앉아서 막아야 함)
+  stewSplash:    { startup: 14, active: 1,  recovery: 22, proj: { kind: 'stew', speed: 4.5, dmg: 4, burn: 160, height: 'low', y: 18, multi: 14, maxHits: 3, life: 200, w: 70, h: 26 }, pose: 'throw' },   // 바닥을 천천히 흐르는 국물: 밟으면 여러 번 데임 (발사체끼리 부딪혀도 안 사라짐)
   uppercut:      { startup: 3,  active: 10, recovery: 20, dmg: 18, range: 150, dash: 4, height: 'mid', kb: 4, stun: 40, launch: -17, rise: -13, invuln: true, invulnF: 8, pose: 'uppercut', kind: 'punch', txt: ['어퍼!!'] }
 };
 const THROWDEF = { startup: 6, active: 1, recovery: 16, proj: { kind: 'meat', speed: 11, dmg: 14, height: 'mid' }, pose: 'throw', skill: true };
@@ -592,7 +592,7 @@ function drawPig(x, y, face, C, p = {}) {
   else if (p.scared) ba = [-8, -124];
   else if (p.victory) ba = [-16, -70 + by];
   else if (mv === 'dash' || p.roll !== undefined) ba = [-32, -58 + by];
-  else ba = [-2, -42 + by];
+  else ba = [26, -90 + by];   // 서 있을 때 팔은 가슴 앞에 들어 올린 자세 (아래로 늘어뜨리면 다리처럼 보여서 '다리 3개'로 보였음)
   limb(-4, -64 + by, ba[0], ba[1], 12, C, hc, hr);
 
   // tail
@@ -723,7 +723,7 @@ function drawPig(x, y, face, C, p = {}) {
   else if (p.victory) fa = [30, -152 + by];
   else if (mv === 'dash' || p.roll !== undefined) fa = [-26, -50 + by];
   else if (air) fa = [44, -80 + by];
-  else fa = [40, -46 + by];
+  else fa = [50, -84 + by];
   limb(20 * bw, -64 + by, fa[0], fa[1], 13, C, hc, hr);
   if (p.weapon) {
     ctx.save(); ctx.translate(fa[0], fa[1]); ctx.rotate(-0.9);
@@ -1060,8 +1060,16 @@ function addObj(o) {
 }
 function spawnProj(f, p) {
   const s = f.sc / 1.15;
-  addObj({ owner: f, kind: p.kind, sub: f.throwKind, x: f.x + f.facing * 70 * s, y: f.y - (p.y || 95) * s, vx: f.facing * p.speed, w: 40, h: 32,
-    dmg: p.dmg, height: p.height || 'mid', life: 140, burn: p.burn, slow: p.slow, clash: true });
+  addObj({ owner: f, kind: p.kind, sub: f.throwKind, x: f.x + f.facing * 70 * s, y: f.y - (p.y || 95) * s, vx: f.facing * p.speed, w: p.w || 40, h: p.h || 32,
+    vy: p.vy || 0, g: p.g || 0, boom: p.boom || 0, multi: p.multi || 0, maxHits: p.maxHits || 1,
+    dmg: p.dmg, height: p.height || 'mid', life: p.life || 140, burn: p.burn, slow: p.slow, clash: p.kind !== 'stew' });   // 국물은 바닥을 흘러서 다른 발사체와 부딪혀도 안 사라짐
+}
+// 포물선 발사체가 땅에 닿으면 그 자리에서 넓게 터짐 (한 번만 맞음)
+function boomObj(o) {
+  o.boom = 0; o.g = 0; o.vx = 0; o.vy = 0; o.y = GROUND - 50; o.w = 150; o.h = 100; o.life = 6; o.exploded = true;
+  shake = Math.max(shake, 7); SFX.fire();
+  burst(o.x, GROUND - 20, 22, ['#ff5722', '#ff9800', '#ffeb3b'], 9);
+  for (let i = 0; i < 6; i++) flame(o.x + rand(-60, 60), GROUND - rand(10, 50));
 }
 function overlapD(o, d) {
   if (d.state === 'ko') return false;
@@ -1074,7 +1082,9 @@ function updateObjs() {
     o.t++; o.life--;
     if (!o.owner) { envUpdate(o); continue; }
     o.x += o.vx; o.y += o.vy;
+    if (o.g) { o.vy += o.g; if (o.boom && o.y >= GROUND - 20) boomObj(o); }
     const f = o.owner, d = f.opp;
+    if (o.kind === 'stew' && o.t % 4 === 0) smoke(o.x + rand(-20, 20), o.y - 10);
     if (o.follow) {
       if (f.state !== 'ult') { o.life = 0; continue; }
       o.x = f.x + f.facing * (o.w / 2 + 60 * f.sc / 1.15); o.y = f.y - 95 * f.sc / 1.15;
@@ -1112,12 +1122,25 @@ function drawObjs() {
     const dir = Math.sign(o.vx) || o.owner.facing;
     ctx.save(); ctx.translate(o.x, o.y);
     switch (o.kind) {
+      case 'stew': {   // 바닥을 흐르는 빨간 국물 웅덩이
+        const wv = Math.sin(o.t * 0.3) * 3;
+        ctx.fillStyle = 'rgba(183,28,28,0.75)'; ell(0, 6, 38 + wv, 9); ctx.fill();
+        ctx.fillStyle = 'rgba(244,81,30,0.85)'; ell(dir * 4, 3, 26 - wv, 6); ctx.fill();
+        ctx.fillStyle = 'rgba(255,224,178,0.8)'; ell(dir * 12 + wv, 1, 4, 3); ctx.fill(); ell(-dir * 10, 4, 3, 2); ctx.fill();
+        break;
+      }
       case 'ice':
         ctx.rotate(o.t * 0.4); ctx.fillStyle = 'rgba(179,229,252,0.5)'; ell(0, 0, 26, 26); ctx.fill();
         ctx.globalAlpha = 0.9; ctx.filter = 'hue-rotate(170deg) saturate(0.6) brightness(1.3)';
         drawStrip(-22, -8, 44, 16, 0, 0); ctx.filter = 'none';
         break;
       case 'fire': {
+        if (o.exploded) {   // 땅에 닿아 터진 화염구
+          const k = 1 - o.life / 6;
+          ctx.globalAlpha = 1 - k * 0.7; ctx.fillStyle = 'rgba(255,87,34,0.55)'; ell(0, 30, 70 + k * 20, 34 + k * 10); ctx.fill();
+          ctx.fillStyle = 'rgba(255,193,7,0.7)'; ell(0, 30, 40 + k * 14, 20 + k * 6); ctx.fill();
+          break;
+        }
         const fl = Math.sin(o.t * 0.8) * 3;
         ctx.fillStyle = 'rgba(255,87,34,0.5)'; ell(-dir * 10, 0, 28 + fl, 20); ctx.fill();
         ctx.fillStyle = '#ff9800'; ell(0, 0, 18 + fl, 16); ctx.fill();
@@ -1200,8 +1223,6 @@ function dealHit(a, d, h) {
     }
   }
   let dmg = h.dmg * a.dmgMul(h.kind) * d.defMul();
-  const part = h.height === 'high' ? 'head' : h.height === 'low' ? 'legs' : 'belly';
-  if (d.broken[part]) dmg *= 1.35;
   const counterHit = !h.force && d.state === 'attack' && d.af < d.atk.startup;
   if (counterHit) dmg *= 1.25;
   const juggling = ['hit', 'locked', 'grabbed'].includes(d.state) || d.y < GROUND - 5;
@@ -1211,14 +1232,7 @@ function dealHit(a, d, h) {
   if (a.combo >= 4 && !h.force) dmg *= Math.max(0.5, 1 - 0.08 * (a.combo - 3));
   dmg = Math.round(dmg * 10) / 10;
   d.hp = Math.max(0, d.hp - dmg); d.flash = 6; a.stats.hits++;
-  if (!h.noPart && !d.broken[part]) {
-    d.parts[part] -= dmg;
-    if (d.parts[part] <= 0) {
-      d.broken[part] = true; a.stats.parts++; a.weapon = { kind: part, t: 600 };
-      popText(d.x, d.y - 120, `손질 완료! [${PARTNAME[part]}]`, '#ff5252', 28);
-      popText(a.x, a.y - 210, `${WEAPON[part]} 획득! (J 던지기)`, '#ffd54f', 20); SFX.partBreak();
-    }
-  }
+  // (싸우는 중 부위 자르기·부위 무기 줍기는 뺐음)
   a.meter = Math.min(100, a.meter + dmg * 1.6);   // 필살 게이지는 때린 쪽만 참 (맞은 쪽은 안 참)
   if (!a.tfOn) a.tfG = Math.min(100, a.tfG + dmg * 1.3);
   if (!d.tfOn) d.tfG = Math.min(100, d.tfG + dmg * 0.8);
@@ -1481,10 +1495,12 @@ function ultUpdate(f, o) {
 
 // ================= CPU =================
 function skillGood(t, dist, op) {
-  if (t === 'iceProj' || t === 'fireProj' || t === 'stewSplash') return dist > 200;
+  if (t === 'fireProj') return dist > 220 && dist < 400;   // 포물선: 이 정도 거리에 떨어짐
+  if (t === 'iceProj' || t === 'stewSplash') return dist > 200;
   if (t === 'boneSwing') return dist > 120 && dist < 230;
   if (t === 'teleport') return true;
-  if (t === 'uppercut' || t === 'launcher') return dist < 170;
+  if (t === 'uppercut') return dist < 170;
+  if (t === 'launcher') return dist > 90 && dist < 180;   // 엄니 걸기: 조금 떨어진 상대를 끌어당김
   if (t === 'counter') return op.state === 'attack' || dist < 170;
   return dist < 260;
 }
@@ -3072,7 +3088,7 @@ function computeGrade(w) {
   if (w.hp / w.maxHp >= 0.8 && s.minHpRatio >= 0.5) return { t: '최고급 오겹살', d: '정교하고 깔끔한 승리', stars: 5 };
   if (s.ultFinish) return { t: '직화 불맛 삼겹살', d: '필살기로 마무리!', stars: 5 };
   if (s.parries >= 3) return { t: '드라이에이징 숙성 삼겹', d: `숙성 패링 ${s.parries}회`, stars: 4 };
-  if (s.parts >= 3) return { t: '정육 마스터 모둠구이', d: `부위 손질 ${s.parts}회`, stars: 4 };
+  if (s.hits >= 25) return { t: '정육 마스터 모둠구이', d: `${s.hits}번 두들긴 연타`, stars: 4 };
   return { t: '1등급 생삼겹살', d: '든든한 승리', stars: 3 };
 }
 function drawStamp(x, y, l1, l2, sc, rot) {
@@ -3679,17 +3695,10 @@ function drawHUD() {
       ell(cx, cy, 10, 9); ctx.fill(); ctx.stroke();
       ctx.fillStyle = f.wins > i ? '#c2185b' : '#222'; ell(cx - 3.5, cy, 2, 3); ctx.fill(); ell(cx + 3.5, cy, 2, 3); ctx.fill();
     }
-    // 부위 상태
-    ['head', 'belly', 'legs'].forEach((pt, i) => {
-      const px = dir > 0 ? x0 + i * 46 : x0 + bw - 42 - i * 46, py = y + bh + 38;
-      ctx.fillStyle = f.broken[pt] ? '#d32f2f' : mixC([102, 187, 106], [255, 167, 38], 1 - clamp(f.parts[pt] / 40));
-      rr(px, py, 42, 16, 4); ctx.fill();
-      txt(PARTNAME[pt], px + 21, py + 8, 11, '#fff', f.broken[pt] ? '#000' : null, 3);
-    });
     const st = [];
     if (f.burnT > 0) st.push('화상'); if (f.slowT > 0) st.push('둔화'); if (f.stamina < 35) st.push('지침'); if (f.drunkT > 0) st.push('취권');
     if (f.weapon) st.push(WEAPON[f.weapon.kind]); if (f.tfOn) st.push(`${f.ch.tf.name} ${Math.ceil(f.tfT / 60)}s`);
-    if (st.length) txt(st.join(' · '), dir > 0 ? x0 + 146 : x0 + bw - 146, y + bh + 46, 12, '#ffecb3', '#000', 3, al);
+    if (st.length) txt(st.join(' · '), dir > 0 ? x0 : x0 + bw, y + bh + 46, 12, '#ffecb3', '#000', 3, al);
     // 하단 게이지
     const mw = 230, mx = dir > 0 ? 30 : W - 30 - mw, mal = dir > 0 ? 'left' : 'right', max = dir > 0 ? mx : mx + mw;
     txt(`필살 ${keyHint(f, 'ult')} ${f.ch.ult.name}`, max, H - 62, 12, '#ffe082', '#000', 3, mal);
