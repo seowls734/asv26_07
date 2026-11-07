@@ -168,15 +168,12 @@ cv.addEventListener('pointerdown', e => {
 // ---- 모바일 터치 패드 ----
 // 왼쪽: 아무 데나 누르고 끌면 움직이는 조이스틱 (↖↗ 대각선 점프 · 아래로 끌면 앉기 · 뒤로 끌면 막기)
 // 오른쪽: 공격 버튼. 손가락을 떼지 않고 옆 버튼으로 미끄러져도 바로 눌림
-const PAD = [
+const PAD = [   // 모바일은 공격 버튼 4개만. 스킬·업어치기·필살기·변신은 조이스틱 커맨드(↓→ · ↓← · →→ · ↓↓ + 공격)
   { t: 'I<br>오른손', codes: ['KeyI'] }, { t: 'O<br>왼손', codes: ['KeyO'] },
   { t: 'K<br>오른발', codes: ['KeyK'] }, { t: 'L<br>왼발', codes: ['KeyL'] },
-  { t: '업어<br>치기', codes: ['KeyJ'], c: 1 }, { t: '스킬', codes: ['KeyU'], c: 1 },   // 모바일: 동시 누르기 대신 버튼 하나로
-  { t: '필살기', codes: ['KeyY'], c: 1 }, { t: '변신', codes: ['KeyT'], c: 1 }
 ];
 // 버튼 위치: 오른쪽 아래 모서리 기준 [가로, 세로, 크기] (단위 u)
-const PAD_POS = [[-2.15, -1.75, 1], [-1.0, -2.05, 1], [-2.15, -0.62, 1], [-1.0, -0.92, 1],
-  [-3.3, -0.55, 0.86], [-3.3, -1.5, 0.86], [-3.3, -2.45, 0.86], [-2.15, -2.9, 0.8]];   // 마지막: 변신 버튼 (오른손 버튼 위)
+const PAD_POS = [[-2.15, -1.75, 1.08], [-1.0, -2.05, 1.08], [-2.15, -0.62, 1.08], [-1.0, -0.92, 1.08]];   // 공격 버튼 4개 (조금 크게)
 const padEl = document.getElementById('pad');
 const joyZ = document.createElement('div'), joyB = document.createElement('div'), joyK = document.createElement('div');
 joyZ.id = 'joyz'; joyB.id = 'joyb'; joyK.id = 'joyk'; joyZ.append(joyB, joyK); padEl.appendChild(joyZ);
@@ -192,7 +189,7 @@ function layoutPad(canvasH) {
     Object.assign(p.el.style, { width: s + 'px', height: s + 'px', left: right + qx * u - s / 2 + 'px', top: bottom + qy * u - s / 2 + 'px', right: '', bottom: '' });
   });
   // 조이스틱 영역: 버튼 왼쪽의 남는 곳 (가로 화면은 위쪽 HUD는 비워 둠)
-  const zr = right - 3.85 * u, zt = PORTRAIT ? 0 : h * 0.3;
+  const zr = right - 2.8 * u, zt = PORTRAIT ? 0 : h * 0.3;
   Object.assign(joyZ.style, { left: '0', top: zt + 'px', width: Math.max(120, Math.min(zr, PORTRAIT ? zr : w * 0.45)) + 'px', height: h - zt + 'px' });
   joyHome = [Math.min(zr / 2, 1.6 * u + 20), (h - zt) - 1.6 * u];
   joyShow(joyHome[0], joyHome[1], 0, 0, false);
@@ -1045,7 +1042,7 @@ class Fighter {
   reset() {
     this.x = this.id === 0 ? 240 : 720; this.y = GROUND; this.vx = 0; this.vy = 0; this.facing = this.id === 0 ? 1 : -1;
     this.maxHp = Math.round(this.ch.hp * (1 + Math.min(0.6, 0.04 * this.cpuLv)) * (this.hpMul || 1)); this.hp = this.maxHp; this.dispHp = this.maxHp;
-    this.state = 'idle'; this.stun = 0; this.atk = null; this.af = 0; this.atkHit = false; this.hitsDone = 0; this.lastHitF = 0; this.chain = 0; this.cbuf = null;
+    this.state = 'idle'; this.stun = 0; this.atk = null; this.af = 0; this.atkHit = false; this.hitsDone = 0; this.lastHitF = 0; this.chain = 0; this.cbuf = null; this.mot = null;
     this.flash = 0; this.t = 0; this.koT = 0; this.combo = 0; this.comboT = 0; this.skillCD = 0;
     this.tfOn = false; this.tfT = 0; this.stamina = 100;
     this.parts = { head: 40, belly: 40, legs: 40 }; this.broken = { head: false, belly: false, legs: false };
@@ -1078,6 +1075,7 @@ class Fighter {
   }
   update(inp, o) {
     this.t++;
+    if (!inp.bot) inp = readMotion(this, inp);   // 커맨드 입력(↓→ 등 + 공격)을 스킬·업어치기·필살기·변신으로
     if (this.flash > 0) this.flash--; if (this.comboT > 0) this.comboT--; if (this.skillCD > 0) this.skillCD--;
     if (this.parryT > 0) this.parryT--; if (this.parryCD > 0) this.parryCD--; if (this.invT > 0) this.invT--;
     if (this.slowT > 0) this.slowT--; if (this.beamT > 0) this.beamT--;
@@ -1132,6 +1130,26 @@ const p1 = new Fighter(0), p2 = new Fighter(1);
 p1.opp = p2; p2.opp = p1;
 p1.setChar(CHARS[0]); p2.setChar(CHARS[1]);
 
+// ---- 커맨드 입력 (모바일은 공격 버튼 4개뿐이라 이걸로, PC에서도 됨) ----
+//   ↓→ + 공격 = 스킬 · ↓← + 공격 = 업어치기 · →→ + 공격 = 필살기 · ↓↓ + 공격 = 변신   (→ = 상대 쪽)
+// 방향을 새로 누른 순간만 기록 → 두 방향 사이 18프레임, 마지막 방향 뒤 12프레임 안에 공격 버튼
+// 게임 입력(inp)과 프레임 번호만 써서 계산 → 온라인 두 화면에서도 똑같이 판정됨
+function readMotion(f, inp) {
+  const m = f.mot || (f.mot = { d: false, fw: false, bk: false, toks: [] });
+  const fw = f.facing > 0 ? inp.right : inp.left, bk = f.facing > 0 ? inp.left : inp.right, d = inp.down;
+  const add = k => { m.toks.push([k, f.t]); if (m.toks.length > 4) m.toks.shift(); };
+  if (d && !m.d) add('D'); if (fw && !m.fw) add('F'); if (bk && !m.bk) add('B');
+  m.d = d; m.fw = fw; m.bk = bk;
+  if (!(inp.lp || inp.rp || inp.lk || inp.rk) || m.toks.length < 2) return inp;
+  const [a, b] = m.toks.slice(-2);
+  if (f.t - b[1] > 12 || b[1] - a[1] > 18) return inp;
+  const cmd = { DF: 'skill', DB: 'grab', FF: 'ult', DD: 'tf' }[a[0] + b[0]];
+  if (!cmd || (cmd === 'ult' && f.meter < 100) || (cmd === 'tf' && (f.tfG < 100 || f.tfOn)) || (cmd === 'skill' && f.skillCD > 0)) return inp;   // 못 쓰는 상황이면 그냥 공격
+  m.toks = [];
+  const o = { ...inp, lp: false, rp: false, lk: false, rk: false, down: false };
+  if (cmd === 'ult') { o.ult = true; o.ultD = true; } else o[cmd] = true;
+  return o;
+}
 function freeUpdate(f, o, inp) {
   const ground = f.y >= GROUND;
   if (ground) f.facing = o.x > f.x ? 1 : -1;
@@ -2648,7 +2666,7 @@ function drawTitle() {
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
   drawPig(810, 470, -1, CHARS[(i + 5) % CHARS.length].look, { t: gT + 30, scale: CHARS[(i + 5) % CHARS.length].scale * 1.1 });
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(60, 482, 840, 50, 10); ctx.fill();
-  txt('이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y · 변신 T', W / 2, 497, 13, '#ffd6df', null);
+  const hl = TOUCH ? '커맨드(→=상대 쪽): 스킬 ↓→ · 업어치기 ↓← · 필살 →→ · 변신 ↓↓ + 아무 공격 버튼' : '이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y · 변신 T (↓→ 같은 커맨드도 됨)'; txt(hl, W / 2, 497, fitSize(hl, 13, 900), '#ffd6df', null);   // 길면 글자를 줄여서 한 줄에
   txt(TOUCH ? '📱 버튼으로 조작 · 메뉴는 탭!' : 'W/S 메뉴 이동 · Enter 선택 · 숫자키 바로가기 · M 배경음', W / 2, 518, 12, '#80d8ff', null);
   txt(`🔊 ${musicMuted ? '꺼짐' : '켜짐'}`, W - 16, 20, 13, '#ccc', '#000', 3, 'right');
   addHot(W - 90, 6, 84, 28, () => { toggleMute(); });
@@ -3242,9 +3260,9 @@ function updateFighters(frozen) {
   if (!frozen) {
     if (mode === 3) { i1 = netIn.p1; i2 = netIn.p2; }
     else {
-      if (mode === 0 || mode === 4) i1 = cpuInput(p1, p2);
+      if (mode === 0 || mode === 4) i1 = { ...cpuInput(p1, p2), bot: true };
       else i1 = orInput(readInput(MAP1), readInput(MAP2));
-      i2 = cpuInput(p2, p1);
+      i2 = { ...cpuInput(p2, p1), bot: true };   // bot: CPU 입력은 커맨드 해석 안 함
     }
   }
   p1.update(i1, p2); p2.update(i2, p1);
@@ -4094,7 +4112,7 @@ function drawFighter(f) {
 }
 function keyHint(f, which) {
   if (mode === 0 || (mode === 3 ? f !== NET.me : f === p2)) return '';
-  if (TOUCH) return '';   // 모바일은 버튼에 이름이 써 있음
+  if (TOUCH) return { ult: '[→→+공격]', skill: '[↓→+공격]', tf: '[↓↓+공격]' }[which] || '';   // 모바일은 커맨드로 안내
   const m = { ult: 'Y', skill: 'U', tf: 'T' };   // 한 번에 누르는 단축키로 안내
   return `[${m[which]}]`;
 }
@@ -4258,15 +4276,15 @@ function drawSelect() {
   ctx.fillStyle = '#333'; ctx.fillRect(x + 312, 385, 110, 10);
   ctx.fillStyle = '#ffb300'; ctx.fillRect(x + 312, 385, 110 * clamp((ur - 0.6) / 0.7), 10);
   txt(ur >= 1.15 ? '빠름' : ur <= 0.85 ? '느림' : '보통', x + 312, 408, 12, '#ffcc80', null, 0, 'left');
-  const tfInfo = `변신 [T]: ${c.tf.name} — ${c.tf.desc}`;   // 변신 게이지가 꽉 차면 T
+  const tfInfo = `변신 [${TOUCH ? '↓↓+공격' : 'T'}]: ${c.tf.name} — ${c.tf.desc}`;   // 변신 게이지가 꽉 차면 T
   txt(tfInfo, x + 250, 428, fitSize(tfInfo, 12, 200), '#80deea', null, 0, 'left');
   ctx.fillStyle = '#ff5252'; rr(x + 470, 324, 150, 40, 10); ctx.fill(); txt(selFor === 'online' ? '이 돼지로 온라인!' : '이 돼지로 시작!', x + 545, 344, 16, '#fff', null);
   addHot(x + 470, 324, 150, 40, () => { pressed.Enter = true; });
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 70, 30, 8); ctx.fill(); txt('← 뒤로', 49, 29, 13, '#fff', null);
   addHot(14, 14, 70, 30, () => { pressed.Escape = true; });
-  txt(`스킬 [U · K+L]: ${c.skill.name} — ${c.skill.desc}`, x + 20, 452, 14, '#ffdd33', null, 0, 'left');
-  txt(`업어치기 [J · I+K]: 메치고 연타로 다지기`, x + 20, 476, 14, '#e1bee7', null, 0, 'left');
-  txt(`필살기 [Y · A+D→K+O]: ${c.ult.name} — ${c.ult.desc}`, x + 20, 500, 14, '#ffab91', null, 0, 'left');
+  txt(`스킬 [${TOUCH ? '↓→+공격' : 'U · K+L'}]: ${c.skill.name} — ${c.skill.desc}`, x + 20, 452, 14, '#ffdd33', null, 0, 'left');
+  txt(`업어치기 [${TOUCH ? '↓←+공격' : 'J · I+K'}]: 메치고 연타로 다지기`, x + 20, 476, 14, '#e1bee7', null, 0, 'left');
+  txt(`필살기 [${TOUCH ? '→→+공격' : 'Y · A+D→K+O'}]: ${c.ult.name} — ${c.ult.desc}`, x + 20, 500, 14, '#ffab91', null, 0, 'left');
 }
 function drawVs() {
   const k = ease(sceneT / 20);
