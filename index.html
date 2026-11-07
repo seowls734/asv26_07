@@ -2421,7 +2421,7 @@ function drawBank() {
 // 불러올 때는 모든 서버를 합쳐서(같은 사람은 가장 최근 기록) 보여 줌 → 서버 하나가 죽어도 랭킹이 유지됨
 const RANK_MAIN = 'https://samgyeopsal-fighter-default-rtdb.asia-southeast1.firebasedatabase.app';
 const RANK_EXTRA = [
-  '',   // 2번째 Firebase 주소 (예: https://프로젝트2-default-rtdb.asia-southeast1.firebasedatabase.app)
+  'https://samgyeopsal-fighter-2-default-rtdb.asia-southeast1.firebasedatabase.app',   // 2번째 Firebase
   ''    // 3번째 Firebase 주소
 ];
 // 테스트(내 컴퓨터 파일로 열기 · ?autotest 등 주소 옵션)에서는 실제 랭킹 서버에 올리지 않음
@@ -2447,8 +2447,8 @@ function uploadRank() {
 function fetchRank() {
   if (!RANK_DBS.length) { rk.loading = false; rk.err = '온라인 랭킹 서버가 아직 연결되지 않았어요'; return; }
   rk.loading = true; rk.err = '';
-  rankAll('/rank.json').then(rs => Promise.all(rs.map(r => r.status === 'fulfilled' ? r.value.json().catch(() => null) : null))).then(ds => {
-    if (ds.every(d => d === null)) throw 0;
+  rankAll("/rank.json").then(rs => Promise.all(rs.map(r => r.status === "fulfilled" ? r.value.json().catch(() => undefined) : undefined))).then(ds => {
+    if (ds.every(d => d === undefined)) throw 0;   // 모든 서버가 실패했을 때만 오류 (빈 랭킹은 null이라 정상)
     const m = {};
     for (const d of ds) for (const [id, v] of Object.entries(d || {})) if (v && (!m[id] || (v.t || 0) > (m[id].t || 0))) m[id] = { ...v, id };
     rk.all = Object.values(m).filter(v => typeof v.tp === 'number' && (v.tp > 0 || v.streak > 0));   // 랭크전 기록이 없는 돼지는 숨김
