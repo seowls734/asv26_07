@@ -168,8 +168,8 @@ cv.addEventListener('pointerdown', e => {
 // 왼쪽: 아무 데나 누르고 끌면 움직이는 조이스틱 (↖↗ 대각선 점프 · 아래로 끌면 앉기 · 뒤로 끌면 막기)
 // 오른쪽: 공격 버튼. 손가락을 떼지 않고 옆 버튼으로 미끄러져도 바로 눌림
 const PAD = [
-  { t: 'I<br>왼손', codes: ['KeyI'] }, { t: 'O<br>오른손', codes: ['KeyO'] },
-  { t: 'K<br>왼발', codes: ['KeyK'] }, { t: 'L<br>오른발', codes: ['KeyL'] },
+  { t: 'I<br>오른손', codes: ['KeyI'] }, { t: 'O<br>왼손', codes: ['KeyO'] },
+  { t: 'K<br>오른발', codes: ['KeyK'] }, { t: 'L<br>왼발', codes: ['KeyL'] },
   { t: '업어<br>치기', codes: ['KeyJ'], c: 1 }, { t: '스킬', codes: ['KeyU'], c: 1 },   // 모바일: 동시 누르기 대신 버튼 하나로
   { t: '필살기', codes: ['KeyY'], c: 1 }, { t: '점프', codes: ['KeyW'], c: 2 }
 ];
@@ -603,17 +603,27 @@ function drawPig(x, y, face, C, p = {}) {
   const air = p.air || p.roll !== undefined;
   const gl = acc.includes('gloves'), hc = gl ? '#e53935' : null, hr = gl ? 12 : null;
 
-  // back leg & back arm
-  limb(-22 * bw, -38 + by, -26 * bw + sw, air ? -14 : -7, 14, C);
+  // 손발 나눠 쓰기: I(오른손)·K(오른발) = 몸 앞쪽(보이는 쪽) 팔다리, O(왼손)·L(왼발) = 몸 뒤쪽 팔다리 (p.backLimb)
+  const PUNCHES = { jab: 1, punch: 1, uppercut: 1 };
+  const bArm = !!(p.backLimb && PUNCHES[mv]), bLeg = !!(p.backLimb && KICKS[mv]);
+  const armAt = m => m === 'jab' ? [38 + 50 * k, -82 + by] : m === 'punch' ? [38 + 66 * k, -72 + by] : [lerp(40, 60, k), lerp(-46, -150, k) + by];
+  const CB = shadeLook(C);   // 몸 뒤쪽 팔다리는 살짝 어둡게 (몸통보다 먼저 그려서 몸 뒤에 있음)
+
+  // back leg & back arm (몸통보다 먼저 = 몸 뒤)
+  let bl;
+  // 뒷다리로 찰 때: 다리가 몸 앞으로 휘둘러 나오므로 지금은 서 있는 다리 대신 계산만 하고, 아래(머리 다음)에서 몸 앞에 그림
+  if (bLeg) { const a = lerp(Math.PI / 2, Math.max(-0.35, KICKS[mv][0]), k), L = 38 + (KICKS[mv][1] + 22) * k; bl = [10 * bw + Math.cos(a) * L, -34 + by + Math.sin(a) * L]; }   // 얼굴을 가로지르지 않게 조금 낮게
+  else { bl = [-26 * bw + sw, air ? -14 : -7]; limb(-22 * bw, -38 + by, bl[0], bl[1], 14, CB); }
   let ba;
-  if (mv === 'grab') ba = [74, -64 + by];
+  if (bArm) { const q = armAt(mv); ba = [q[0] + 14, q[1]]; }   // 뒷팔은 어깨가 뒤에 있어서 조금 더 뻗어야 앞까지 닿음
+  else if (mv === 'grab') ba = [74, -64 + by];
   else if (mv === 'counter') ba = [-52, -100 + by];
   else if (p.block) ba = [36, -92 + by];
   else if (p.scared) ba = [-8, -124];
   else if (p.victory) ba = [-16, -70 + by];
   else if (mv === 'dash' || p.roll !== undefined) ba = [-32, -58 + by];
-  else ba = null;   // 서 있을 때: 뒷팔도 몸 앞으로 그려서 앞발 두 개가 다 보이게 (아래 front arm 바로 앞에서 그림)
-  if (ba) limb(-4, -64 + by, ba[0], ba[1], 12, C, hc, hr);
+  else ba = [70, -58 + by];   // 서 있을 때 뒷팔: 몸 뒤에서 턱 아래로 발굽만 살짝 나온 가드
+  if (!bArm) limb(-4, -64 + by, ba[0], ba[1], 12, CB, hc, hr);
 
   // tail
   ctx.strokeStyle = C.dark; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath();
@@ -651,7 +661,7 @@ function drawPig(x, y, face, C, p = {}) {
 
   // front leg
   let fl;
-  if (KICKS[mv]) { const a = lerp(Math.PI / 2, KICKS[mv][0], k), L = 38 + KICKS[mv][1] * k; fl = [20 * bw + Math.cos(a) * L, -38 + by + Math.sin(a) * L]; }
+  if (KICKS[mv] && !bLeg) { const a = lerp(Math.PI / 2, KICKS[mv][0], k), L = 38 + KICKS[mv][1] * k; fl = [20 * bw + Math.cos(a) * L, -38 + by + Math.sin(a) * L]; }
   else fl = [22 * bw - sw, air ? -14 : -7];
   limb(20 * bw, -38 + by, fl[0], fl[1], 15, C);
 
@@ -730,11 +740,13 @@ function drawPig(x, y, face, C, p = {}) {
     else if (h2 === 'phones') { ctx.strokeStyle = '#263238'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(hx - 2, hy - 2, 33, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); ctx.fillStyle = '#e53935'; rr(hx - 40, hy - 14, 14, 24, 6); ctx.fill(); rr(hx + 26, hy - 20, 12, 20, 6); ctx.fill(); }
     else if (h2 === 'crown') { ctx.fillStyle = '#ffd700'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2; poly([[hx - 18, hy - 22], [hx - 20, hy - 42], [hx - 9, hy - 32], [hx, hy - 48], [hx + 9, hy - 32], [hx + 20, hy - 42], [hx + 18, hy - 22]]); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#e53935'; ell(hx, hy - 28, 3, 3); ctx.fill(); }
   }
-  // 뒷팔(서 있을 때): 앞팔보다 살짝 뒤·위, 조금 어둡게 → 권투 가드처럼 두 앞발이 보임
-  if (!ba) limb(6, -70 + by, 34, -100 + by, 12, shadeLook(C), hc, hr);
+  // 뒤쪽 손발로 공격할 때(O·L): 몸 앞으로 휘둘러 나오므로 몸·머리 위에 그림 (살짝 어둡게)
+  if (bLeg) limb(10 * bw, -34 + by, bl[0], bl[1], 14, CB);
+  if (bArm) limb(8, -66 + by, ba[0], ba[1], 12, CB, hc, hr);
   // front arm
   let fa;
-  if (mv === 'jab') fa = [38 + 50 * k, -82 + by];
+  if (bArm) fa = [48, -82 + by];   // 뒷팔로 칠 때 앞팔은 가슴 앞 가드
+  else if (mv === 'jab') fa = [38 + 50 * k, -82 + by];
   else if (mv === 'punch') fa = [38 + 66 * k, -72 + by];
   else if (mv === 'uppercut') fa = [lerp(40, 60, k), lerp(-46, -150, k) + by];
   else if (mv === 'throw') fa = [38 + 60 * k, -92 + by];
@@ -756,7 +768,7 @@ function drawPig(x, y, face, C, p = {}) {
   }
   if (k > 0.9 && (mv === 'punch' || mv === 'jab' || KICKS[mv])) {
     ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 3;
-    const tx = KICKS[mv] ? fl[0] : fa[0], ty = KICKS[mv] ? fl[1] : fa[1];
+    const pt = KICKS[mv] ? (bLeg ? bl : fl) : (bArm ? ba : fa), tx = pt[0], ty = pt[1];
     for (let i = -1; i <= 1; i++) line(tx - 50, ty + i * 9, tx - 20, ty + i * 9);
   }
   ctx.restore();
@@ -3640,6 +3652,7 @@ function poseOf(f) {
     const eo = x => 1 - (1 - x) * (1 - x);
     p.k = af < a.startup ? eo(af / a.startup) * 0.85 : af < a.startup + a.active ? 1 : 1 - eo(clamp((af - a.startup - a.active) / Math.max(1, a.recovery)));
     p.move = a.pose; if (a.crouch) p.crouch = true;
+    p.backLimb = ['rp', 'rk', 'c_rp', 'c_rk'].includes(a.name);   // O·L(왼손·왼발)은 뒤쪽 팔다리로
     if (a.pose === 'roll') { p.roll = af * 0.5; p.move = null; }
     if (a.pose === 'spin') { p.spin = af * 0.4; p.move = 'highkick'; p.k = af >= a.startup && af < a.startup + a.active ? 1 : p.k; }
     if (a.teleport && af < a.startup - 4 && af > 2) p.alpha = 0.15;
@@ -3647,8 +3660,8 @@ function poseOf(f) {
   if (st === 'ult') {
     const T = f.uT;
     switch (f.ch.ult.type) {
-      case 'rush': p.move = f.ultHit ? (T % 10 < 5 ? 'punch' : 'jab') : 'dash'; p.k = 1; break;
-      case 'thousandKicks': p.move = f.ultHit ? (T % 8 < 4 ? 'highkick' : 'lowkick') : 'dash'; p.k = 1; break;
+      case 'rush': p.move = f.ultHit ? (T % 10 < 5 ? 'punch' : 'jab') : 'dash'; p.k = 1; p.backLimb = T % 10 < 5; break;   // 양손 번갈아
+      case 'thousandKicks': p.move = f.ultHit ? (T % 8 < 4 ? 'highkick' : 'lowkick') : 'dash'; p.k = 1; p.backLimb = T % 8 < 4; break;   // 양발 번갈아
       case 'charge': p.move = 'dash'; p.k = T < 10 ? 0.3 : 1; break;
       case 'eruption': if (T < 18) p.victory = true; else { p.crouch = true; p.move = 'punch'; p.k = 1; } break;
       case 'stampede': p.victory = true; break;
@@ -3664,7 +3677,7 @@ function poseOf(f) {
   if (st === 'ko') p.ko = Math.min(1, f.koT / 15);
   if (st === 'down') { p.ko = 1; p.lie = true; }
   if (st === 'grabbed') { if (f.opp.grabT > 20) { p.ko = 1; p.lie = true; } else p.hurt = true; }
-  if (st === 'grabbing') { p.move = f.grabT > 20 ? (f.grabT % 8 < 4 ? 'punch' : 'jab') : 'grab'; p.k = 1; p.crouch = f.grabT > 20; }
+  if (st === 'grabbing') { p.move = f.grabT > 20 ? (f.grabT % 8 < 4 ? 'punch' : 'jab') : 'grab'; p.k = 1; p.crouch = f.grabT > 20; p.backLimb = f.grabT > 20 && f.grabT % 8 < 4; }
   if (st === 'transforming') p.victory = true;
   if (st === 'jump' || f.y < GROUND - 1) p.air = true;
   p.flash = f.flash > 0;
