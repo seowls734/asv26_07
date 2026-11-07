@@ -2365,9 +2365,9 @@ function resetAll() {
   try { Object.keys(localStorage).filter(k => k.startsWith('sgf_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
   toast('🗑️ 서버 기록 삭제 중...');
   let done = false; const reload = () => { if (!done) { done = true; location.reload(); } };
-  if (RANK_DB) {
-    fetch(`${RANK_DB}/rank/${myId}.json`, { method: 'DELETE', keepalive: true })
-      .then(r => { if (!r.ok) throw 0; }).catch(() => alert('서버 랭킹 기록은 지우지 못했어요 (인터넷/서버 규칙 확인). 기기 기록은 지워졌어요.')).finally(reload);
+  if (RANK_DBS.length) {   // 연결된 모든 랭킹 서버에서 내 기록 삭제
+    rankAll(`/rank/${myId}.json`, { method: 'DELETE', keepalive: true })
+      .then(rs => { if (rs.some(r => r.status === 'rejected')) alert('일부 서버의 랭킹 기록은 지우지 못했어요 (인터넷/서버 규칙 확인). 기기 기록은 지워졌어요.'); }).finally(reload);
     setTimeout(reload, 5000);   // 서버가 응답 없으면 5초 뒤 그냥 새로고침
   } else reload();
 }
@@ -2416,36 +2416,52 @@ function drawBank() {
   drawParts();
 }
 
-// ================= 전체 공유 랭킹 (Firebase Realtime Database) =================
+// ================= 랭킹 서버 (Firebase Realtime Database 여러 개) =================
+// 첫 번째가 원래 서버(주소 그대로). 아래 RANK_EXTRA에 Firebase 주소를 넣으면 같은 기록을 모든 서버에 함께 저장하고,
+// 불러올 때는 모든 서버를 합쳐서(같은 사람은 가장 최근 기록) 보여 줌 → 서버 하나가 죽어도 랭킹이 유지됨
+const RANK_MAIN = 'https://samgyeopsal-fighter-default-rtdb.asia-southeast1.firebasedatabase.app';
+const RANK_EXTRA = [
+  '',   // 2번째 Firebase 주소 (예: https://프로젝트2-default-rtdb.asia-southeast1.firebasedatabase.app)
+  ''    // 3번째 Firebase 주소
+];
 // 테스트(내 컴퓨터 파일로 열기 · ?autotest 등 주소 옵션)에서는 실제 랭킹 서버에 올리지 않음
-const RANK_DB = location.protocol === 'file:' || /autotest|view=|shot=|nettest/i.test(location.search) ? '' : 'https://samgyeopsal-fighter-default-rtdb.asia-southeast1.firebasedatabase.app';
+const RANK_TEST = location.protocol === 'file:' || /autotest|view=|shot=|nettest/i.test(location.search);
+const RANK_DBS = RANK_TEST ? [] : [RANK_MAIN, ...RANK_EXTRA].map(s => s.trim().replace(/\/+$/, '')).filter(Boolean);
+const rankAll = (path, opt) => Promise.allSettled(RANK_DBS.map(db => fetch(`${db}${path}`, opt).then(r => { if (!r.ok) throw r.status; return r; })));
 let pid = lsGet('sgf_pid', null);
 if (!pid) { pid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); lsSet('sgf_pid', pid); }
-const rk = { tab: 0, list: null, err: '', loading: false, page: 0 };   // 한 쪽에 10명, 최대 10쪽(100위)
+// tab 0 = 티어 랭킹, 1 = 연승 랭킹, 2 = 내 기기 기록. 한 쪽에 10명, 최대 100위
+const rk = { tab: 0, all: [], list: null, err: '', loading: false, page: 0 };
+function rankSort() {
+  const a = rk.all.slice();
+  if (rk.tab === 1) a.sort((x, y) => (y.streak || 0) - (x.streak || 0) || y.tp - x.tp);
+  else a.sort((x, y) => y.tp - x.tp || (y.streak || 0) - (x.streak || 0));
+  rk.list = a.slice(0, 100); rk.page = 0;
+}
 function uploadRank() {
-  // 랭킹: 티어는 지금 티어(떨어지면 순위도 내려감), 연승은 랭크전 최고 연승(오르기만 함). 랭크전을 안 해 봤으면 올리지 않음
-  if (!RANK_DB || !lsGet('sgf_ranked', false)) return Promise.resolve();
+  // 티어는 지금 티어(떨어지면 순위도 내려감), 연승은 랭크전 최고 연승(오르기만 함). 랭크전을 안 해 봤으면 올리지 않음
+  if (!RANK_DBS.length || !lsGet('sgf_ranked', false)) return Promise.resolve();
   const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_rbest', 0), t: Date.now() };
-  return fetch(`${RANK_DB}/rank/${pid}.json`, { method: 'PUT', body: JSON.stringify(body) }).catch(() => {});
+  return rankAll(`/rank/${pid}.json`, { method: 'PUT', body: JSON.stringify(body) });
 }
 function fetchRank() {
-  if (!RANK_DB) { rk.err = '온라인 랭킹 서버가 아직 연결되지 않았어요'; return; }
+  if (!RANK_DBS.length) { rk.loading = false; rk.err = '온라인 랭킹 서버가 아직 연결되지 않았어요'; return; }
   rk.loading = true; rk.err = '';
-  fetch(`${RANK_DB}/rank.json`).then(r => r.json()).then(d => {
-    rk.list = Object.entries(d || {}).map(([id, v]) => ({ ...v, id })).filter(v => typeof v.tp === "number" && (v.tp > 0 || v.streak > 0))   // 랭크전 기록이 없는 돼지는 숨김
-      .sort((a, b) => b.tp - a.tp || (b.streak || 0) - (a.streak || 0)).slice(0, 100);   // 최고 티어 → 최고 연승 순, 100위까지
-    rk.page = 0;
-    rk.loading = false;
+  rankAll('/rank.json').then(rs => Promise.all(rs.map(r => r.status === 'fulfilled' ? r.value.json().catch(() => null) : null))).then(ds => {
+    if (ds.every(d => d === null)) throw 0;
+    const m = {};
+    for (const d of ds) for (const [id, v] of Object.entries(d || {})) if (v && (!m[id] || (v.t || 0) > (m[id].t || 0))) m[id] = { ...v, id };
+    rk.all = Object.values(m).filter(v => typeof v.tp === 'number' && (v.tp > 0 || v.streak > 0));   // 랭크전 기록이 없는 돼지는 숨김
+    rankSort(); rk.loading = false;
   }).catch(() => { rk.loading = false; rk.err = '랭킹을 불러오지 못했어요 (인터넷 확인)'; });
 }
-function openRanking(local) { rk.tab = local ? 1 : 0; if (!local) rankPos = -1; scene = "ranking"; rk.loading = true; uploadRank().finally(fetchRank); }   // 내 기록을 올린 뒤에 불러와야 최신 순위가 보임
+function openRanking(local) { rk.tab = local ? 2 : 0; if (!local) rankPos = -1; scene = 'ranking'; rk.loading = true; uploadRank().finally(fetchRank); }   // 내 기록을 올린 뒤에 불러와야 최신 순위가 보임
 function updateRanking() {
-  if (pressed.Digit1 || pressed.Numpad1) { rk.tab = 0; SFX.select(); }
-  if (pressed.Digit2 || pressed.Numpad2) { rk.tab = 1; SFX.select(); }
+  for (let t = 0; t < 3; t++) if ((pressed["Digit" + (t + 1)] || pressed["Numpad" + (t + 1)]) && rk.tab !== t) { rk.tab = t; if (t < 2) rankSort(); SFX.select(); }
   if (pressed.KeyR) fetchRank();
   const pages = Math.max(1, Math.ceil((rk.list || []).length / 10));
-  if (rk.tab === 0 && (pressed.KeyA || pressed.ArrowLeft) && rk.page > 0) { rk.page--; SFX.select(); }
-  if (rk.tab === 0 && (pressed.KeyD || pressed.ArrowRight) && rk.page < pages - 1) { rk.page++; SFX.select(); }
+  if (rk.tab < 2 && (pressed.KeyA || pressed.ArrowLeft) && rk.page > 0) { rk.page--; SFX.select(); }
+  if (rk.tab < 2 && (pressed.KeyD || pressed.ArrowRight) && rk.page < pages - 1) { rk.page++; SFX.select(); }
   if (pressed.Enter || pressed.Escape || pressed.Space) toTitle();
 }
 function drawRanking() {
@@ -2454,16 +2470,16 @@ function drawRanking() {
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 16, 80, 32, 8); ctx.fill(); txt('← 나가기', 54, 32, 13, '#fff', null);
   addHot(14, 16, 80, 32, () => { pressed.Escape = true; });
   addHot(0, 100, W, H - 100, () => { pressed.Enter = true; });   // 빈 곳 탭 = 나가기 (쪽 넘김 버튼보다 먼저 등록해야 버튼이 우선)
-  ['🌐 랭크전 랭킹 TOP 100', '📱 내 기기 연승 기록'].forEach((s, i) => {
-    const x = W / 2 - 250 + i * 255, on = rk.tab === i;
-    ctx.fillStyle = on ? '#ff7043' : 'rgba(255,255,255,0.12)'; rr(x, 56, 245, 34, 10); ctx.fill();
-    txt(`[${i + 1}] ${s}`, x + 122, 73, 15, '#fff', null);
-    addHot(x, 56, 245, 34, () => { pressed['Digit' + (i + 1)] = true; });
+  ['🏅 티어 랭킹', '🔥 연승 랭킹', '📱 내 기기 기록'].forEach((s, i) => {
+    const x = W / 2 - 300 + i * 205, on = rk.tab === i;
+    ctx.fillStyle = on ? '#ff7043' : 'rgba(255,255,255,0.12)'; rr(x, 56, 190, 34, 10); ctx.fill();
+    txt(`[${i + 1}] ${s}`, x + 95, 73, 15, '#fff', null);
+    addHot(x, 56, 190, 34, () => { pressed['Digit' + (i + 1)] = true; });
   });
-  if (rk.tab === 0) {
-    // 랭크전 최고 기록만: 최고 티어 · 최고 연승
-    const cols = [[120, '순위'], [320, '닉네임'], [560, '티어'], [780, '최고 연승']];
-    cols.forEach(([x, s]) => txt(s, x, 110, 13, '#999', null));
+  if (rk.tab < 2) {
+    // 티어 랭킹: 지금 티어 순 / 연승 랭킹: 랭크전 최고 연승 순 (정렬 기준 칸은 노랗게)
+    const cols = [[120, '순위', 0], [320, '닉네임', 0], [560, '티어', rk.tab === 0], [780, '최고 연승', rk.tab === 1]];
+    cols.forEach(([x, s, on]) => txt(s + (on ? ' ▼' : ''), x, 110, 13, on ? '#ffd54f' : '#999', null));
     const list = rk.list || [], pages = Math.max(1, Math.ceil(list.length / 10));
     rk.page = Math.min(rk.page, pages - 1);
     if (rk.loading) txt('불러오는 중...', W / 2, 260, 20, '#fff', null);
