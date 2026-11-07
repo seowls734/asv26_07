@@ -501,10 +501,15 @@ const CHARS = [
     look: look('#e8b48a', '#9a5a32', '#f5d2b2', '#e09a6e', '#5d3a1a', '#4a2a10', '#d84315', ['band', 'scarf'], 1.08),
     skill: { name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 천천히 흐르는 국물 · 밟으면 여러 번 화상' },
     tf: { name: '뚝배기 갑옷', type: 'stone', color: '#8d6e63', desc: '받는 피해↓ · 슈퍼아머' },
-    ult: { name: '펄펄 국물 대방출', type: 'beam', desc: '끓는 국물로 화면을 가른다' } }
+    ult: { name: '펄펄 국물 대방출', type: 'beam', desc: '끓는 국물로 화면을 가른다' } },
+  { name: '냉삼', title: '냉동 삼겹살', type: '부메랑', hp: 94, power: 1.0, speed: 1.12, ultRate: 1.1, scale: 1.04,   // 얇게 얼린 레트로 냉동 삼겹살
+    look: look('#fbe0dc', '#c98f8c', '#fff4f2', '#f4b8b4', '#7a4a4a', '#4a2a2a', '#4fc3f7', ['band', 'spots'], 0.96),
+    skill: { name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' },
+    tf: { name: '급속 해동', type: 'thaw', color: '#80deea', desc: '체력 서서히 회복 · 이동 속도↑' },
+    ult: { name: '냉삼 폭탄 투하', type: 'sliceRain', desc: '하늘에서 얼린 냉삼이 우수수' } }
 ];
 const GHOST = look('#f4f8ff', '#aab8d6', '#ffffff', '#dde6f7', '#aab8d6', '#7a88a6', '#0000', []);
-const ULT_RANGE = { rush: 280, thousandKicks: 280, charge: 900, eruption: 700, stampede: 900, absoluteZero: 700, bodySlam: 500, beam: 900, thousandCuts: 480, megaton: 230 };
+const ULT_RANGE = { sliceRain: 900, rush: 280, thousandKicks: 280, charge: 900, eruption: 700, stampede: 900, absoluteZero: 700, bodySlam: 500, beam: 900, thousandCuts: 480, megaton: 230 };
 const PARTNAME = { head: '목살', belly: '삼겹', legs: '족발' };
 const WEAPON = { head: '목살 몽둥이', belly: '삼겹 채찍', legs: '족발 망치' };
 
@@ -621,6 +626,7 @@ const SKILLDEF = {
   teleport:      { startup: 16, active: 5,  recovery: 14, dmg: 12, range: 150, height: 'mid', kb: 8, stun: 24, teleport: true, invuln: true, invulnF: 13, pose: 'punch', txt: ['슉!'] },
   boneSwing:     { startup: 12, active: 8,  recovery: 22, dmg: 11, range: 220, height: 'low', kb: 5, stun: 28, knockdown: true, dash: 3, pose: 'punch', hitstop: 9, shake: 8, txt: ['갈비!!', '다리 걸기!'] },   // 긴 갈빗대로 다리를 후려 넘어뜨림 (앉아서 막아야 함)
   stewSplash:    { startup: 14, active: 1,  recovery: 22, proj: { kind: 'stew', speed: 4.5, dmg: 4, burn: 160, height: 'low', y: 18, multi: 14, maxHits: 3, life: 200, w: 70, h: 26 }, pose: 'throw' },   // 바닥을 천천히 흐르는 국물: 밟으면 여러 번 데임 (발사체끼리 부딪혀도 안 사라짐)
+  boomerang:     { startup: 12, active: 1, recovery: 20, proj: { kind: 'slice', speed: 11, back: 0.4, dmg: 7, height: 'mid', multi: 16, maxHits: 2, life: 95, w: 52, h: 36 }, pose: 'throw' },   // 냉삼 부메랑: 날아갔다 돌아오며 두 번 맞힘
   uppercut:      { startup: 3,  active: 10, recovery: 20, dmg: 18, range: 150, dash: 4, height: 'mid', kb: 4, stun: 40, launch: -17, rise: -13, invuln: true, invulnF: 8, pose: 'uppercut', kind: 'punch', txt: ['어퍼!!'] }
 };
 const THROWDEF = { startup: 6, active: 1, recovery: 16, proj: { kind: 'meat', speed: 11, dmg: 14, height: 'mid' }, pose: 'throw', skill: true };
@@ -1054,7 +1060,7 @@ class Fighter {
     const s = this.state;
     return s === 'crouch' || s === 'cblock' || (s === 'blockstun' && this.blockLow) || (s === 'attack' && (!!this.atk.crouch || this.atk.pose === 'roll'));
   }
-  speedMul() { let m = this.ch.speed; if (this.tfIs('wild')) m *= 1.4; if (this.tfIs('shadow')) m *= 1.2; if (this.tfIs('stone')) m *= 0.8; if (this.tfIs('giant')) m *= 0.85; if (this.slowT > 0) m *= 0.6; if (this.stamina < 35) m *= 0.75; return m; }
+  speedMul() { let m = this.ch.speed; if (this.tfIs('wild')) m *= 1.4; if (this.tfIs('thaw')) m *= 1.15; if (this.tfIs('shadow')) m *= 1.2; if (this.tfIs('stone')) m *= 0.8; if (this.tfIs('giant')) m *= 0.85; if (this.slowT > 0) m *= 0.6; if (this.stamina < 35) m *= 0.75; return m; }
   atkSpeedMul(isPunch) { let m = 1; if (this.tfIs('wild')) m *= 0.7; if (this.tfIs('champion') && isPunch) m *= 0.7; if (this.slowT > 0) m *= 1.25; if (this.stamina < 35) m *= 1.25; return m; }
   dmgMul(kind) {
     let m = this.ch.power;
@@ -1081,6 +1087,7 @@ class Fighter {
     if (this.state !== 'ko') {
       if (this.burnT > 0) { this.burnT--; this.hp = Math.max(1, this.hp - 2 / 60); if (this.t % 5 === 0) flame(this.x + rand(-30, 30), this.y - rand(30, 110) * this.sc / 1.15); }
       if (this.state !== 'grabbed') this.stamina = Math.min(100, this.stamina + 0.12);
+      if (this.tfIs('thaw') && this.hp > 0) this.hp = Math.min(this.maxHp, this.hp + 0.035);   // 급속 해동: 체력 서서히 회복 (변신 8초 동안 약 17)
       if (this.tfOn && --this.tfT <= 0) { this.tfOn = false; popText(this.x, this.y - 180, '변신 해제', '#ccc', 20); }
     }
     for (const q of this.cloneQ) q.t--;
@@ -1216,7 +1223,7 @@ function addObj(o) {
 function spawnProj(f, p) {
   const s = f.sc / 1.15;
   addObj({ owner: f, kind: p.kind, sub: f.throwKind, x: f.x + f.facing * 70 * s, y: f.y - (p.y || 95) * s, vx: f.facing * p.speed, w: p.w || 40, h: p.h || 32,
-    vy: p.vy || 0, g: p.g || 0, boom: p.boom || 0, multi: p.multi || 0, maxHits: p.maxHits || 1,
+    vy: p.vy || 0, g: p.g || 0, boom: p.boom || 0, multi: p.multi || 0, maxHits: p.maxHits || 1, back: p.back || 0, dir: f.facing,
     dmg: p.dmg, height: p.height || 'mid', life: p.life || 140, burn: p.burn, slow: p.slow, clash: p.kind !== 'stew' });   // 국물은 바닥을 흘러서 다른 발사체와 부딪혀도 안 사라짐
 }
 // 포물선 발사체가 땅에 닿으면 그 자리에서 넓게 터짐 (한 번만 맞음)
@@ -1238,6 +1245,11 @@ function updateObjs() {
     if (!o.owner) { envUpdate(o); continue; }
     o.x += o.vx; o.y += o.vy;
     if (o.g) { o.vy += o.g; if (o.boom && o.y >= GROUND - 20) boomObj(o); }
+    if (o.back) {   // 냉삼 부메랑: 점점 느려지다 되돌아와서, 던진 돼지가 받으면 사라짐
+      o.vx -= o.dir * o.back;
+      if (o.t > 12 && Math.sign(o.vx) === -o.dir && Math.abs(o.x - o.owner.x) < 50) o.life = 0;
+    }
+    if (o.kind === 'slice' && o.g && o.y > GROUND - 14) { o.life = 0; burst(o.x, GROUND - 8, 8, ['#e1f5fe', '#f6c9c4', '#ffffff'], 5); }   // 떨어진 냉삼이 바닥에서 깨짐
     const f = o.owner, d = f.opp;
     if (o.kind === 'stew' && o.t % 4 === 0) smoke(o.x + rand(-20, 20), o.y - 10);
     if (o.follow) {
@@ -1277,6 +1289,13 @@ function drawObjs() {
     const dir = Math.sign(o.vx) || o.owner.facing;
     ctx.save(); ctx.translate(o.x, o.y);
     switch (o.kind) {
+      case 'slice': {   // 얇게 얼린 냉삼 한 장 (빙글빙글)
+        ctx.rotate(o.t * 0.45);
+        ctx.fillStyle = '#f6c9c4'; rr(-27, -10, 54, 20, 8); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; line(-21, -3, 21, -3); line(-17, 4, 17, 4);
+        ctx.strokeStyle = 'rgba(129,212,250,0.95)'; ctx.lineWidth = 2.5; rr(-27, -10, 54, 20, 8); ctx.stroke();
+        break;
+      }
       case 'stew': {   // 바닥을 흐르는 빨간 국물 웅덩이
         const wv = Math.sin(o.t * 0.3) * 3;
         ctx.fillStyle = 'rgba(183,28,28,0.75)'; ell(0, 6, 38 + wv, 9); ctx.fill();
@@ -1632,6 +1651,15 @@ function ultUpdate(f, o) {
       }
       break;
     }
+    case 'sliceRain': {   // 냉삼 폭탄 투하: 상대 머리 위로 얼린 냉삼이 우수수 (위치는 시드 난수 → 온라인에서도 같음)
+      f.vx = 0;
+      if (T >= 12 && T <= 78 && T % 6 === 0) {
+        const tx = clamp(o.x + srand(-90, 90), 60, W - 60);
+        addObj({ owner: f, kind: 'slice', x: tx, y: -40, vx: 0, vy: 5, g: 0.55, w: 60, h: 42, dmg: 5, kb: 2, stun: 24, height: 'mid', life: 150, hitstop: 4, ult: false });
+      }
+      if (T >= 108) ultEnd(f, o);
+      break;
+    }
     case 'megaton': {
       f.vx = 0;
       if (T < 36) {
@@ -1657,6 +1685,7 @@ function skillGood(t, dist, op) {
   if (t === 'iceProj' || t === 'stewSplash') return dist > 200;
   if (t === 'boneSwing') return dist > 120 && dist < 230;
   if (t === 'teleport') return true;
+  if (t === 'boomerang') return dist > 150 && dist < 460;   // 냉삼 부메랑: 떨어진 상대에게
   if (t === 'uppercut') return dist < 170;
   if (t === 'launcher') return dist > 90 && dist < 180;   // 엄니 걸기: 조금 떨어진 상대를 끌어당김
   if (t === 'counter') return op.state === 'attack' || dist < 170;
@@ -1834,117 +1863,12 @@ function drawOpening() {
   addHot(0, 0, W, H, () => { pressed.Space = true; });
 }
 
-// ================= 커스텀 캐릭터 =================
-// [이름, [몸, 테두리, 배, 코, 발굽, 눈썹]]
-const PALETTES = [
-  ['핑크', ['#ffb5c5', '#d9718c', '#ffd6df', '#ff93ac', '#7a3b4a', '#5a2030']],
-  ['흑돼지', ['#4b3d44', '#1f181b', '#62525a', '#7d6670', '#0d090b', '#0a0a0a']],
-  ['갈색', ['#a1887f', '#4e342e', '#bcaaa4', '#8d6e63', '#3e2723', '#2b1a14']],
-  ['크림', ['#ffe3d6', '#e0a58f', '#fff1ea', '#ffc2ad', '#8d5a4a', '#6d3a2a']],
-  ['하늘', ['#e3eef9', '#7f9bbf', '#f5f9ff', '#c5d8ef', '#4a6488', '#2c3e5a']],
-  ['황금', ['#ffd54f', '#c79100', '#ffecb3', '#ffca28', '#7a5200', '#5d4000']],
-  ['민트', ['#a5d6a7', '#4c8c4a', '#c8e6c9', '#81c784', '#2e5e2c', '#1b3d1a']],
-  ['보라', ['#b9a9cf', '#5e4b78', '#d5cae4', '#a593c2', '#2e2440', '#1a1028']],
-  ['고추장', ['#ff8a65', '#bf360c', '#ffab91', '#ff7043', '#5d1a0a', '#4a1000']]
-];
-// [이름, 장식 목록, 몸 너비]
-const ACCS = [
-  ['머리띠', ['band']], ['멧돼지 엄니', ['tusks', 'bristle']], ['리본', ['ribbon', 'spots']], ['얼음 왕관', ['frost', 'scarf']],
-  ['고추 모자', ['chili']], ['닌자 복면', ['mask']], ['권투 장갑', ['band', 'gloves']], ['스모', ['mawashi', 'topknot'], 1.12],
-  ['도복 띠', ['band', 'belt']], ['흉터 머리띠', ['band', 'scar']], ['없음', []]
-];
-const BANDS = ['#e53935', '#1e88e5', '#ffd600', '#43a047', '#ffffff', '#212121', '#ff4081', '#7b1fa2'];
-const NONE_TF = { name: '', type: 'none', color: '#fff', desc: '' };
-const CUSTOM_DEFAULT = { name: '나만의돼지', pal: 0, acc: 0, band: 0, skill: 0, ult: 0, hp: 3, pw: 3, sp: 3 };
-const STAT_BUDGET = 9;   // 체력·파워·스피드 합계 포인트 (각 1~5) → 기본 캐릭터 수준으로 밸런스 유지
-let customDef = lsGet('sgf_custom', null);
-function fixDef(d) {
-  d = Object.assign({}, CUSTOM_DEFAULT, d || {});
-  const ci = (v, n) => clamp(v | 0, 0, n - 1);
-  d.pal = ci(d.pal, PALETTES.length); d.acc = ci(d.acc, ACCS.length); d.band = ci(d.band, BANDS.length);
-  d.skill = ci(d.skill, CHARS.length); d.ult = ci(d.ult, CHARS.length);
-  for (const k of ['hp', 'pw', 'sp']) d[k] = clamp(d[k] | 0, 1, 5);
-  if (d.hp + d.pw + d.sp > STAT_BUDGET) d.hp = d.pw = d.sp = 3;
-  d.name = String(d.name || '').trim().slice(0, 6) || '커스텀';
-  return d;
-}
-function buildCustom(d) {
-  d = fixDef(d);
-  const p = PALETTES[d.pal][1], a = ACCS[d.acc];
-  return { name: d.name, title: '나만의 돼지', type: '커스텀', custom: true,
-    hp: 76 + 8 * d.hp, power: 0.82 + 0.06 * d.pw, speed: 0.79 + 0.07 * d.sp, ultRate: 1.25 - 0.05 * (d.pw + d.hp), scale: 1.02 + 0.04 * d.hp,
-    look: look(p[0], p[1], p[2], p[3], p[4], p[5], BANDS[d.band], a[1], a[2] || 1),
-    skill: { ...CHARS[d.skill].skill }, tf: NONE_TF, ult: { ...CHARS[d.ult].ult } };
-}
-// 선택 칸: 0~9 기본 캐릭터, 10 커스텀, 11 만들기/수정
-const CUSTOM_IDX = CHARS.length, EDIT_IDX = CHARS.length + 1, SEL_SLOTS = CHARS.length + 2, SEL_COLS = 7;   // 선택 화면: 캐릭터들 + 커스텀 + 만들기
-const getChar = i => i < CHARS.length ? CHARS[i] : (i === CUSTOM_IDX && customDef ? buildCustom(customDef) : null);
-const charDef = i => ({ ...(i < CHARS.length ? { idx: i } : { custom: fixDef(customDef) }), cos: { hat: inv.eq.hat, fx: inv.eq.fx } });
-const defToChar = d => withCos(d && d.custom ? buildCustom(d.custom) : CHARS[clamp((d && d.idx) | 0, 0, CHARS.length - 1)], d && d.cos);
-
-const ED_ROWS = ['이름', '몸 색', '장식', '포인트 색', '스킬', '필살기', '체력', '파워', '스피드', '저장'];
-const ed = { row: 0, d: null };
-function openEditor() { ed.d = fixDef(customDef || CUSTOM_DEFAULT); ed.row = 0; scene = 'custom'; SFX.confirm(); }
-function edChange(dir) {
-  const d = ed.d, wrap = (v, n) => (v + dir + n) % n;
-  if (ed.row === 1) d.pal = wrap(d.pal, PALETTES.length);
-  else if (ed.row === 2) d.acc = wrap(d.acc, ACCS.length);
-  else if (ed.row === 3) d.band = wrap(d.band, BANDS.length);
-  else if (ed.row === 4) d.skill = wrap(d.skill, CHARS.length);
-  else if (ed.row === 5) d.ult = wrap(d.ult, CHARS.length);
-  else if (ed.row >= 6 && ed.row <= 8) {
-    const k = ['hp', 'pw', 'sp'][ed.row - 6], nv = d[k] + dir;
-    if (nv < 1 || nv > 5 || (dir > 0 && d.hp + d.pw + d.sp >= STAT_BUDGET)) { SFX.block(); return; }
-    d[k] = nv;
-  } else return;
-  SFX.select();
-}
-function edName() {
-  const n = window.prompt('캐릭터 이름 (최대 6글자)', ed.d.name);
-  for (const k in keys) keys[k] = false;
-  if (n && n.trim()) ed.d.name = n.trim().slice(0, 6);
-}
-function edSave() { customDef = fixDef(ed.d); lsSet('sgf_custom', customDef); sel.c1 = CUSTOM_IDX; scene = 'select'; SFX.confirm(); }
-function updateCustom() {
-  if (pressed.KeyW || pressed.ArrowUp) { ed.row = (ed.row + ED_ROWS.length - 1) % ED_ROWS.length; SFX.select(); }
-  if (pressed.KeyS || pressed.ArrowDown) { ed.row = (ed.row + 1) % ED_ROWS.length; SFX.select(); }
-  if (pressed.KeyA || pressed.ArrowLeft) edChange(-1);
-  if (pressed.KeyD || pressed.ArrowRight) edChange(1);
-  if (pressed.Enter || pressed.Space || pressed.KeyI) { if (ed.row === 0) edName(); else if (ed.row === 9) edSave(); else edChange(1); }
-  if (pressed.Escape) scene = 'select';
-}
-function drawCustom() {
-  ctx.drawImage(bgC, 0, 0, W, H); ctx.fillStyle = 'rgba(10,5,20,0.82)'; ctx.fillRect(0, 0, W, H);
-  txt('커스텀 캐릭터 만들기', W / 2, 32, 30, '#fff', '#000', 6);
-  txt('W/S 항목 · A/D 바꾸기 · Enter 결정 · Esc 취소', W / 2, 60, 13, '#aaa', null);
-  const d = ed.d, c = buildCustom(d), used = d.hp + d.pw + d.sp;
-  ED_ROWS.forEach((r, i) => {
-    const y = 78 + i * 44, on = ed.row === i;
-    ctx.fillStyle = on ? 'rgba(255,213,79,0.25)' : 'rgba(255,255,255,0.06)'; rr(30, y, 520, 38, 8); ctx.fill();
-    if (on) { ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2; rr(30, y, 520, 38, 8); ctx.stroke(); }
-    addHot(30, y, 520, 38, () => { if (ed.row === i) pressed.Enter = true; else ed.row = i; });
-    if (i === 9) { txt('💾 저장하고 선택 화면으로', 290, y + 19, 18, '#69f0ae', '#000', 4); return; }
-    txt(r, 48, y + 19, 16, '#ddd', null, 0, 'left');
-    if (i === 0) { txt(`${d.name}  ✏️`, 390, y + 19, 18, '#fff', null); return; }
-    txt('◀', 230, y + 19, 18, '#ffd54f', null); txt('▶', 530, y + 19, 18, '#ffd54f', null);
-    addHot(210, y, 42, 38, () => { ed.row = i; edChange(-1); }); addHot(508, y, 42, 38, () => { ed.row = i; edChange(1); });
-    if (i === 1) { ctx.fillStyle = PALETTES[d.pal][1][0]; ell(320, y + 19, 11, 11); ctx.fill(); txt(PALETTES[d.pal][0], 400, y + 19, 17, '#fff', null); }
-    else if (i === 2) txt(ACCS[d.acc][0], 390, y + 19, 17, '#fff', null);
-    else if (i === 3) { ctx.fillStyle = BANDS[d.band]; rr(355, y + 9, 70, 20, 6); ctx.fill(); }
-    else if (i === 4) txt(CHARS[d.skill].skill.name, 390, y + 19, 17, '#ffdd33', null);
-    else if (i === 5) txt(CHARS[d.ult].ult.name, 390, y + 19, 17, '#ffab91', null);
-    else { const v = d[['hp', 'pw', 'sp'][i - 6]]; for (let k = 0; k < 5; k++) { ctx.fillStyle = k < v ? '#ff5252' : '#444'; rr(300 + k * 38, y + 11, 32, 16, 4); ctx.fill(); } }
-  });
-  // 미리보기
-  ctx.fillStyle = 'rgba(0,0,0,0.45)'; rr(570, 78, 370, 436, 14); ctx.fill();
-  drawPig(735, 330, 1, c.look, { scale: c.scale * 1.35, t: gT, victory: gT % 240 < 60 });
-  txt(c.name, 755, 104, 26, '#ffd54f', '#000', 5);
-  txt(`포인트 ${used} / ${STAT_BUDGET}`, 755, 362, 16, used >= STAT_BUDGET ? '#ff8a80' : '#69f0ae', null);
-  txt(`체력 ${c.hp} · 파워 ${c.power.toFixed(2)} · 스피드 ${c.speed.toFixed(2)}`, 755, 388, 15, '#fff', null);
-  txt(`스킬: ${c.skill.name} — ${c.skill.desc}`, 755, 420, 13, '#ffdd33', null);
-  txt(`필살기: ${c.ult.name} — ${c.ult.desc}`, 755, 444, 13, '#ffab91', null);
-  txt('스탯은 합계 9포인트까지만 → 너무 세지 않게!', 755, 480, 12, '#aaa', null);
-}
+// ================= 캐릭터 선택 칸 =================
+// (커스텀 캐릭터 만들기 기능은 뺐음 → 기본 캐릭터만. 예전 버전 상대가 커스텀을 보내도 첫 캐릭터로 대신함)
+const SEL_SLOTS = CHARS.length, SEL_COLS = 7;
+const getChar = i => CHARS[clamp(i | 0, 0, CHARS.length - 1)];
+const charDef = i => ({ idx: clamp(i | 0, 0, CHARS.length - 1), cos: { hat: inv.eq.hat, fx: inv.eq.fx } });
+const defToChar = d => withCos(CHARS[clamp((d && d.idx) | 0, 0, CHARS.length - 1)], d && d.cos);
 
 // ================= 온라인 1:1 (4자리 코드, WebRTC P2P) =================
 // 두 브라우저가 매 프레임 입력만 주고받고, 같은 시드로 똑같이 시뮬레이션한다 (락스텝).
@@ -2319,6 +2243,7 @@ const SKILL_SFX = {
   counter() { const b = bus(0, 0.4); whoosh(0.2, 0.3, 2500, 8000); nz(0.03, { v: 0.35, freq: 5000, type: 'highpass', at: 0.18, out: b }); },   // 스르릉 → 착
   teleport() { nz(0.15, { v: 0.3, freq: 6000, f2: 500, type: 'bandpass', q: 1, out: bus(-0.6, 0.4) }); nz(0.15, { v: 0.3, freq: 500, f2: 6000, type: 'bandpass', q: 1, at: 0.2, out: bus(0.6, 0.4) }); },   // 슉 … 슉
   uppercut() { whoosh(0.25, 0.35, 300, 5000); },   // 아래에서 위로 슈웅
+  boomerang() { whipS(1.35, 0.5); whoosh(0.35, 0.18, 1500, 4500, 0.05); },   // 휙 던지고 슈우웅
   boneSwing() { whipS(0.75, 0.75); thump(1.2, 0.35, 0.25, { hp: 800 }); },   // 무거운 갈빗대: 낮은 채찍 '부웅~착' + 딱
 };
 SFX.coin = () => { tone(1320, 0.08, 'sine', 0.08); setTimeout(() => tone(1760, 0.16, 'sine', 0.07), 70); };
@@ -2664,7 +2589,6 @@ const MENU = [
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
   ['🏮 포장마차 시장', '요리 팔기 · 꾸미기 상점', () => openMarket()],
   ['🏦 은행 · 빚 갚기', () => totalDebt() > 0 ? `빚 ${fmtN(totalDebt())} 남음` : '빚 청산 완료! 👑', () => { bk.sel = 0; scene = 'bank'; }],
-  ['✏️ 커스텀 캐릭터', '나만의 돼지 만들기', () => { ranked = false; selFor = 'run'; openEditor(); }],
   ['📊 랭킹', '랭크전 티어 · 최고 연승 TOP 100', () => openRanking(false)]
 ];
 let titleSel = 0;
@@ -3334,9 +3258,7 @@ function updateSelect() {
   if (pressed.KeyD || pressed.ArrowRight) i = (i + 1) % SEL_SLOTS;
   if (pressed.KeyW || pressed.KeyS || pressed.ArrowUp || pressed.ArrowDown) i = (i + SEL_COLS) % SEL_SLOTS;
   if (i !== sel.c1) { sel.c1 = i; SFX.select(); }
-  if (pressed.KeyC) { openEditor(); return; }
   if (pressed.KeyI || pressed.KeyJ || pressed.Space || pressed.Enter) {
-    if (!getChar(sel.c1)) { openEditor(); return; }
     SFX.confirm();
     if (selFor === 'online') { scene = 'online'; NET.err = ''; } else startRun();
   }
@@ -3351,7 +3273,6 @@ function step() {
   else if (scene === 'select') updateSelect();
   else if (scene === 'market') updateMarket();
   else if (scene === 'betpick') updateBetPick();
-  else if (scene === 'custom') updateCustom();
   else if (scene === 'online') updateOnline();
   else if (scene === 'ranking') updateRanking();
   else if (scene === 'story') updateStory();
@@ -4109,6 +4030,7 @@ function poseOf(f) {
       case 'stampede': p.victory = true; break;
       case 'absoluteZero': case 'beam': p.move = 'throw'; p.k = 1; break;
       case 'bodySlam': if (!f.landed) { p.victory = true; p.air = true; } else p.crouch = true; break;
+      case 'sliceRain': p.victory = T < 90; break;   // 두 팔 들고 냉삼을 부름
       case 'thousandCuts': p.move = 'punch'; p.k = 1; if (f.ultHit && T < 62) p.alpha = 0.15; break;
       case 'megaton': p.move = 'punch'; p.k = T < 36 ? 0 : 1; if (T < 36) p.aura = '#ffd600'; break;
     }
@@ -4287,16 +4209,14 @@ function drawSelect() {
   ctx.drawImage(bgC, 0, 0, W, H);
   ctx.fillStyle = 'rgba(10,5,20,0.75)'; ctx.fillRect(0, 0, W, H);
   txt('캐릭터 선택', W / 2, 36, 36, '#fff', '#000', 7);
-  txt('A/D/W/S 또는 방향키 이동 · I / Space / Enter 결정 · C 커스텀 만들기 · Esc 뒤로', W / 2, 64, 13, '#aaa', null);
+  txt('A/D/W/S 또는 방향키 이동 · I / Space / Enter 결정 · Esc 뒤로', W / 2, 64, 13, '#aaa', null);
   const cw = 126, ch = 112, gx = (W - SEL_COLS * cw) / 2, gy = 80;
   for (let i = 0; i < SEL_SLOTS; i++) {
     const c = getChar(i), x = gx + (i % SEL_COLS) * cw, y = gy + (i / SEL_COLS | 0) * ch;
-    ctx.fillStyle = i >= CUSTOM_IDX ? 'rgba(255,213,79,0.12)' : 'rgba(255,255,255,0.08)'; rr(x + 4, y + 4, cw - 8, ch - 8, 10); ctx.fill();
-    if (i === EDIT_IDX) { txt('✏️', x + cw / 2, y + 44, 30, '#fff', null); txt(customDef ? '커스텀 수정' : '커스텀 만들기', x + cw / 2, y + ch - 16, 14, '#ffd54f', '#000', 3); }
-    else if (!c) { txt('?', x + cw / 2, y + 48, 40, '#888', null); txt('커스텀 (비어 있음)', x + cw / 2, y + ch - 16, 12, '#aaa', null); }
-    else {
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(x + 4, y + 4, cw - 8, ch - 8, 10); ctx.fill();
+    {
       drawPig(x + cw / 2 - 6, y + ch - 26, 1, c.look, { scale: 0.5, t: gT + i * 10 });
-      txt(c.name, x + cw / 2, y + ch - 14, 15, i === CUSTOM_IDX ? '#ffd54f' : '#fff', '#000', 3);
+      txt(c.name, x + cw / 2, y + ch - 14, 15, '#fff', '#000', 3);
     }
     addHot(x + 4, y + 4, cw - 8, ch - 8, () => { if (sel.c1 === i) pressed.Enter = true; else { sel.c1 = i; SFX.select(); } });
     if (sel.c1 === i) { ctx.strokeStyle = gT % 20 < 10 ? '#ff5252' : '#ff8a80'; ctx.lineWidth = 5; rr(x + 3, y + 3, cw - 6, ch - 6, 10); ctx.stroke(); }
@@ -4385,7 +4305,6 @@ function draw() {
   ctx.save();
   if (scene === 'title') drawTitle();
   else if (scene === 'opening') drawOpening();
-  else if (scene === 'custom') drawCustom();
   else if (scene === 'online') drawOnline();
   else if (scene === 'market') drawMarket();
   else if (scene === 'betpick') drawBetPick();
@@ -4445,10 +4364,7 @@ if (/autotest/.test(location.search)) {
     scene = 'fight'; blackoutT = 100; draw(); blackoutT = 0;
     for (const sc of ['title', 'select', 'ranking']) { scene = sc; draw(); }
     scene = 'vs'; sceneT = 30; draw();
-    // 커스텀 캐릭터
-    openEditor(); for (ed.row = 1; ed.row <= 8; ed.row++) { edChange(1); edChange(1); } draw(); edSave(); draw();
-    out.push('custom: ' + JSON.stringify(customDef) + ' hp=' + getChar(CUSTOM_IDX).hp + ' pow=' + getChar(CUSTOM_IDX).power.toFixed(2));
-    sel.c1 = EDIT_IDX; draw(); scene = 'online'; draw(); scene = 'title'; draw();
+    scene = 'online'; draw(); scene = 'title'; draw();
     // 온라인 락스텝 결정성: 같은 시드 + 같은 입력이면 두 번 돌려도 결과가 같아야 한다
     const hsh = (k) => { let x = Math.imul(k ^ 0x9e3779b9, 2654435761) >>> 0; x ^= x >>> 15; return Math.imul(x, 0x85ebca6b) >>> 0; };
     const genIn = (n, side) => {
@@ -4462,7 +4378,7 @@ if (/autotest/.test(location.search)) {
     };
     const simRun = seed => {
       mode = 3; NET.me = p1; NET.names = ['A', 'B']; NET.code = '0000';
-      p1.setChar(CHARS[3]); p2.setChar(buildCustom({ ...CUSTOM_DEFAULT, skill: 7, ult: 8, acc: 5 }));
+      p1.setChar(CHARS[3]); p2.setChar(CHARS[8]);
       sseed(seed); startMatch(); let r = '';
       for (let n = 0; n < 12000; n++) {
         netIn = { p1: genIn(n, 1), p2: genIn(n, 2) }; step();
