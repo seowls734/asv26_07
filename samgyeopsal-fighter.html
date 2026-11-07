@@ -281,27 +281,91 @@ function noise(d, v = 0.3, freq = 1000, type = 'lowpass') {
   g.gain.setValueAtTime(v, n); g.gain.exponentialRampToValueAtTime(0.001, n + d);
   s.connect(f); f.connect(g); g.connect(master); s.start(n); s.stop(n + d);
 }
+// ---- 효과음 재료 (말소리·음성은 쓰지 않음: 전부 합성음) ----
+// 짧은 소리 여러 겹을 동시에 울려서 '탁(순간)+퍽(살)+쿵(몸통 울림)' 같은 타격감을 만든다
+let crunch = null;
+function crunchOut() {   // 살짝 찌그러뜨려(디스토션) 묵직하게
+  if (!crunch && AC) {
+    crunch = AC.createWaveShaper(); const c = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; c[i] = Math.tanh(x * 3.2); }
+    crunch.curve = c; const g = AC.createGain(); g.gain.value = 0.55; crunch.connect(g); g.connect(master);
+  }
+  return crunch;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+function osc(f, d, o = {}) {
+  if (!AC) return;
+  const { type = 'sine', v = 0.2, f2, at = 0, atk = 0.003, out } = o;
+  const s = AC.createOscillator(), g = AC.createGain(), n = AC.currentTime + at;
+  s.type = type; s.frequency.setValueAtTime(f, n); if (f2) s.frequency.exponentialRampToValueAtTime(f2, n + d);
+  g.gain.setValueAtTime(0.0001, n); g.gain.exponentialRampToValueAtTime(v, n + atk); g.gain.exponentialRampToValueAtTime(0.0001, n + d);
+  s.connect(g); g.connect(out || master); s.start(n); s.stop(n + d + 0.03);
+}
+function nz(d, o = {}) {
+  if (!AC) return;
+  const { v = 0.3, freq = 1000, f2, type = 'lowpass', q = 0.8, at = 0, atk = 0.002, out } = o;
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), n = AC.currentTime + at;
+  s.buffer = getNoise(); s.playbackRate.value = rnd(0.85, 1.15);
+  f.type = type; f.Q.value = q; f.frequency.setValueAtTime(freq, n); if (f2) f.frequency.exponentialRampToValueAtTime(f2, n + d);
+  g.gain.setValueAtTime(0.0001, n); g.gain.exponentialRampToValueAtTime(v, n + atk); g.gain.exponentialRampToValueAtTime(0.0001, n + d);
+  s.connect(f); f.connect(g); g.connect(out || master); s.start(n, Math.random() * 1.5); s.stop(n + d + 0.03);
+}
+// 타격음: p(0~1) = 세기. 셀수록 저음·여운·공기 터지는 소리 층이 더해짐
+let lastImpact = 0;
+function impact(p, kind) {
+  if (!AC) return;
+  p = clamp(p);
+  const now = AC.currentTime, rapid = now - lastImpact < 0.04; lastImpact = now;   // 연타가 한꺼번에 겹치면 귀가 아프지 않게 가볍게
+  nz(0.018, { v: rapid ? 0.25 : 0.45, freq: 6500, type: 'highpass' });                                              // 탁: 맞는 순간
+  nz(0.07 + p * 0.1, { v: 0.4 + p * 0.25, freq: kind === 'kick' ? 1000 : 1700, f2: 260 });                          // 퍽: 살 맞는 소리
+  osc(rnd(135, 165) - p * 55, 0.11 + p * 0.16, { v: (rapid ? 0.3 : 0.5) + p * 0.3, f2: 38, out: crunchOut() });     // 쿵: 몸통 울림
+  if (rapid) return;
+  if (p > 0.4) { osc(58, 0.22 + p * 0.25, { v: 0.5 * p, f2: 28 }); nz(0.2 + p * 0.3, { v: 0.2 * p, freq: 420, f2: 110, at: 0.015 }); }   // 묵직한 저음 + 여운
+  if (p > 0.75) nz(0.45, { v: 0.16, freq: 2600, f2: 500, type: 'bandpass', q: 1.8, at: 0.025 });                     // 아주 셀 때: 공기 터지는 소리
+}
+function whoosh(d = 0.15, v = 0.2, lo = 500, hi = 3200, at = 0) { nz(d, { v, freq: lo, f2: hi, type: 'bandpass', q: 1.4, at, atk: d * 0.4 }); }
 const SFX = {
-  punch() { noise(0.025, 0.5, 5000, 'highpass'); noise(0.1, 0.5, 1400); tone(140 + Math.random() * 30, 0.12, 'sine', 0.4, 60); },
-  kick() { noise(0.03, 0.6, 4000, 'highpass'); noise(0.2, 0.6, 800); tone(110 + Math.random() * 20, 0.22, 'sine', 0.55, 38); },
-  block() { tone(1200, 0.08, 'triangle', 0.15, 800); tone(1800, 0.05, 'square', 0.04); noise(0.05, 0.25, 5000, 'highpass'); },
-  whiff() { noise(0.08, 0.1, 3000, 'bandpass'); },
-  jump() { tone(300, 0.12, 'sine', 0.12, 600); },
-  special() { tone(200, 0.4, 'sawtooth', 0.15, 800); },
+  punch(dmg = 6) { impact(dmg / 20, 'punch'); },
+  kick(dmg = 9) { impact(dmg / 17, 'kick'); },
+  heavy(dmg = 16) { impact(Math.max(0.8, dmg / 16), 'kick'); },
+  counterHit() { osc(1760, 0.18, { type: 'triangle', v: 0.12 }); osc(2640, 0.14, { type: 'sine', v: 0.06, at: 0.02 }); },
+  block() { osc(rnd(1450, 1700), 0.1, { type: 'triangle', v: 0.17, f2: 1050 }); osc(2700, 0.05, { type: 'square', v: 0.035 }); nz(0.04, { v: 0.28, freq: 5200, type: 'highpass' }); osc(130, 0.08, { v: 0.18, f2: 70 }); },
+  whiff() { whoosh(0.13, 0.16, 600, 3400); },
+  jump() { osc(240, 0.13, { v: 0.09, f2: 520 }); whoosh(0.12, 0.08, 400, 1500); },
+  special() { osc(180, 0.35, { type: 'sawtooth', v: 0.07, f2: 720 }); whoosh(0.3, 0.14, 400, 4200); osc(1046, 0.25, { type: 'triangle', v: 0.05, at: 0.12 }); },
+  boom() {   // 폭발
+    osc(72, 0.65, { v: 0.6, f2: 28, out: crunchOut() }); nz(0.75, { v: 0.5, freq: 1300, f2: 140 }); nz(0.05, { v: 0.4, freq: 5000, type: 'highpass' });
+    for (let i = 0; i < 6; i++) nz(0.04, { v: 0.15, freq: 3500, type: 'highpass', at: rnd(0.08, 0.5) });   // 불똥 튀는 소리
+  },
+  splash() {   // 국물 쏟는 소리: 보글보글 + 촤악
+    whoosh(0.3, 0.22, 300, 1800);
+    for (let i = 0; i < 6; i++) osc(rnd(220, 480), 0.07, { v: 0.1, f2: rnd(650, 950), at: 0.05 + i * 0.05 });
+  },
   oink() { tone(420, 0.12, 'sawtooth', 0.15, 250); setTimeout(() => tone(380, 0.18, 'sawtooth', 0.15, 200), 130); },
   squeal() { tone(900, 0.6, 'sawtooth', 0.15, 1600); },
-  ko() { tone(400, 0.8, 'square', 0.2, 60); noise(0.5, 0.4, 600); },
+  ko() { impact(1, 'kick'); osc(320, 1.3, { type: 'square', v: 0.1, f2: 38, at: 0.05 }); nz(1.1, { v: 0.3, freq: 900, f2: 80, at: 0.05 }); osc(46, 1.2, { v: 0.4, f2: 25, at: 0.08 }); },
   chop() { noise(0.1, 0.6, 2500); tone(90, 0.12, 'square', 0.3, 40); },
   snip() { tone(2400, 0.04, 'square', 0.08); noise(0.04, 0.2, 5000, 'highpass'); },
   bell() { tone(880, 0.3, 'triangle', 0.2); setTimeout(() => tone(1320, 0.4, 'triangle', 0.2), 120); },
   tick() { tone(1000, 0.05, 'square', 0.08); },
-  gong() { tone(196, 1.4, 'sine', 0.35); tone(392, 1.1, 'triangle', 0.12); tone(587, 0.8, 'sine', 0.08); },
-  ultStart() { tone(150, 0.7, 'sawtooth', 0.18, 700); noise(0.5, 0.3, 800); },
-  transform() { tone(300, 0.5, 'square', 0.12, 1200); tone(450, 0.5, 'triangle', 0.12, 1800); },
-  fire() { noise(0.25, 0.35, 1200, 'bandpass'); tone(160, 0.2, 'sawtooth', 0.1, 90); },
-  ice() { tone(1800, 0.25, 'triangle', 0.12, 2600); noise(0.15, 0.15, 6000, 'highpass'); },
-  slam() { tone(70, 0.4, 'sine', 0.5, 35); noise(0.3, 0.5, 400); },
-  thud() { tone(90, 0.15, 'sine', 0.3, 50); noise(0.1, 0.25, 500); },
+  gong() { tone(196, 1.4, 'sine', 0.35); tone(392, 1.1, 'triangle', 0.12); tone(587, 0.8, 'sine', 0.08); osc(2349, 0.6, { type: 'sine', v: 0.04, at: 0.01 }); nz(0.05, { v: 0.25, freq: 5000, type: 'highpass' }); },
+  ultStart() {   // 필살기: 0.8초 동안 차오르다가 '쾅' + 화음
+    nz(0.85, { v: 0.22, freq: 180, f2: 5200, type: 'bandpass', q: 0.7, atk: 0.6 });
+    osc(70, 0.85, { type: 'sawtooth', v: 0.11, f2: 420, atk: 0.6 });
+    osc(55, 0.9, { v: 0.6, f2: 26, at: 0.78, out: crunchOut() }); nz(0.9, { v: 0.4, freq: 900, f2: 90, at: 0.78 });
+    [262, 330, 392, 523].forEach((f, i) => osc(f, 0.8, { type: 'sawtooth', v: 0.035, at: 0.78 + i * 0.01 }));
+  },
+  transform() { tone(300, 0.5, 'square', 0.12, 1200); tone(450, 0.5, 'triangle', 0.12, 1800); whoosh(0.5, 0.15, 300, 4000); },
+  fire() {   // 화르륵 + 타닥타닥
+    whoosh(0.35, 0.3, 700, 2600); osc(110, 0.3, { type: 'sawtooth', v: 0.07, f2: 65 });
+    for (let i = 0; i < 5; i++) nz(0.03, { v: 0.18, freq: 3200, type: 'highpass', at: rnd(0.02, 0.32) });
+  },
+  ice() {   // 쨍그랑 얼음 결정
+    [1760, 2349, 2637, 3136].forEach((f, i) => osc(f, 0.26, { type: 'triangle', v: 0.06, at: i * 0.035 }));
+    nz(0.18, { v: 0.15, freq: 7000, type: 'highpass' }); whoosh(0.15, 0.1, 1500, 6000);
+  },
+  slam() { impact(0.95, 'kick'); osc(48, 0.5, { v: 0.45, f2: 26, at: 0.01 }); nz(0.4, { v: 0.35, freq: 350, f2: 90 }); },
+  thud() { impact(0.5, 'kick'); },
   tender() { tone(140 + Math.random() * 40, 0.06, 'square', 0.15, 80); noise(0.05, 0.3, 1200); },
   partBreak() { tone(600, 0.15, 'square', 0.15, 300); noise(0.2, 0.4, 2000); },
   stamp() { tone(80, 0.3, 'square', 0.35, 40); noise(0.2, 0.5, 700); },
@@ -490,8 +554,8 @@ const NORM = {
   j_k:  { startup: 6,  active: 10, recovery: 8, dmg: 11, range: 170, height: 'mid',  kb: 8, stun: 22, pose: 'highkick', air: true }
 };
 const SKILLDEF = {
-  dash:          { startup: 10, active: 18, recovery: 18, dmg: 16, range: 150, height: 'mid', kb: 14, stun: 34, launch: -9, dash: 15, pose: 'dash', hitstop: 10, shake: 12, txt: ['꾸에엑!!', '쿠아앙!!'] },
-  armorShoulder: { startup: 12, active: 14, recovery: 22, dmg: 14, range: 150, height: 'mid', kb: 18, stun: 30, dash: 11, armor: true, guardBreak: true, pose: 'dash', hitstop: 12, shake: 14, txt: ['쿵!!', '가드 박살!'] },   // 막아도 뚫는 어깨 돌진 (띄우지 않고 멀리 밀어냄)
+  dash:          { sfx: 'heavy', startup: 10, active: 18, recovery: 18, dmg: 16, range: 150, height: 'mid', kb: 14, stun: 34, launch: -9, dash: 15, pose: 'dash', hitstop: 10, shake: 12, txt: ['꾸에엑!!', '쿠아앙!!'] },
+  armorShoulder: { sfx: 'heavy', startup: 12, active: 14, recovery: 22, dmg: 14, range: 150, height: 'mid', kb: 18, stun: 30, dash: 11, armor: true, guardBreak: true, pose: 'dash', hitstop: 12, shake: 14, txt: ['쿵!!', '가드 박살!'] },   // 막아도 뚫는 어깨 돌진 (띄우지 않고 멀리 밀어냄)
   launcher:      { startup: 9,  active: 8,  recovery: 18, dmg: 10, range: 175, height: 'low', kb: -11, stun: 48, dash: 4, pose: 'uppercut', hitstop: 8, shake: 6, txt: ['이리 와!', '엄니 걸기!'] },   // 엄니로 걸어 내 쪽으로 끌어당기고 오래 경직 (앉아도 맞음)
   // 밸런스: 전에는 너무 멀리(288px) 굴러 상대를 지나쳐 등 뒤에서 반격당함 → 이동거리↓ 사거리↑
   roll:          { startup: 4,  active: 18, recovery: 12, dmg: 12, range: 140, height: 'low', kb: 6, stun: 22, dash: 9, knockdown: true, invuln: true, invulnF: 14, pose: 'roll', txt: ['데굴!'] },
@@ -1044,7 +1108,7 @@ function startSkill(f, chain) {
   const s = f.ch.skill;
   f.skillCD = Math.round(s.cd * (f.tfIs('spicy') ? 0.5 : 1));
   startAtk(f, 'skill', { ...SKILLDEF[s.type], skill: true }, chain);
-  popText(f.x, f.y - 200 * f.sc / 1.15, s.name + '!', '#ffdd33', 26); SFX.special();
+  popText(f.x, f.y - 200 * f.sc / 1.15, s.name + '!', '#ffdd33', 26); SFX.special(); (SKILL_SFX[s.type] || (() => {}))();
 }
 function startTf(f) {
   f.tfG = 0; f.tfOn = true; f.tfT = 480; f.state = 'transforming'; f.af = 0; f.vx = 0;
@@ -1071,7 +1135,7 @@ function attackUpdate(f, o, inp) {
   if (a.proj && f.af === a.startup) {
     spawnProj(f, a.proj);
     if (f.tfIs('spicy') && a.proj.kind === 'fire') spawnProj(f, { ...a.proj, y: 50, speed: 9 });
-    (a.proj.kind === 'ice' ? SFX.ice : SFX.fire)();
+    ({ ice: SFX.ice, fire: SFX.fire, stew: SFX.splash }[a.proj.kind] || SFX.whiff)();
   }
   if (a.hits && f.atkHit && f.hitsDone < a.hits && f.af - f.lastHitF >= a.hitEvery) f.atkHit = false;
   // 콤보 입력 기억: 연결 가능한 순간보다 조금(10프레임) 일찍 눌러도 다음 공격으로 이어짐 (전엔 딱 맞춰 눌러야 해서 콤보가 어려웠음)
@@ -1103,7 +1167,7 @@ function spawnProj(f, p) {
 // 포물선 발사체가 땅에 닿으면 그 자리에서 넓게 터짐 (한 번만 맞음)
 function boomObj(o) {
   o.boom = 0; o.g = 0; o.vx = 0; o.vy = 0; o.y = GROUND - 50; o.w = 150; o.h = 100; o.life = 6; o.exploded = true;
-  shake = Math.max(shake, 7); SFX.fire();
+  shake = Math.max(shake, 7); SFX.boom();
   burst(o.x, GROUND - 20, 22, ['#ff5722', '#ff9800', '#ffeb3b'], 9);
   for (let i = 0; i < 6; i++) flame(o.x + rand(-60, 60), GROUND - rand(10, 50));
 }
@@ -1286,7 +1350,8 @@ function dealHit(a, d, h) {
   if (dmg >= 2) popText(d.x + rand(-24, 24), d.y - 170 * d.sc / 1.15, `-${dmg}`, '#ff8a80', 17);
   popText(hx, hy - 40, pick(h.txt || DEFTXT[h.kind] || DEFTXT.punch), '#fff', Math.min(46, 24 + dmg * 1.2));
   if (counterHit) popText(hx, hy - 80, '카운터!', '#ff1744', 24);
-  (SFX[h.sfx] || (dmg > 10 ? SFX.kick : SFX.punch))();
+  (SFX[h.sfx] || (h.kind === 'kick' || h.isKick ? SFX.kick : SFX.punch))(dmg * (h.kind === 'ult' || h.skill ? 1.3 : 1));   // 셀수록 묵직한 소리
+  if (counterHit) SFX.counterHit();
   if (Math.random() < 0.25) setTimeout(SFX.oink, 90);
   if (d.hp <= 0) {
     d.state = 'ko'; d.koT = 0; d.vy = -11; d.vx = (Math.sign(d.x - h.src) || -d.facing) * 9; d.atk = null;
@@ -2127,6 +2192,21 @@ const SHOP = [
 ];
 const COS_IDS = SHOP.filter(s => s.type !== 'use').map(s => s.id);
 const withCos = (ch, cos = inv.eq) => ({ ...ch, look: { ...ch.look, hat: COS_IDS.includes(cos && cos.hat) ? cos.hat : null, fx: COS_IDS.includes(cos && cos.fx) ? cos.fx : null } });
+// 스킬마다 다른 시전음 (발사체는 날아갈 때 따로 소리가 남)
+const SKILL_SFX = {
+  dash() { osc(85, 0.45, { type: 'sawtooth', v: 0.1, f2: 240, atk: 0.2 }); whoosh(0.35, 0.22, 300, 2400, 0.12); },                    // 돌진: 우르릉 → 휙
+  armorShoulder() { osc(65, 0.35, { type: 'square', v: 0.12, f2: 48 }); nz(0.3, { v: 0.2, freq: 300 }); osc(900, 0.12, { type: 'square', v: 0.05, f2: 600, at: 0.05 }); whoosh(0.3, 0.2, 250, 1600, 0.1); },   // 쇳소리 섞인 묵직한 어깨
+  launcher() { whoosh(0.18, 0.26, 4200, 500); osc(520, 0.16, { type: 'triangle', v: 0.1, f2: 180, at: 0.05 }); },                   // 엄니 걸기: 휙 걸어 당김
+  roll() { [0, 0.08, 0.16, 0.24].forEach(t => osc(150, 0.07, { v: 0.18, f2: 80, at: t })); whoosh(0.3, 0.12, 400, 1200); },            // 데굴데굴
+  iceProj() { osc(2200, 0.15, { type: 'triangle', v: 0.05, f2: 3200 }); },
+  fireProj() { osc(140, 0.25, { type: 'sawtooth', v: 0.06, f2: 300 }); },
+  stewSplash() { osc(300, 0.2, { v: 0.08, f2: 160 }); },
+  spinKick() { [0, 0.13, 0.26].forEach(t => whoosh(0.12, 0.22, 500, 3600, t)); },                                                     // 휙휙휙
+  counter() { osc(1320, 0.55, { type: 'triangle', v: 0.1 }); osc(1980, 0.45, { type: 'sine', v: 0.05, at: 0.02 }); nz(0.04, { v: 0.2, freq: 6000, type: 'highpass' }); },   // 반격 자세: 칼 뽑는 '팅'
+  teleport() { osc(2200, 0.12, { type: 'square', v: 0.045, f2: 180 }); whoosh(0.1, 0.2, 6000, 800); osc(180, 0.12, { type: 'square', v: 0.045, f2: 2200, at: 0.2 }); },   // 슝 사라졌다 슝 나타남
+  uppercut() { whoosh(0.22, 0.28, 450, 5200); osc(200, 0.22, { type: 'triangle', v: 0.08, f2: 950 }); },                             // 아래에서 위로 휙
+  boneSwing() { whoosh(0.3, 0.3, 250, 1500); osc(95, 0.25, { type: 'triangle', v: 0.08, f2: 60 }); },                                 // 긴 갈빗대 크게 휘두름
+};
 SFX.coin = () => { tone(1320, 0.08, 'square', 0.08); setTimeout(() => tone(1760, 0.18, 'square', 0.08), 70); };
 
 const mk = { tab: 0, sel: 0 };
