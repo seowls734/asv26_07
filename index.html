@@ -985,7 +985,7 @@ let flareI = -1, flareT = 0, flareNext = 0;
 function tileOf(x) { return clamp(Math.floor(x / 120), 0, 7); }
 function updateFloor() {
   const s = (ROUND_T - timer) / 60;
-  if (s >= 12 && --flareNext <= 0) { flareI = 1 + (srnd() * 6 | 0); flareT = 240; flareNext = 480; popText(flareI * 120 + 60, GROUND - 70, '불길 이동!', '#ff7043', 24); }
+  if (s >= 12 && --flareNext <= 0) { flareI = 1 + (srnd() * 6 | 0); flareT = 240; flareNext = 480; }   // (불길 이동 글씨는 뺐음)
   if (flareT > 0) flareT--;
   for (let i = 0; i < 8; i++) {
     const e = Math.abs(i - 3.5);
@@ -999,11 +999,11 @@ function updateFloor() {
     if (tp >= 70) {
       f.hp = Math.max(0, f.hp - (tp - 60) / 40 * 0.06);
       f.stamina = Math.max(0, f.stamina - 0.08);
-      if (f.hotT++ % 40 === 0) { popText(f.x, f.y - 175 * f.sc / 1.15, '앗 뜨거!', '#ff7043', 20); SFX.hot(); burst(f.x, GROUND - 2, 5, ['#ffab40', '#fff176'], 4); }
+      if (f.hotT++ % 40 === 0) { SFX.hot(); burst(f.x, GROUND - 2, 5, ['#ffab40', '#fff176'], 4); }
       if (f.hp <= 0) {
         f.state = 'ko'; f.koT = 0; f.vy = -12; f.vx = 0; hitstop = 20; shake = 12;
         SFX.ko(); setTimeout(SFX.squeal, 250);
-        popText(f.x, f.y - 150, '바싹 익음!', '#ff7043', 34);
+        // (바싹 익음 글씨는 뺐음)
         endRound(f.opp, 'K.O.!!');
       }
     } else f.hotT = 0;
@@ -1796,7 +1796,7 @@ function envUpdate(o) {
     for (const f of [p1, p2]) if (f.state !== 'ko' && Math.abs(f.x - o.x) < 60 * f.sc / 1.15 && f.y > GROUND - 140) { pickup(f, o.sub); o.life = 0; break; }
   } else if (o.kind === 'salt') {
     o.y += o.vy;
-    for (const f of [p1, p2]) if (f.state !== 'ko' && overlapD(o, f)) { f.hp = Math.max(1, f.hp - 2.5); f.flash = 4; popText(o.x, o.y, '따끔!', '#fff', 16); o.life = 0; SFX.block(); break; }
+    for (const f of [p1, p2]) if (f.state !== 'ko' && overlapD(o, f)) { f.hp = Math.max(1, f.hp - 2.5); f.flash = 4; o.life = 0; SFX.block(); break; }
     if (o.y > GROUND - 10) { o.life = 0; burst(o.x, GROUND - 10, 4, ['#ffffff', '#e0e0e0'], 3); }
   }
 }
@@ -3329,7 +3329,7 @@ function step() {
     else {
       updateFighters(false);
       if (scene === 'fight') {
-        updateObjs();   // (바닥 달아오름·불길 이동, 소금 우박·정전·아이템 같은 돌발 이벤트는 뺐음)
+        updateObjs(); updateFloor(); updateEvents();
         if (scene === 'fight') {
           timer--;
           if (timer % 60 === 0 && timer <= 600 && timer > 0) SFX.tick();
