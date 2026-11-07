@@ -99,6 +99,8 @@ function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x 
 function ell(x, y, rx, ry, rot = 0) { ctx.beginPath(); ctx.ellipse(x, y, Math.abs(rx), Math.abs(ry), rot, 0, Math.PI * 2); }
 function poly(pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); }
 function line(x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+// 글자가 maxW보다 넓으면 들어가도록 글자 크기를 줄여서 돌려줌 (최소 9px)
+function fitSize(s, size, maxW) { ctx.font = `900 ${size}px ${FONT}`; const w = ctx.measureText(s).width; return w > maxW ? Math.max(9, Math.floor(size * maxW / w)) : size; }
 function txt(s, x, y, size, fill, stroke = '#000', lw = 6, align = 'center') {
   ctx.font = `900 ${size}px ${FONT}`; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
   if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.strokeText(s, x, y); }
@@ -429,7 +431,8 @@ function cloudPull() {
 }
 function authExpired() { setAuth({ guest: true }); toast('🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
 document.addEventListener('visibilitychange', () => { if (document.hidden && cloudTimer) cloudPush(true); });   // 앱을 내리거나 닫을 때 바로 저장
-let playerName = lsGet('sgf_name', null) || ('돼지' + (100 + Math.random() * 900 | 0));
+// 닉네임: 회원은 회원가입 때 정한 아이디 그대로(바꿀 수 없음), 게스트는 N으로 정한 이름 또는 '돼지123'
+let playerName = isMember() ? auth.login : (lsGet('sgf_name', null) || ('돼지' + (100 + Math.random() * 900 | 0)));
 function getRank() { return lsGet('sgf_rank', []); }
 function saveRank(entry) {
   const r = getRank(); r.push(entry);
@@ -566,15 +569,17 @@ function drawPig(x, y, face, C, p = {}) {
   }
   const filt = ((p.flash ? 'brightness(2.5) ' : '') + (p.filter || '')).trim();
   if (filt) ctx.filter = filt;
-  if (p.crouch) ctx.scale(1, 0.72);
+  // crouchK·hurtK·blockK·walkK: 싸우는 돼지는 smoothPose가 0~1로 부드럽게 넣어 줌. 없으면(메뉴 그림 등) 예전처럼 켜짐/꺼짐
+  const ck = p.crouchK ?? (p.crouch ? 1 : 0), hk = p.hurtK ?? (p.hurt ? 1 : 0), bk2 = p.blockK ?? (p.block ? 1 : 0), wk = p.walkK ?? (p.walk ? 1 : 0);
+  if (ck > 0.005) ctx.scale(1, 1 - 0.28 * ck);
   if (p.ko) { ctx.translate(0, -46 * p.ko); ctx.rotate(Math.PI / 2 * p.ko); }
-  else if (p.hurt) ctx.rotate(-0.22);
-  else if (mv === 'dash') ctx.rotate(0.38 * k);
+  else if (mv === 'dash') ctx.rotate(0.38 * k - 0.22 * hk);
+  else if (hk > 0.005) ctx.rotate(-0.22 * hk);
   if (p.tilt) ctx.rotate(p.tilt);
   if (p.roll !== undefined) { ctx.translate(0, -60); ctx.rotate(p.roll); ctx.translate(0, 60); }
   if (p.spin !== undefined && Math.cos(p.spin) < 0) ctx.scale(-1, 1);
-  const bob = p.ko ? 0 : p.walk ? -Math.abs(Math.sin(t * 0.25)) * 5 : Math.sin(t * 0.07) * 2;
-  const by = bob + (p.block ? 6 : 0), sw = p.walk ? Math.sin(t * 0.25) * 10 : 0;
+  const bob = p.ko ? 0 : -Math.abs(Math.sin(t * 0.25)) * 5 * wk + Math.sin(t * 0.07) * 2 * (1 - wk);   // 걷기 ↔ 서 있기 흔들림을 섞어서 전환
+  const by = bob + 6 * bk2, sw = Math.sin(t * 0.25) * 10 * wk;
   const air = p.air || p.roll !== undefined;
   const gl = acc.includes('gloves'), hc = gl ? '#e53935' : null, hr = gl ? 12 : null;
 
@@ -1824,13 +1829,13 @@ function onNet(m) {
   if (!m || typeof m !== 'object') return;
   NET.lastRecv = performance.now();
   if (m.t === 'hello') {
-    NET.theirName = String(m.name || '상대').slice(0, 8); NET.theirDef = m.def; NET.theirTp = m.tp | 0;
+    NET.theirName = String(m.name || '상대').slice(0, 16); NET.theirDef = m.def; NET.theirTp = m.tp | 0;
     if (NET.host && !NET.ready) {
       const seed = (Math.random() * 4294967296) >>> 0, myDef = charDef(sel.c1);
       netSend({ t: 'start', seed, hostName: playerName, hostDef: myDef, hostTp: tp }); NET.tps = [tp, NET.theirTp];
       beginNet(seed, playerName, myDef, NET.theirName, NET.theirDef);
     }
-  } else if (m.t === 'start' && !NET.host) (NET.tps = [m.hostTp | 0, tp], beginNet(m.seed, String(m.hostName || '상대').slice(0, 8), m.hostDef, playerName, charDef(sel.c1)));
+  } else if (m.t === 'start' && !NET.host) (NET.tps = [m.hostTp | 0, tp], beginNet(m.seed, String(m.hostName || '상대').slice(0, 16), m.hostDef, playerName, charDef(sel.c1)));
   else if (m.t === 'i') NET.remote[m.f] = m.b | 0;
   else if (m.t === 'bye') netLost('상대가 방을 나갔어요');
 }
@@ -2103,7 +2108,7 @@ function drawDishIcon(k, x, y, sc = 1) {
 function drawMarket() {
   drawStage(); ctx.fillStyle = 'rgba(15,8,25,0.78)'; ctx.fillRect(0, 0, W, H);
   txt('🏮 포장마차 시장', W / 2, 34, 32, '#ffcc80', '#000', 6);
-  txt(`🪙 ${coins} 코인`, W - 24, 34, 20, '#ffd740', '#000', 4, 'right');
+  txt(`🪙 ${fmtN(coins)} 코인`, W - 24, 34, 20, '#ffd740', '#000', 4, 'right');
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 18, 80, 32, 8); ctx.fill(); txt('← 나가기', 54, 34, 13, '#fff', null);
   addHot(14, 18, 80, 32, () => { pressed.Escape = true; });
   ['🧊 냉장고 (요리 팔기)', '🛒 상점 (코인 쓰기)'].forEach((s, i) => {
@@ -2136,7 +2141,7 @@ function drawMarket() {
       addHot(770, y + 5, 100, 28, () => { mk.sel = i; pressed.Enter = true; });
     }
     const total = fridge.reduce((s, d) => s + dishPrice(d, per), 0);
-    ctx.fillStyle = '#ef6c00'; rr(W / 2 - 150, 486, 300, 40, 10); ctx.fill(); txt(`[X] 전부 팔기 (+${total} 코인)`, W / 2, 506, 17, '#fff', null);
+    ctx.fillStyle = '#ef6c00'; rr(W / 2 - 150, 486, 300, 40, 10); ctx.fill(); txt(`[X] 전부 팔기 (+${fmtN(total)} 코인)`, W / 2, 506, 17, '#fff', null);
     addHot(W / 2 - 150, 486, 300, 40, () => { pressed.KeyX = true; });
   } else {
     txt(`보유: 필살50% ${inv.use.meter || 0} · 강철체력 ${inv.use.hpup || 0} · 부활권 ${inv.use.revive || 0}   (꾸미기는 내 돼지에게 표시, 온라인 상대에게도 보여요)`, W / 2, 118, 13, '#fff59d', null);
@@ -2147,7 +2152,7 @@ function drawMarket() {
       addHot(x, y, 196, 112, () => { if (mk.sel === i) pressed.Enter = true; else mk.sel = i; });
       if (it.type === 'use') txt({ meter: '⚡', hpup: '🛡️', revive: '💖' }[it.id], x + 44, y + 52, 36, '#fff', null);
       else { const lk = { ...CHARS[0].look, hat: it.type === 'hat' ? it.id : null, fx: it.type === 'fx' ? it.id : null }; ctx.save(); ctx.beginPath(); ctx.rect(x, y, 100, 112); ctx.clip(); drawPig(x + 40, y + 104, 1, lk, { scale: 0.55, t: gT }); ctx.restore(); }
-      txt(it.name, x + 145, y + 30, 15, '#fff', null);
+      txt(it.name, x + 145, y + 30, fitSize(it.name, 15, 92), '#fff', null);   // 카드(오른쪽 끝 x+196) 밖으로 안 나가게
       txt(it.type === 'use' ? `보유 ${inv.use[it.id] || 0}` : eq ? '장착 중' : own ? '보유 (탭=장착)' : '', x + 145, y + 54, 12, eq ? '#69f0ae' : '#bbb', null);
       if (it.desc) txt(it.desc, x + 98, y + 100, 10, '#aaa', null);
       if (!own || it.type === 'use') txt(`🪙 ${it.price}`, x + 145, y + 78, 16, coins >= it.price ? '#ffd740' : '#ff8a80', null);
@@ -2187,7 +2192,7 @@ function updateBetPick() {
 function drawBetPick() {
   drawStage(); ctx.fillStyle = 'rgba(15,8,25,0.7)'; ctx.fillRect(0, 0, W, H);
   txt('🎲 AI 경기 베팅', W / 2, 32, 32, '#fff', '#000', 6);
-  txt(`🪙 ${coins} 코인`, W - 24, 32, 20, '#ffd740', '#000', 4, 'right');
+  txt(`🪙 ${fmtN(coins)} 코인`, W - 24, 32, 20, '#ffd740', '#000', 4, 'right');
   txt('이길 것 같은 돼지를 고르고 코인을 거세요!  배당이 높을수록 이변!', W / 2, 62, 15, '#ffe082', null);
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 16, 80, 32, 8); ctx.fill(); txt('← 나가기', 54, 32, 13, '#fff', null);
   addHot(14, 16, 80, 32, () => { pressed.Escape = true; });
@@ -2207,12 +2212,12 @@ function drawBetPick() {
   ['구경만', '10%', '25%', '50%', '올인!'].forEach((s, i) => {
     const x = W / 2 - 300 + i * 122, on = bet4.amt === i, v = i ? Math.max(1, Math.floor(coins * BET_PCT[i])) : 0;
     ctx.fillStyle = on ? (i === 4 ? '#ff1744' : '#ffb300') : 'rgba(255,255,255,0.12)'; rr(x, 398, 112, 50, 10); ctx.fill();
-    txt(`${i + 1}. ${s}`, x + 56, 414, 15, on ? '#000' : '#fff', null); txt(i ? `${Math.min(v, coins)}코인` : '0코인', x + 56, 434, 12, on ? '#222' : '#ccc', null);
+    txt(`${i + 1}. ${s}`, x + 56, 414, 15, on ? '#000' : '#fff', null); txt(i ? `${fmtN(Math.min(v, coins))}코인` : '0코인', x + 56, 434, 12, on ? '#222' : '#ccc', null);
     addHot(x, 398, 112, 50, () => { bet4.amt = i; SFX.select(); });
   });
   const od = bet4.side ? bet4.ob : bet4.oa, st = bet4.amt ? Math.min(coins, Math.max(1, Math.floor(coins * BET_PCT[bet4.amt]))) : 0;
   ctx.fillStyle = '#e53935'; rr(W / 2 - 170, 462, 340, 50, 12); ctx.fill();
-  txt(st ? `🔔 경기 시작! (적중 시 +${Math.round(st * od)})` : '🔔 경기 시작! (구경만)', W / 2, 487, 18, '#fff', '#000', 4);
+  txt(st ? `🔔 경기 시작! (적중 시 +${fmtN(st * od)})` : '🔔 경기 시작! (구경만)', W / 2, 487, 18, '#fff', '#000', 4);
   addHot(W / 2 - 170, 462, 340, 50, () => { pressed.Enter = true; });
   txt('A/D 고르기 · W/S 금액 · Enter 시작 · R 다른 대진', W / 2, 528, 12, '#aaa', null);
 }
@@ -2279,7 +2284,7 @@ function drawPortrait(cx, cy, r, C, face) {
 
 // ================= 타이틀 메뉴 =================
 const MENU = [
-  ['🏆 랭크전', () => isMember() ? '티어에 맞춰 강해지는 CPU · 랭킹 반영' : '티어에 맞춰 강해지는 CPU · 게스트는 랭킹 미반영', () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }],
+  ['🏆 랭크전', () => isMember() ? '티어에 맞춰 강해지는 CPU · 랭킹 반영' : '티어별 CPU · 게스트는 랭킹 미반영', () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }],
   ['🔥 연승 모드', 'CPU와 끝없는 연승 도전 (랭킹 미반영)', () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; }],
   ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; ranked = false; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
@@ -2295,6 +2300,7 @@ function updateTitle() {
   let go = pressed.Enter || pressed.Space || pressed.KeyI;
   for (let i = 0; i < MENU.length; i++) if (pressed['Digit' + (i + 1)] || pressed['Numpad' + (i + 1)]) { titleSel = i; go = true; }
   if (go) { SFX.confirm(); MENU[titleSel][2](); }
+  else if (pressed.KeyN && isMember()) toast(`👤 회원 닉네임은 아이디(${auth.login})와 같아요`);
   else if (pressed.KeyN) {
     const n = window.prompt('닉네임 (최대 8글자)', playerName);
     for (const k in keys) keys[k] = false;
@@ -2312,8 +2318,12 @@ function drawTitle() {
   txt('삼겹살 파이터', W / 2, 62 + b, 70, '#ffc1d0', '#5a1a2a', 14); ctx.restore();
   txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
   const best = getRank().filter(r => r.name === playerName).reduce((m, r) => Math.max(m, r.streak), 0);
-  const tw = drawTierBadge(W / 2 - 330, 138, tp, 12, 'left');
-  txt(`👤 ${playerName} [N]  ·  🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`, W / 2 + tw / 2, 139, 14, '#e0e0e0', '#000', 4);
+  // 티어 배지 + 상태 줄을 한 덩어리로 가운데 정렬 (숫자가 길어져도 배지와 겹치지 않게, 너무 길면 글자를 줄임)
+  const stat = `👤 ${playerName}${isMember() ? '' : ' [N]'}  ·🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`;
+  ctx.font = `900 12px ${FONT}`; const bw = ctx.measureText(`🏅 ${TIERS[tierOf(tp)][0]}`).width + 16;
+  const ss = fitSize(stat, 14, W - 60 - bw), sw = (ctx.font = `900 ${ss}px ${FONT}`, ctx.measureText(stat).width), sx = W / 2 - (bw + 10 + sw) / 2;
+  drawTierBadge(sx, 138, tp, 12, 'left');
+  txt(stat, sx + bw + 10, 139, ss, '#e0e0e0', '#000', 4, 'left');
   if (coins < 10 && gT % 60 < 40) txt("💸 파산 직전! 🏦 은행에서 대출받으세요", W / 2, 464, 15, '#ff8a80', '#000', 4);
   addHot(W / 2 - 300, 128, 600, 24, () => { pressed.KeyN = true; });
   // 왼쪽 위: 계정 버튼 (게스트 → 로그인·가입 / 회원 → 내 계정)
@@ -2489,7 +2499,7 @@ function drawBank() {
   const boss = { ...CHARS[2].look, body: '#6d4c41', dark: '#2b1a14', hat: 'sunglass' };
   drawPig(110, 494, 1, boss, { scale: 0.7, t: gT });
   const say = cleared ? '"...다 갚았군. 인정한다."' : repaid >= 0.75 ? '"거의 다 왔군. 도망칠 생각 마라."' : repaid >= 0.5 ? '"절반이라... 이자는 계속 붙는다."' : repaid >= 0.25 ? '"오호, 제법인데?"' : '"갚을 돈은 언제 가져오나? 삼겹살이 되고 싶나?"';
-  txt('멧돼지 실장', 168, 430, 13, '#ffab91', null, 0, 'left'); txt(say, 168, 456, 14, '#fff', null, 0, 'left');
+  txt('멧돼지 실장', 168, 430, 13, '#ffab91', null, 0, 'left'); txt(say, 168, 456, fitSize(say, 14, 440 - 168), '#fff', null, 0, 'left');   // 왼쪽 패널(오른쪽 끝 450) 안에 들어가게
   // 오른쪽: 행동
   BANK_ACTS.forEach(([label], i) => {
     const x = 474 + (i % 2) * 230, y = 64 + (i >> 1) * 76, on = bk.sel === i;
@@ -2529,7 +2539,7 @@ function uploadRank() {
   // 티어는 지금 티어(떨어지면 순위도 내려감), 연승은 랭크전 최고 연승(오르기만 함). 랭크전을 안 해 봤으면 올리지 않음
   // 게스트는 랭킹에 올리지 않음. 회원은 계정 번호(uid)로 올림 → 어느 기기에서 해도 같은 줄
   if (!RANK_DBS.length || !isMember() || !lsGet('sgf_ranked', false)) return Promise.resolve();
-  const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_rbest', 0), t: Date.now() };
+  const body = { name: playerName.slice(0, 16), tier: tierOf(tp), tp, streak: lsGet('sgf_rbest', 0), t: Date.now() };
   return rankAll(`/rank/${auth.uid}.json`, { method: 'PUT', body: JSON.stringify(body) });
 }
 // 계정 기능 전에 이 기기 번호(pid)로 올라가 있던 옛 랭킹 기록은 한 번 지움 (게스트 선택 또는 로그인 때)
@@ -2593,7 +2603,7 @@ function drawRanking() {
         const i = rk.page * 10 + r, y = 140 + r * 32, me = isMember() && v.id === auth.uid;
         if (me) { ctx.fillStyle = 'rgba(255,213,79,0.25)'; rr(60, y - 14, 840, 28, 8); ctx.fill(); }
         const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
-        txt(`${i + 1}`, 120, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 8) + (me ? ' (나)' : ''), 320, y, 17, col, '#000', 3);
+        txt(`${i + 1}`, 120, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 16) + (me ? ' (나)' : ''), 320, y, 17, col, '#000', 3);
         drawTierBadge(560, y, v.tp, 12);
         txt(`${v.streak || 0}연승`, 780, y, 16, '#fff', null);
       });
@@ -3066,7 +3076,7 @@ function computeGrade(w) {
 }
 function drawStamp(x, y, l1, l2, sc, rot) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc); ctx.globalAlpha *= 0.92;
-  ctx.fillStyle = 'rgba(255,255,255,0.25)'; rr(-140, -56, 280, 112, 18); ctx.fill();
+  ctx.fillStyle = 'rgba(255,248,240,0.96)'; rr(-140, -56, 280, 112, 18); ctx.fill();   // 뒤 배경 글씨(간판 등)가 비쳐서 겹쳐 보이지 않게 불투명하게
   ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 7; rr(-140, -56, 280, 112, 18); ctx.stroke();
   ctx.lineWidth = 3; rr(-128, -44, 256, 88, 10); ctx.stroke();
   txt(l1, 0, l2 ? -12 : 0, l1.length > 8 ? 26 : 34, '#d32f2f', null);
@@ -3509,7 +3519,7 @@ function drawFinal(f) {
     const parts2 = [];
     if (e.win) parts2.push(`승리 +${e.win}`); if (e.bet > 0) parts2.push(`베팅 적중 +${e.bet}`); if (e.bet < 0) parts2.push(`베팅 꽝 ${e.bet}`); if (cut.fridged) parts2.push(`🧊 ${cut.dish.name} 냉장고행`); if (mode === 4 && !e.bet) parts2.push('구경만 했어요');
     txt(parts2.join(' · '), 174, 296, 13, '#fff', null);
-    txt(`보유 ${coins} 코인`, 174, 326, 16, '#ffe082', null);
+    txt(`보유 ${fmtN(coins)} 코인`, 174, 326, 16, '#ffe082', null);
   }
   if ((mode === 1 || mode === 3) && f > 1.9) {   // 티어(랭크전만) · 사채 이자 안내
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; rr(24, 356, 300, 62, 12); ctx.fill();
@@ -3564,7 +3574,9 @@ function poseOf(f) {
   if (st === 'block' || st === 'cblock' || st === 'blockstun') p.block = true;
   if (st === 'attack') {
     const a = f.atk, af = f.af;
-    p.k = af < a.startup ? af / a.startup * 0.3 : af < a.startup + a.active ? 1 : 1 - (af - a.startup - a.active) / Math.max(1, a.recovery);
+    // 준비 동작은 부드럽게 끝까지 뻗고(가속→감속), 회수도 감속 곡선으로 → 30%에서 100%로 튀던 동작 개선
+    const eo = x => 1 - (1 - x) * (1 - x);
+    p.k = af < a.startup ? eo(af / a.startup) * 0.85 : af < a.startup + a.active ? 1 : 1 - eo(clamp((af - a.startup - a.active) / Math.max(1, a.recovery)));
     p.move = a.pose; if (a.crouch) p.crouch = true;
     if (a.pose === 'roll') { p.roll = af * 0.5; p.move = null; }
     if (a.pose === 'spin') { p.spin = af * 0.4; p.move = 'highkick'; p.k = af >= a.startup && af < a.startup + a.active ? 1 : p.k; }
@@ -3606,8 +3618,18 @@ function poseOf(f) {
   if (f.drunkT > 0 && f.state !== 'ko') { p.tilt = Math.sin(f.t * 0.12) * 0.18; p.filter = (p.filter || '') + ' saturate(1.4) hue-rotate(-12deg)'; }
   return p;
 }
+// 자세가 한 번에 '툭' 바뀌지 않게: 앉기·맞음(몸 기울기)·막기·걷기를 몇 프레임에 걸쳐 부드럽게 바꿈 (화면 표시만, 판정과 무관)
+function smoothPose(f, p) {
+  const v = f._vis || (f._vis = { c: 0, h: 0, b: 0, w: 0, lt: f.t });
+  const d = f.t - v.lt, n = Math.max(0, Math.min(10, d)); v.lt = f.t;   // 지난번 그린 뒤 지나간 게임 프레임 수 (화면 주사율과 상관없이 같은 속도)
+  if (d < 0 || d > 9) Object.assign(v, { c: p.crouch ? 1 : 0, h: p.hurt ? 1 : 0, b: p.block ? 1 : 0, w: p.walk ? 1 : 0 });   // 새 라운드·오래 안 그린 경우는 바로 맞춤
+  const go = (cur, on, rate) => cur + ((on ? 1 : 0) - cur) * (1 - Math.pow(1 - rate, n));
+  v.c = go(v.c, p.crouch, 0.45); v.h = go(v.h, p.hurt, 0.5); v.b = go(v.b, p.block, 0.45); v.w = go(v.w, p.walk, 0.25);
+  p.crouchK = v.c; p.hurtK = v.h; p.blockK = v.b; p.walkK = v.w;
+  return p;
+}
 function drawFighter(f) {
-  const p = poseOf(f), s = f.sc / 1.15;
+  const p = smoothPose(f, poseOf(f)), s = f.sc / 1.15;
   const k = clamp(1 - (GROUND - f.y) / 300);
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ell(f.x, GROUND + 2, 50 * k * s, 9 * k); ctx.fill();
   if (f.tfIs('clone')) drawPig(f.x - f.facing * 45 * s, f.y, f.facing, f.C, { ...p, alpha: 0.35, aura: null });
@@ -3727,6 +3749,11 @@ function drawFight() {
   drawHUD();
   if (evBannerT > 0 && scene === 'fight') { ctx.globalAlpha = clamp(evBannerT / 20); ctx.fillStyle = 'rgba(0,0,0,0.6)'; rr(W / 2 - 250, 96, 500, 34, 10); ctx.fill(); txt(evBanner, W / 2, 113, 17, '#fff59d', null); ctx.globalAlpha = 1; }
   if (superFreeze > 0 && superOwner) drawSuperBanner();
+  // 라운드 큰 글씨 뒤에 어두운 띠: 배경 네온 간판(꿀꿀 포차 · 철판 대난투)과 글자가 섞여 보이지 않게
+  if (scene === 'intro' || (scene === 'roundEnd' && sceneT > 5)) {
+    ctx.save(); ctx.globalAlpha = clamp((scene === 'intro' ? sceneT : sceneT - 5) / 12) * 0.7;
+    ctx.fillStyle = '#0a0514'; ctx.fillRect(0, H / 2 - 125, W, 165); ctx.restore();
+  }
   if (scene === 'intro') {
     if (sceneT < 75) txt(p1.wins === 1 && p2.wins === 1 ? 'FINAL ROUND' : `ROUND ${round}`, W / 2, H / 2 - 40, 64, '#fff', '#000', 10);
     else txt('FIGHT!', W / 2, H / 2 - 40, 80 * (1 + clamp((90 - sceneT) / 30)), '#ffeb3b', '#c62828', 12);
@@ -3815,14 +3842,15 @@ function drawVs() {
     txt('VS', W / 2, H / 2 - 40, 120 * (1 + (1 - k)), '#ffeb3b', '#000', 14);
     return;
   }
-  txt(playerName, 220, 470, 36, '#fff', '#000', 8); txt(`${p1.base} · ${p1.ch.title}`, 220, 505, 18, '#ffcdd2', '#000', 4);
+  txt(playerName, 220, 470, fitSize(playerName, 36, 400), '#fff', '#000', 8); txt(`${p1.base} · ${p1.ch.title}`, 220, 505, 18, '#ffcdd2', '#000', 4);
   txt(`${p2.base} Lv.${oppLv() + 1}`, 740, 470, 36, '#fff', '#000', 8); txt(p2.ch.title, 740, 505, 18, '#bbdefb', '#000', 4);
   txt(streak === 0 ? '첫 번째 상대!' : `현재 ${streak}연승 · ${streak + 1}번째 도전자`, W / 2, 50, 28, '#ffeb3b', '#000', 6);
-  txt('VS', W / 2, H / 2 - 40, 120 * (1 + (1 - k)), '#ffeb3b', '#000', 14);
+  const betUI = mode === 1 && coins > 0;   // 베팅 창이 떠 있으면 VS를 아래로 내리고 조금 작게 (창 글씨와 겹치지 않게)
+  txt('VS', W / 2, betUI ? H / 2 + 5 : H / 2 - 40, (betUI ? 96 : 120) * (1 + (1 - k)), '#ffeb3b', '#000', 14);
   if (mode === 1 && coins > 0) {
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 300, 88, 600, 118, 14); ctx.fill();
-    txt(`🪙 운명의 베팅 (보유 ${coins} 코인) — 남은 시간 ${Math.max(0, Math.ceil((600 - sceneT) / 60))}초`, W / 2, 108, 16, '#ffd740', null);
-    const opts = [['베팅 안 함', '안전하게'], [`절반 ${Math.floor(coins / 2)}`, '이기면 2배'], [`올인 ${coins}`, '이기면 3배!']];
+    txt(`🪙 운명의 베팅 (보유 ${fmtN(coins)} 코인) — 남은 시간 ${Math.max(0, Math.ceil((600 - sceneT) / 60))}초`, W / 2, 108, 16, '#ffd740', null);
+    const opts = [['베팅 안 함', '안전하게'], [`절반 ${fmtN(Math.floor(coins / 2))}`, '이기면 2배'], [`올인 ${fmtN(coins)}`, '이기면 3배!']];
     opts.forEach(([a, b], i) => {
       const x = W / 2 - 285 + i * 192, y = 124, on = betSel === i;
       ctx.fillStyle = on ? (i === 2 ? '#ff5252' : '#ffd740') : 'rgba(255,255,255,0.15)'; rr(x, y, 180, 50, 10); ctx.fill();
@@ -4000,9 +4028,9 @@ function authSubmit() {
   if (pw.length < 4) return authBusy(false, '비밀번호는 4자 이상이에요');
   if (page === 'signup' && pw !== authEl.querySelector('#a_pw2').value) return authBusy(false, '비밀번호 확인이 달라요');
   authBusy(true, '잠시만요...');
-  if (page === 'signup' && !lsGet('sgf_name', null)) { playerName = id.slice(0, 8); lsSet('sgf_name', playerName); }   // 닉네임을 정한 적 없으면 아이디로
-  const req = page === 'signup' ? authFetch('/signup', 'POST', { login: id, pw, save: collectSave() }) : authFetch('/login', 'POST', { login: id, pw });
+  const req = page === 'signup' ? authFetch('/signup', 'POST', { login: id, pw, save: collectSave() }) :authFetch('/login', 'POST', { login: id, pw });
   req.then(d => {
+    playerName = d.login;   // 회원 닉네임 = 아이디
     setAuth({ uid: d.uid, login: d.login, token: d.token, syncT: d.saved || 0 });
     dropLegacyRank();
     if (page === 'login' && d.save) {   // 계정에 저장된 기록으로 바꾸고 다시 시작
@@ -4049,13 +4077,19 @@ else if (VIEW && VIEW.startsWith('story')) { startStory('intro'); story.i = +(VI
 if (NETTEST) { sel.c1 = NETTEST === 'host' ? 3 : 7; playerName = NETTEST; NET.code = new URLSearchParams(location.search).get('code') || '4321'; scene = 'online'; if (NETTEST === 'host') netHost(); else setTimeout(netJoin, 6000); setInterval(() => console.log('NETSTATUS ' + NET.status + ' | ' + NET.err + ' | f=' + NET.f), 5000); }
 if (!location.search && !lsGet('sgf_story_seen', false)) startStory('intro');
 else if (!auth && !AUTH_TEST) openAuth('choose');   // 오프닝은 봤지만 아직 게스트/회원을 고르지 않은 사람 (기존 플레이어)
-if (isMember() && !lsGet('sgf_name', null)) { playerName = auth.login.slice(0, 8); lsSet('sgf_name', playerName); }   // 회원 닉네임 기본값 = 아이디 (접속마다 이름이 바뀌지 않게)
 cloudPull();   // 회원: 다른 기기에서 더 최근에 한 기록이 있으면 받아 옴
 try { const m = sessionStorage.getItem('sgf_msg'); if (m) { sessionStorage.removeItem('sgf_msg'); toast(m); } } catch (e) {}
 if (!/autotest|view=|shot=|nettest/i.test(location.search)) rankedForfeit();   // 지난번 랭크전 판을 끝내지 않고 창을 닫았으면 패배 처리
 let last = performance.now(), acc = 0;
 function frame(now) {
-  acc += Math.min(100, now - last); last = now;
+  // 화면 갱신 간격의 미세한 흔들림(16.4ms, 16.9ms…)을 정확히 1프레임(16.67ms)으로 맞춤.
+  // 안 맞추면 어떤 화면은 게임이 0번, 어떤 화면은 2번 진행돼서 움직임이 툭툭 끊겨 보임. 120Hz 화면은 2번에 1번 진행.
+  let dt = Math.min(100, now - last); last = now;
+  const STEP = 1000 / 60;
+  if (Math.abs(dt - STEP) < 2) dt = STEP;
+  else if (Math.abs(dt - STEP / 2) < 1.2) dt = STEP / 2;
+  acc += dt;
+  if (acc > STEP * 0.98 && acc < STEP) acc = STEP;   // 소수점 오차 때문에 한 프레임 밀리지 않게
   if (pressed.KeyM) { toggleMute(); delete pressed.KeyM; }
   if (pressed.KeyF && mode === 4) { bet4.fast = !bet4.fast; delete pressed.KeyF; }
   while (acc >= 1000 / 60) {

@@ -51,7 +51,7 @@ export default {
       const id = m[1];
       if (req.method === 'PUT') {
         let b; try { b = await req.json(); } catch (e) { return json({ error: 'JSON 형식이 아니에요' }, 400); }
-        const row = [id, String(b.name || '?').slice(0, 8), int(b.tier, 0, 99), int(b.tp, 0, 1e6), int(b.streak, 0, 1e5), int(b.t, 0, 9e15)];
+        const row = [id, String(b.name || '?').slice(0, 16), int(b.tier, 0, 99), int(b.tp, 0, 1e6), int(b.streak, 0, 1e5), int(b.t, 0, 9e15)];
         await env.DB.prepare('INSERT INTO rank (id, name, tier, tp, streak, t) VALUES (?, ?, ?, ?, ?, ?) ' +
           'ON CONFLICT(id) DO UPDATE SET name = excluded.name, tier = excluded.tier, tp = excluded.tp, streak = excluded.streak, t = excluded.t')
           .bind(...row).run();
