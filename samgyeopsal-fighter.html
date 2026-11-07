@@ -2328,8 +2328,9 @@ function drawTitle() {
   addHot(W / 2 - 300, 128, 600, 24, () => { pressed.KeyN = true; });
   // 왼쪽 위: 계정 버튼 (게스트 → 로그인·가입 / 회원 → 내 계정)
   const acc = isMember() ? `👤 ${auth.login} [L]` : '🔑 로그인 · 가입 [L]';
+  const accS = fitSize(acc, 13, 160);
   ctx.fillStyle = isMember() ? 'rgba(255,255,255,0.15)' : 'rgba(255,128,171,0.45)'; rr(14, 12, 170, 30, 8); ctx.fill();
-  txt(acc, 99, 27, 13, '#fff', null);
+  txt(acc, 99, 27, accS, '#fff', null);
   if (!isMember()) txt('게스트 · 랭킹 미반영', 99, 52, 11, '#ffcdd2', '#000', 3);
   addHot(14, 12, 170, 30, () => openAuth(isMember() ? 'account' : 'choose'));
   MENU.forEach(([label, sub], i) => {
@@ -2603,7 +2604,7 @@ function drawRanking() {
         const i = rk.page * 10 + r, y = 140 + r * 32, me = isMember() && v.id === auth.uid;
         if (me) { ctx.fillStyle = 'rgba(255,213,79,0.25)'; rr(60, y - 14, 840, 28, 8); ctx.fill(); }
         const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
-        txt(`${i + 1}`, 120, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 16) + (me ? ' (나)' : ''), 320, y, 17, col, '#000', 3);
+        txt(`${i + 1}`, 120, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 16) + (me ? ' (나)' : ''), 320, y, fitSize(String(v.name || '?').slice(0, 16) + (me ? ' (나)' : ''), 17, 300), col, '#000', 3);
         drawTierBadge(560, y, v.tp, 12);
         txt(`${v.streak || 0}연승`, 780, y, 16, '#fff', null);
       });
@@ -3671,7 +3672,7 @@ function drawHUD() {
     const sw = bw * f.stamina / 100;
     ctx.fillStyle = '#222'; ctx.fillRect(x0, y + bh + 4, bw, 5);
     ctx.fillStyle = f.stamina < 35 ? '#ff7043' : '#66bb6a'; ctx.fillRect(dir > 0 ? x0 : x0 + bw - sw, y + bh + 4, sw, 5);
-    txt(f.name, ax, y + bh + 22, 18, '#fff', '#000', 4, al);
+    txt(f.name, ax, y + bh + 22, fitSize(f.name, 18, bw - 90), '#fff', '#000', 4, al);
     for (let i = 0; i < 2; i++) {
       const cx = dir > 0 ? x0 + bw - 10 - i * 24 : x0 + 10 + i * 24, cy = y + bh + 22;
       ctx.fillStyle = f.wins > i ? '#ff93ac' : '#444'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
@@ -4008,8 +4009,8 @@ function openAuth(page) {
     <input id="a_pw" type="password" placeholder="비밀번호" autocomplete="current-password" maxlength="64">
     <div class="err"></div><button data-ok>로그인</button><button class="sub" data-back>뒤로</button>
     <small>로그인하면 계정에 저장된 기록을 불러와요.</small>`;
-  else if (page === 'signup') h = `<h2>✨ 회원가입</h2>${idIn('아이디 (영어 소문자·숫자 4~16자)')}
-    <input id="a_pw" type="password" placeholder="비밀번호 (4자 이상)" autocomplete="new-password" maxlength="64">
+  else if (page === 'signup') h = `<h2>✨ 회원가입</h2>${idIn('아이디 (한글·영어·숫자 2~16자)')}
+    <input id="a_pw" type="password" placeholder="비밀번호 (영어·숫자 4자 이상)" autocomplete="new-password" maxlength="64">
     <input id="a_pw2" type="password" placeholder="비밀번호 확인" autocomplete="new-password" maxlength="64">
     <div class="err"></div><button data-ok>가입하기</button><button class="sub" data-back>뒤로</button>
     <small>지금까지 하던 기록(코인·티어 등)은 새 계정으로 그대로 옮겨져요.<br>다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</small>`;
@@ -4023,9 +4024,9 @@ function openAuth(page) {
 }
 function authBusy(on, msg) { authEl.querySelectorAll('button').forEach(b => b.disabled = on); const e = authEl.querySelector('.err'); if (e) e.textContent = msg || ''; }
 function authSubmit() {
-  const page = authPage, id = authEl.querySelector('#a_id').value.trim().toLowerCase(), pw = authEl.querySelector('#a_pw').value;
-  if (!/^[a-z0-9_]{4,16}$/.test(id)) return authBusy(false, '아이디는 영어 소문자·숫자·_ 4~16자예요');
-  if (pw.length < 4) return authBusy(false, '비밀번호는 4자 이상이에요');
+  const page = authPage, id = authEl.querySelector('#a_id').value.trim().normalize('NFC').toLowerCase(), pw = authEl.querySelector('#a_pw').value;
+  if (!/^[a-z0-9_가-힣]{2,16}$/.test(id)) return authBusy(false, /[ㄱ-ㅎㅏ-ㅣ]/.test(id) ? '아이디에 낱자(ㄱ, ㅏ 등)는 못 써요' : '아이디는 한글·영어·숫자 2~16자예요 (띄어쓰기·특수문자 안 돼요)');
+  if (!/^[!-~]{4,64}$/.test(pw)) return authBusy(false, /[^\x00-\x7f]/.test(pw) ? '비밀번호는 영어로 써 주세요 (한글 자판이 켜져 있어요)' : /\s/.test(pw) ? '비밀번호에 띄어쓰기는 못 써요' : '비밀번호는 4자 이상이에요');
   if (page === 'signup' && pw !== authEl.querySelector('#a_pw2').value) return authBusy(false, '비밀번호 확인이 달라요');
   authBusy(true, '잠시만요...');
   const req = page === 'signup' ? authFetch('/signup', 'POST', { login: id, pw, save: collectSave() }) :authFetch('/login', 'POST', { login: id, pw });

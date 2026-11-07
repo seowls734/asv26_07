@@ -21,7 +21,11 @@ const err = (msg, status = 400) => json({ error: msg }, status);
 const ITER = 20000;                 // PBKDF2 반복 횟수 (무료 요금제 CPU 시간 한도 안에서)
 const MAX_SAVE = 200000;            // 저장 데이터 최대 글자 수
 const FAIL_MAX = 10, FAIL_WIN = 10 * 60 * 1000;   // 10분에 10번 틀리면 10분 잠금
-const LOGIN_RE = /^[a-z0-9_]{4,16}$/;
+// 아이디: 한글·영어 소문자·숫자·_ 2~16자 (영어는 소문자로 바꿔서 저장 → 대소문자만 다른 중복 가입 불가)
+const LOGIN_RE = /^[a-z0-9_가-힣]{2,16}$/;
+// 비밀번호: 영어·숫자·기호만 (한글 입력 실수 방지), 4~64자
+const PW_RE = /^[!-~]{4,64}$/;
+const normLogin = v => String(v || '').trim().normalize('NFC').toLowerCase();
 
 const enc = new TextEncoder();
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -74,9 +78,9 @@ export default {
 
     if (path === '/signup' && req.method === 'POST') {
       const b = await body(req); if (!b) return err('잘못된 요청이에요');
-      const login = String(b.login || '').trim().toLowerCase(), pw = String(b.pw || '');
-      if (!LOGIN_RE.test(login)) return err('아이디는 영어 소문자·숫자·_ 4~16자예요');
-      if (pw.length < 4 || pw.length > 64) return err('비밀번호는 4~64자예요');
+      const login = normLogin(b.login), pw = String(b.pw || '');
+      if (!LOGIN_RE.test(login)) return err('아이디는 한글·영어·숫자 2~16자예요 (띄어쓰기·특수문자 안 돼요)');
+      if (!PW_RE.test(pw)) return err('비밀번호는 영어·숫자·기호로 4~64자예요 (한글·띄어쓰기 안 돼요)');
       const s = checkSave(b.save); if (!s.ok) return err(s.msg || '저장 데이터 형식이 이상해요');
       if (await db.prepare('SELECT 1 FROM users WHERE login = ?').bind(login).first()) return err('이미 있는 아이디예요', 409);
       const uid = newUid(), salt = rndHex(16), now = Date.now();
@@ -89,7 +93,7 @@ export default {
 
     if (path === '/login' && req.method === 'POST') {
       const b = await body(req); if (!b) return err('잘못된 요청이에요');
-      const login = String(b.login || '').trim().toLowerCase(), pw = String(b.pw || '');
+      const login = normLogin(b.login), pw = String(b.pw || '');
       const now = Date.now();
       const f = await db.prepare('SELECT n, t FROM fails WHERE login = ?').bind(login).first();
       if (f && f.n >= FAIL_MAX && now - f.t < FAIL_WIN) return err('비밀번호를 너무 많이 틀렸어요. 10분 뒤에 다시 해 주세요', 429);
