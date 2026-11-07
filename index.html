@@ -611,8 +611,9 @@ function drawPig(x, y, face, C, p = {}) {
 
   // back leg & back arm (몸통보다 먼저 = 몸 뒤)
   let bl;
-  // 뒷다리로 찰 때: 다리가 몸 앞으로 휘둘러 나오므로 지금은 서 있는 다리 대신 계산만 하고, 아래(머리 다음)에서 몸 앞에 그림
+  // 뒤쪽 손발(O·L)로 공격할 때도 몸통보다 먼저 그려서 몸 뒤에 있음 → 몸 밖으로 뻗은 부분만 보임
   if (bLeg) { const a = lerp(Math.PI / 2, Math.max(-0.35, KICKS[mv][0]), k), L = 38 + (KICKS[mv][1] + 22) * k; bl = [10 * bw + Math.cos(a) * L, -34 + by + Math.sin(a) * L]; }   // 얼굴을 가로지르지 않게 조금 낮게
+  if (bLeg) limb(10 * bw, -34 + by, bl[0], bl[1], 14, CB);
   else { bl = [-26 * bw + sw, air ? -14 : -7]; limb(-22 * bw, -38 + by, bl[0], bl[1], 14, CB); }
   let ba;
   if (bArm) { const q = armAt(mv); ba = [q[0] + 14, q[1]]; }   // 뒷팔은 어깨가 뒤에 있어서 조금 더 뻗어야 앞까지 닿음
@@ -623,7 +624,7 @@ function drawPig(x, y, face, C, p = {}) {
   else if (p.victory) ba = [-16, -70 + by];
   else if (mv === 'dash' || p.roll !== undefined) ba = [-32, -58 + by];
   else ba = [70, -58 + by];   // 서 있을 때 뒷팔: 몸 뒤에서 턱 아래로 발굽만 살짝 나온 가드
-  if (!bArm) limb(-4, -64 + by, ba[0], ba[1], 12, CB, hc, hr);
+  limb(-4, -64 + by, ba[0], ba[1], 12, CB, hc, hr);
 
   // tail
   ctx.strokeStyle = C.dark; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath();
@@ -740,9 +741,6 @@ function drawPig(x, y, face, C, p = {}) {
     else if (h2 === 'phones') { ctx.strokeStyle = '#263238'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(hx - 2, hy - 2, 33, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); ctx.fillStyle = '#e53935'; rr(hx - 40, hy - 14, 14, 24, 6); ctx.fill(); rr(hx + 26, hy - 20, 12, 20, 6); ctx.fill(); }
     else if (h2 === 'crown') { ctx.fillStyle = '#ffd700'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2; poly([[hx - 18, hy - 22], [hx - 20, hy - 42], [hx - 9, hy - 32], [hx, hy - 48], [hx + 9, hy - 32], [hx + 20, hy - 42], [hx + 18, hy - 22]]); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#e53935'; ell(hx, hy - 28, 3, 3); ctx.fill(); }
   }
-  // 뒤쪽 손발로 공격할 때(O·L): 몸 앞으로 휘둘러 나오므로 몸·머리 위에 그림 (살짝 어둡게)
-  if (bLeg) limb(10 * bw, -34 + by, bl[0], bl[1], 14, CB);
-  if (bArm) limb(8, -66 + by, ba[0], ba[1], 12, CB, hc, hr);
   // front arm
   let fa;
   if (bArm) fa = [48, -82 + by];   // 뒷팔로 칠 때 앞팔은 가슴 앞 가드
