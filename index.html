@@ -1644,7 +1644,7 @@ function netJoin() {
 }
 function netBind(c) {
   NET.conn = c;
-  c.on('open', () => { NET.status = '연결됨! 대전 준비 중...'; NET.lastRecv = performance.now(); c.send({ t: 'hello', name: playerName, def: charDef(sel.c1) }); });
+  c.on('open', () => { NET.status = '연결됨! 대전 준비 중...'; NET.lastRecv = performance.now(); c.send({ t: 'hello', name: playerName, def: charDef(sel.c1), tp }); });
   c.on('data', onNet);
   c.on('close', () => netLost('상대가 나갔어요'));
   c.on('error', () => netLost('연결이 끊겼어요'));
@@ -1658,13 +1658,13 @@ function onNet(m) {
   if (!m || typeof m !== 'object') return;
   NET.lastRecv = performance.now();
   if (m.t === 'hello') {
-    NET.theirName = String(m.name || '상대').slice(0, 8); NET.theirDef = m.def;
+    NET.theirName = String(m.name || '상대').slice(0, 8); NET.theirDef = m.def; NET.theirTp = m.tp | 0;
     if (NET.host && !NET.ready) {
       const seed = (Math.random() * 4294967296) >>> 0, myDef = charDef(sel.c1);
-      netSend({ t: 'start', seed, hostName: playerName, hostDef: myDef });
+      netSend({ t: 'start', seed, hostName: playerName, hostDef: myDef, hostTp: tp }); NET.tps = [tp, NET.theirTp];
       beginNet(seed, playerName, myDef, NET.theirName, NET.theirDef);
     }
-  } else if (m.t === 'start' && !NET.host) beginNet(m.seed, String(m.hostName || '상대').slice(0, 8), m.hostDef, playerName, charDef(sel.c1));
+  } else if (m.t === 'start' && !NET.host) (NET.tps = [m.hostTp | 0, tp], beginNet(m.seed, String(m.hostName || '상대').slice(0, 8), m.hostDef, playerName, charDef(sel.c1)));
   else if (m.t === 'i') NET.remote[m.f] = m.b | 0;
   else if (m.t === 'bye') netLost('상대가 방을 나갔어요');
 }
@@ -1994,7 +1994,7 @@ function drawMarket() {
 const COND = ['😵 나쁨', '🙂 보통', '😤 좋음', '🔥 최상'], COND_LV = [1, 3, 5, 8], BET_PCT = [0, 0.1, 0.25, 0.5, 1];
 const bet4 = { a: 0, b: 1, ca: 1, cb: 1, oa: 2, ob: 2, side: 0, amt: 1, stake: 0, fast: false };
 function openBet() {
-  if (coins < 10) { addCoins(50); toast('파산 지원금 50코인 지급!'); }
+  if (coins < 10) toast('💸 파산! 🏦 은행에서 대출을 받으세요 (지금은 구경만 가능)');
   const a = Math.random() * CHARS.length | 0; let b; do { b = Math.random() * CHARS.length | 0; } while (b === a);
   Object.assign(bet4, { a, b, ca: Math.random() * 4 | 0, cb: Math.random() * 4 | 0, side: 0, amt: 1, stake: 0 });
   const rate = (c, cd) => (c.hp / 100) * c.power * Math.sqrt(c.speed) * (1 + 0.07 * COND_LV[cd]);
@@ -2117,8 +2117,9 @@ const MENU = [
   ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
   ['🏮 포장마차 시장', '요리 팔기 · 꾸미기 상점', () => openMarket()],
+  ['🏦 은행 · 빚 갚기', () => debt > 0 ? `사채 ${fmtN(debt)} 남음` : '빚 청산 완료! 👑', () => { bk.sel = 0; scene = 'bank'; }],
   ['✏️ 커스텀 캐릭터', '나만의 돼지 만들기', () => { selFor = 'run'; openEditor(); }],
-  ['🏆 연승 랭킹', 'TOP 10 기록', () => { rankPos = -1; scene = 'ranking'; }]
+  ['🏆 랭킹', '전체 티어 랭킹 · 연승 기록', () => openRanking(false)]
 ];
 let titleSel = 0;
 function updateTitle() {
@@ -2130,7 +2131,7 @@ function updateTitle() {
   else if (pressed.KeyN) {
     const n = window.prompt('닉네임 (최대 8글자)', playerName);
     for (const k in keys) keys[k] = false;
-    if (n && n.trim()) { playerName = n.trim().slice(0, 8); lsSet('sgf_name', playerName); }
+    if (n && n.trim()) { playerName = n.trim().slice(0, 8); lsSet('sgf_name', playerName); uploadRank(); }
   }
   if (gT % 5 === 0) flame(W / 2 + rand(-230, 230), 100 + rand(-5, 5));
 }
@@ -2143,17 +2144,19 @@ function drawTitle() {
   txt('삼겹살 파이터', W / 2, 62 + b, 70, '#ffc1d0', '#5a1a2a', 14); ctx.restore();
   txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
   const best = getRank().filter(r => r.name === playerName).reduce((m, r) => Math.max(m, r.streak), 0);
-  txt(`👤 ${playerName} [N]   ·   🏆 최고 ${best}연승   ·   🪙 ${coins}   ·   🧊 요리 ${fridge.length}개`, W / 2, 140, 14, '#e0e0e0', '#000', 4);
+  const tw = drawTierBadge(W / 2 - 330, 138, tp, 12, 'left');
+  txt(`👤 ${playerName} [N]  ·  🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`, W / 2 + tw / 2, 139, 14, '#e0e0e0', '#000', 4);
+  if (coins < 10 && gT % 60 < 40) txt('💸 파산 직전! 🏦 은행에서 대출받으세요', W / 2, 438, 15, '#ff8a80', '#000', 4);
   addHot(W / 2 - 300, 128, 600, 24, () => { pressed.KeyN = true; });
   MENU.forEach(([label, sub], i) => {
-    const x = W / 2 - 190, y = 160 + i * 46, on = titleSel === i;
+    const x = W / 2 - 190, y = 154 + i * 40, on = titleSel === i;
     if (on) {
       const g = ctx.createLinearGradient(x, 0, x + 380, 0); g.addColorStop(0, '#ff5252'); g.addColorStop(1, '#ff9100');
-      ctx.save(); ctx.shadowColor = '#ff5252'; ctx.shadowBlur = 16; ctx.fillStyle = g; rr(x, y, 380, 40, 12); ctx.fill(); ctx.restore();
-    } else { ctx.fillStyle = 'rgba(25,12,40,0.85)'; rr(x, y, 380, 40, 12); ctx.fill(); }
-    txt(`${i + 1}  ${label}`, x + 18, y + 20, 19, '#fff', on ? '#7f0000' : null, 4, 'left');
-    txt(sub, x + 366, y + 20, 12, on ? '#fff' : '#bbb', null, 0, 'right');
-    addHot(x, y, 380, 40, () => { if (titleSel === i) pressed.Enter = true; else { titleSel = i; SFX.select(); } });
+      ctx.save(); ctx.shadowColor = '#ff5252'; ctx.shadowBlur = 16; ctx.fillStyle = g; rr(x, y, 380, 34, 11); ctx.fill(); ctx.restore();
+    } else { ctx.fillStyle = 'rgba(25,12,40,0.85)'; rr(x, y, 380, 34, 11); ctx.fill(); }
+    txt(`${i + 1}  ${label}`, x + 18, y + 17, 17, '#fff', on ? '#7f0000' : null, 4, 'left');
+    txt(typeof sub === 'function' ? sub() : sub, x + 366, y + 17, 12, on ? '#fff' : '#bbb', null, 0, 'right');
+    addHot(x, y, 380, 34, () => { if (titleSel === i) pressed.Enter = true; else { titleSel = i; SFX.select(); } });
   });
   const i = (gT / 150 | 0) % 10;
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
@@ -2167,6 +2170,337 @@ function drawTitle() {
     ctx.globalAlpha = clamp(toastT / 20); ctx.fillStyle = 'rgba(0,0,0,0.85)'; rr(W / 2 - 230, 446, 460, 32, 10); ctx.fill();
     txt(toastMsg, W / 2, 462, 15, '#fff', null); ctx.globalAlpha = 1;
   }
+}
+
+// ================= 티어 =================
+const TIERS = [['등외', 0, '#9e9e9e'], ['3등급', 100, '#a1887f'], ['2등급', 250, '#b0bec5'], ['1등급', 450, '#ffd54f'],
+  ['1+등급', 700, '#4dd0e1'], ['1++등급', 1000, '#ce93d8'], ['마블링 마스터', 1400, '#ff5252']];
+let tp = lsGet('sgf_tp', 0);
+const tierOf = v => { let i = 0; TIERS.forEach((t, k) => { if (v >= t[1]) i = k; }); return i; };
+const fmtN = n => Math.round(n).toLocaleString('ko-KR');
+function drawTierBadge(x, y, v, size = 14, align = 'center') {
+  const t = TIERS[tierOf(v)], label = `🏅 ${t[0]}`;
+  ctx.font = `900 ${size}px ${FONT}`; const w = ctx.measureText(label).width + 16, h = size + 10;
+  const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+  ctx.fillStyle = t[2]; rr(x0, y - h / 2, w, h, h / 2); ctx.fill();
+  txt(label, x0 + w / 2, y + 1, size, '#1a1a1a', null);
+  return w;
+}
+
+// ================= 빚 · 은행 =================
+const DEBT_START = 10000;
+let debt = lsGet('sgf_debt', DEBT_START), bankDebt = lsGet('sgf_bank', 0);
+const saveDebt = () => { lsSet('sgf_debt', debt); lsSet('sgf_bank', bankDebt); };
+const netWorth = () => coins - debt - bankDebt;
+const loanLimit = () => Math.max(0, 200 * (tierOf(tp) + 1) - bankDebt);   // 티어가 오를수록 한도↑
+function repay(which, amt) {
+  const owe = which === 'debt' ? debt : bankDebt;
+  amt = Math.floor(Math.min(amt, coins, owe));
+  if (amt <= 0) { SFX.block(); toast(owe <= 0 ? '갚을 빚이 없어요' : '코인이 없어요'); return; }
+  addCoins(-amt);
+  if (which === 'debt') debt -= amt; else bankDebt -= amt;
+  saveDebt(); SFX.coin(); popText(680, 470, `${fmtN(amt)}코인 상환!`, '#69f0ae', 30);
+  uploadRank(); checkChapters();
+}
+function borrow(amt) {
+  amt = Math.floor(Math.min(amt, loanLimit()));
+  if (amt <= 0) { SFX.block(); toast('대출 한도 초과! 티어를 올리면 한도가 늘어요'); return; }
+  const owe = Math.round(amt * 1.1);
+  addCoins(amt); bankDebt += owe; saveDebt(); SFX.coin();
+  toast(`${fmtN(amt)}코인 대출! 갚을 돈 ${fmtN(owe)} (수수료 10%)`); uploadRank();
+}
+// 매 판 끝: 티어 점수 · 사채 이자 · 랭킹 업로드
+function afterMatchEconomy(w) {
+  cut.tp = null; cut.interest = 0;
+  if (mode !== 1 && mode !== 3) return;
+  const me = mode === 1 ? p1 : NET.me, win = w === me, before = tp;
+  const d = mode === 1 ? (win ? 15 + Math.min(15, streak) : cut.revived ? 0 : -10) : (win ? 25 : -15);
+  tp = Math.max(0, tp + d); lsSet('sgf_tp', tp);
+  cut.tp = { before, after: tp, d };
+  if (mode === 1 && win) lsSet('sgf_best', Math.max(lsGet('sgf_best', 0), streak));
+  if (debt > 0) { cut.interest = Math.max(1, Math.ceil(debt * 0.003)); debt += cut.interest; saveDebt(); }
+  uploadRank();
+}
+const bk = { sel: 0 };
+const BANK_ACTS = [
+  ['💸 사채 100 갚기', () => repay('debt', 100)], ['💸 사채 1,000 갚기', () => repay('debt', 1000)],
+  ['💸 사채 가진 만큼 갚기', () => repay('debt', coins)], ['🏦 은행빚 전부 갚기', () => repay('bank', coins)],
+  ['💰 대출 100 받기', () => borrow(100)], ['💰 대출 한도까지 받기', () => borrow(loanLimit())],
+  ['📖 스토리 다시 보기', () => startStory('intro', 'bank')], ['← 나가기', () => toTitle()]
+];
+function updateBank() {
+  const n = BANK_ACTS.length;
+  if (pressed.KeyW || pressed.ArrowUp) { bk.sel = (bk.sel + n - 2) % n; SFX.select(); }
+  if (pressed.KeyS || pressed.ArrowDown) { bk.sel = (bk.sel + 2) % n; SFX.select(); }
+  if (pressed.KeyA || pressed.ArrowLeft || pressed.KeyD || pressed.ArrowRight) { bk.sel ^= 1; SFX.select(); }
+  if (pressed.Enter || pressed.Space || pressed.KeyI) BANK_ACTS[bk.sel][1]();
+  if (pressed.Escape) toTitle();
+}
+function drawBank() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1b2a3a'); g.addColorStop(1, '#0d1520');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  txt('🏦 꿀꿀 은행 · 빚 상환 창구', W / 2, 34, 30, '#e3f2fd', '#000', 6);
+  // 왼쪽: 내 재무 상태
+  ctx.fillStyle = 'rgba(255,255,255,0.07)'; rr(30, 64, 420, 436, 16); ctx.fill();
+  const repaid = clamp((DEBT_START - debt) / DEBT_START);
+  const rows = [['🪙 보유 코인', fmtN(coins), '#ffd740'], ['💸 사채 (멧돼지 실장)', debt > 0 ? fmtN(debt) : '청산 완료!', debt > 0 ? '#ff8a80' : '#69f0ae'],
+    ['🏦 은행 대출', fmtN(bankDebt), bankDebt > 0 ? '#ffab91' : '#fff'], ['📊 순자산', fmtN(netWorth()), netWorth() >= 0 ? '#69f0ae' : '#ff8a80'],
+    ['💰 대출 가능', fmtN(loanLimit()), '#80d8ff']];
+  rows.forEach(([a, b, c], i) => { txt(a, 54, 98 + i * 40, 17, '#ddd', null, 0, 'left'); txt(b, 428, 98 + i * 40, 20, c, null, 0, 'right'); });
+  txt('사채 상환률', 54, 306, 15, '#bbb', null, 0, 'left'); txt(`${Math.round(repaid * 100)}%`, 428, 306, 15, '#fff', null, 0, 'right');
+  ctx.fillStyle = '#333'; rr(54, 320, 374, 16, 8); ctx.fill();
+  ctx.fillStyle = '#66bb6a'; rr(54, 320, Math.max(16, 374 * repaid), 16, 8); ctx.fill();
+  drawTierBadge(54, 362, tp, 15, 'left'); txt(`${tp} TP`, 428, 362, 16, '#fff', null, 0, 'right');
+  const nt = TIERS[tierOf(tp) + 1]; txt(nt ? `다음 티어 ${nt[0]}까지 ${nt[1] - tp} TP` : '최고 티어!', 54, 390, 13, '#aaa', null, 0, 'left');
+  // 멧돼지 실장 한마디
+  const boss = { ...CHARS[2].look, body: '#6d4c41', dark: '#2b1a14', hat: 'sunglass' };
+  drawPig(110, 494, 1, boss, { scale: 0.7, t: gT });
+  const say = debt <= 0 ? '"...다 갚았군. 인정한다."' : repaid >= 0.75 ? '"거의 다 왔군. 도망칠 생각 마라."' : repaid >= 0.5 ? '"절반이라... 이자는 계속 붙는다."' : repaid >= 0.25 ? '"오호, 제법인데?"' : '"갚을 돈은 언제 가져오나? 삼겹살이 되고 싶나?"';
+  txt('멧돼지 실장', 168, 430, 13, '#ffab91', null, 0, 'left'); txt(say, 168, 456, 14, '#fff', null, 0, 'left');
+  // 오른쪽: 행동
+  BANK_ACTS.forEach(([label], i) => {
+    const x = 474 + (i % 2) * 230, y = 70 + (i >> 1) * 96, on = bk.sel === i;
+    ctx.fillStyle = on ? '#1e88e5' : 'rgba(255,255,255,0.08)'; rr(x, y, 218, 84, 14); ctx.fill();
+    if (on) { ctx.strokeStyle = '#90caf9'; ctx.lineWidth = 2; rr(x, y, 218, 84, 14); ctx.stroke(); }
+    txt(label, x + 109, y + 42, 16, '#fff', null);
+    addHot(x, y, 218, 84, () => { if (bk.sel === i) pressed.Enter = true; else { bk.sel = i; SFX.select(); } });
+  });
+  txt('대출 수수료 10% · 사채는 판마다 이자 0.3% · W/A/S/D 이동, Enter 실행', 690, 470, 12, '#90a4ae', null);
+  drawParts();
+}
+
+// ================= 전체 공유 랭킹 (Firebase Realtime Database) =================
+const RANK_DB = 'https://samgyeopsal-fighter-default-rtdb.asia-southeast1.firebasedatabase.app';
+let pid = lsGet('sgf_pid', null);
+if (!pid) { pid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); lsSet('sgf_pid', pid); }
+const rk = { tab: 0, list: null, err: '', loading: false };
+function uploadRank() {
+  if (!RANK_DB) return;
+  const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_best', 0), net: Math.round(netWorth()), debt: Math.max(0, Math.round(debt)), t: Date.now() };
+  fetch(`${RANK_DB}/rank/${pid}.json`, { method: 'PUT', body: JSON.stringify(body) }).catch(() => {});
+}
+function fetchRank() {
+  if (!RANK_DB) { rk.err = '온라인 랭킹 서버가 아직 연결되지 않았어요'; return; }
+  rk.loading = true; rk.err = '';
+  fetch(`${RANK_DB}/rank.json`).then(r => r.json()).then(d => {
+    rk.list = Object.entries(d || {}).map(([id, v]) => ({ ...v, id })).filter(v => typeof v.tp === 'number')
+      .sort((a, b) => b.tp - a.tp || b.net - a.net);
+    rk.loading = false;
+  }).catch(() => { rk.loading = false; rk.err = '랭킹을 불러오지 못했어요 (인터넷 확인)'; });
+}
+function openRanking(local) { rk.tab = local ? 1 : 0; if (!local) rankPos = -1; scene = 'ranking'; uploadRank(); fetchRank(); }
+function updateRanking() {
+  if (pressed.Digit1 || pressed.Numpad1) { rk.tab = 0; SFX.select(); }
+  if (pressed.Digit2 || pressed.Numpad2) { rk.tab = 1; SFX.select(); }
+  if (pressed.KeyR) fetchRank();
+  if (pressed.Enter || pressed.Escape || pressed.Space) toTitle();
+}
+function drawRanking() {
+  drawStage(); ctx.fillStyle = 'rgba(10,5,20,0.85)'; ctx.fillRect(0, 0, W, H);
+  txt('🏆 랭킹', W / 2, 32, 32, '#ffd54f', '#000', 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 16, 80, 32, 8); ctx.fill(); txt('← 나가기', 54, 32, 13, '#fff', null);
+  addHot(14, 16, 80, 32, () => { pressed.Escape = true; });
+  ['🌐 전체 랭킹 (티어)', '📱 내 기기 연승 기록'].forEach((s, i) => {
+    const x = W / 2 - 250 + i * 255, on = rk.tab === i;
+    ctx.fillStyle = on ? '#ff7043' : 'rgba(255,255,255,0.12)'; rr(x, 56, 245, 34, 10); ctx.fill();
+    txt(`[${i + 1}] ${s}`, x + 122, 73, 15, '#fff', null);
+    addHot(x, 56, 245, 34, () => { pressed['Digit' + (i + 1)] = true; });
+  });
+  if (rk.tab === 0) {
+    const cols = [[90, '순위'], [230, '닉네임'], [400, '티어'], [540, 'TP'], [660, '순자산'], [800, '최고 연승']];
+    cols.forEach(([x, s]) => txt(s, x, 110, 13, '#999', null));
+    if (rk.loading) txt('불러오는 중...', W / 2, 260, 20, '#fff', null);
+    else if (rk.err) { txt(rk.err, W / 2, 250, 18, '#ff8a80', null); txt('R: 다시 시도', W / 2, 284, 14, '#aaa', null); }
+    else if (!rk.list || !rk.list.length) txt('아직 아무도 없어요. 첫 1등이 되어 보세요!', W / 2, 260, 20, '#fff', null);
+    else {
+      const meIdx = rk.list.findIndex(v => v.id === pid);
+      const show = rk.list.slice(0, 10).map((v, i) => [v, i]);
+      if (meIdx >= 10) show.push([rk.list[meIdx], meIdx]);
+      show.forEach(([v, i], r) => {
+        const y = 140 + r * 34 + (r === 10 ? 8 : 0), me = v.id === pid;
+        if (me) { ctx.fillStyle = 'rgba(255,213,79,0.25)'; rr(40, y - 15, 880, 30, 8); ctx.fill(); }
+        const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
+        txt(`${i + 1}`, 90, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 8) + (me ? ' (나)' : ''), 230, y, 17, col, '#000', 3);
+        drawTierBadge(400, y, v.tp, 12); txt(fmtN(v.tp), 540, y, 16, '#fff', null);
+        txt(fmtN(v.net || 0), 660, y, 15, (v.net || 0) >= 0 ? '#69f0ae' : '#ff8a80', null);
+        txt(`${v.streak || 0}연승${v.debt === 0 ? ' 👑' : ''}`, 800, y, 15, '#fff', null);
+      });
+    }
+    txt(`나: ${playerName} · ${TIERS[tierOf(tp)][0]} ${tp}TP · 순자산 ${fmtN(netWorth())}   (👑 = 빚 청산 완료)`, W / 2, 524, 13, '#ffe082', null);
+  } else {
+    const r = getRank();
+    if (!r.length) txt('아직 기록이 없어요. 연승 모드에 도전해 보세요!', W / 2, 260, 20, '#fff', null);
+    r.forEach((e, i) => {
+      const y = 130 + i * 36;
+      if (i === rankPos) { ctx.fillStyle = gT % 30 < 15 ? 'rgba(255,213,79,0.35)' : 'rgba(255,213,79,0.2)'; rr(150, y - 16, 660, 32, 8); ctx.fill(); }
+      const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
+      txt(`${i + 1}`, 190, y, 20, col, '#000', 4); txt(e.name, 340, y, 20, col, '#000', 4);
+      txt(e.char, 540, y, 18, '#ddd', '#000', 3); txt(`${e.streak}연승`, 700, y, 20, col, '#000', 4);
+    });
+  }
+  addHot(0, 100, W, H - 100, () => { pressed.Enter = true; });
+}
+
+// ================= 스토리 =================
+const STORY = {
+  intro: [
+    { sp: '내레이션', tx: '골목 끝 "꿀꿀 포차". 이곳엔 장사 잘하기로 소문난 돼지 사장 {name}님이 살았어요.', art: 'stall' },
+    { sp: '친구 멧돌이', tx: '"야, 돼지코인 알지? 지금 사면 무조건 100배야. 나만 믿어!"', art: 'whisper' },
+    { sp: '{name}', tx: '"100배...? 가게 보증금에... 대출까지 탈탈 털어서... 레버리지 100배 몰빵!!"', art: 'pump' },
+    { sp: '내레이션', tx: '...그리고 다음 날 아침. 돼지코인은 상장폐지되었습니다.', art: 'crash' },
+    { sp: '사채업자 멧돼지 실장', tx: '"빌려 간 돈 10,000코인. 이자는 판마다 붙는다. 못 갚으면... 네가 삼겹살이다."', art: 'boss' },
+    { sp: '내레이션', tx: '살 길은 하나뿐. 철판 대난투에서 이겨 상금을 벌고, 진 돼지로 만든 요리를 팔아 빚을 갚는 것!', art: 'fight' },
+    { sp: 'TIP', tx: '🏦 은행 메뉴에서 빚을 갚아요. 돈이 바닥나면 대출도 가능! 이길수록 티어가 오르고 대출 한도도 늘어요.', art: 'bank' }
+  ],
+  ch1: [{ sp: '사채업자 멧돼지 실장', tx: '"오호... 벌써 4분의 1을 갚았다고? 제법인데. 그래도 이자는 계속 붙는다~"', art: 'boss' }],
+  ch2: [
+    { sp: '친구 멧돌이', tx: '"미안해... 사실 나도 돼지코인 사기를 당했어. 이거라도 받아 줘." 멧돌이가 꼬깃꼬깃한 쪽지를 건넸다.', art: 'whisper' },
+    { sp: '내레이션', tx: '쪽지에는 "힘내라 {name}!"라고 적혀 있었다. 돈은 들어 있지 않았다.', art: 'stall' }
+  ],
+  ch3: [{ sp: '포차 단골들', tx: '"사장님 힘내세요!! 빚 청산까지 얼마 안 남았어요!" 단골들이 응원 현수막을 걸었다.', art: 'fans' }],
+  ending: [
+    { sp: '사채업자 멧돼지 실장', tx: '"...다 갚았군. 10,000코인, 이자까지 전부. 인정하지."', art: 'boss' },
+    { sp: '{name}', tx: '"다시는... 레버리지 100배는 안 해..."', art: 'stall' },
+    { sp: '내레이션', tx: '꿀꿀 포차가 다시 문을 열었습니다! 오늘의 메뉴는 대난투 우승 기념 삼겹살. 🎉 THE END', art: 'ending' }
+  ]
+};
+let chapSeen = lsGet('sgf_chap', []);
+function checkChapters() {
+  const r = debt / DEBT_START;
+  for (const [k, th] of [['ch1', 0.75], ['ch2', 0.5], ['ch3', 0.25], ['ending', 0]]) {
+    if (!chapSeen.includes(k) && (k === 'ending' ? debt <= 0 : r <= th)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; }
+  }
+  return false;
+}
+const story = { key: 'intro', i: 0, t: 0, back: 'title' };
+const storyText = pg => pg.tx.replace(/\{name\}/g, playerName);
+function startStory(key, back = 'title') { Object.assign(story, { key, i: 0, t: 0, back }); scene = 'story'; parts = []; texts = []; }
+function endStory() { if (story.key === 'intro') lsSet('sgf_story_seen', true); try { speechSynthesis.cancel(); } catch (e) {} scene = story.back; }
+function updateStory() {
+  const pages = STORY[story.key], pg = pages[story.i];
+  story.t++;
+  if (story.t === 2) speak(storyText(pg).replace(/["…]/g, ''), pg.sp.includes('실장') ? 0.7 : pg.sp.includes('멧돌이') ? 0.9 : 1.2, 1.05);
+  if (pg.art === 'ending' && story.t % 14 === 0) burst(rand(100, W - 100), rand(40, 240), 26, [pick(['#ff5252', '#ffd740', '#69f0ae', '#40c4ff']), '#fff'], 8);
+  if (pg.art === 'crash' && story.t % 10 === 0) parts.push({ x: rand(0, W), y: -10, vx: rand(-1, 1), vy: rand(2, 4), life: 120, max: 120, c: '#ffd740', s: rand(4, 8), g: 0.05, type: 'dot' });
+  if (pressed.Enter || pressed.Space || pressed.KeyI) {
+    if (story.t * 0.8 < storyText(pg).length) story.t = 1000;
+    else { story.i++; story.t = 0; SFX.select(); parts = []; if (story.i >= pages.length) endStory(); }
+  }
+  if (pressed.Escape) endStory();
+}
+function wrapText(s, x, y, maxW, lh, size, col) {
+  ctx.font = `700 ${size}px ${FONT}`; let ln = '', yy = y;
+  for (const ch of s) {
+    if (ctx.measureText(ln + ch).width > maxW) { txt(ln, x, yy, size, col, null, 0, 'left'); ln = ''; yy += lh; }
+    ln += ch;
+  }
+  if (ln) txt(ln, x, yy, size, col, null, 0, 'left');
+}
+function drawStoryArt(art, t) {
+  const me = withCos(getChar(sel.c1) || CHARS[0]).look, boar = CHARS[2].look;
+  const boss = { ...boar, body: '#6d4c41', dark: '#2b1a14', hat: 'sunglass' };
+  const sky = (a, b) => { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, a); g.addColorStop(1, b); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); };
+  const stall = () => {
+    sky('#ff9e6b', '#5b3f8c');
+    ctx.fillStyle = '#c62828'; ctx.fillRect(150, 60, 660, 70); for (let x = 150; x < 810; x += 66) { ctx.fillStyle = '#ef5350'; ctx.fillRect(x, 60, 33, 70); }
+    txt('꿀꿀 포차', 480, 95, 34, '#fff', '#7f0000', 6);
+    for (let i = 0; i < 6; i++) { const lx = 190 + i * 116; ctx.globalAlpha = 0.7 + 0.3 * Math.sin(t * 0.1 + i); ctx.drawImage(glowC, lx - 32, 118); ctx.globalAlpha = 1; }
+  };
+  switch (art) {
+    case 'stall':
+      stall();
+      drawPig(480, 330, 1, me, { scale: 1.3, t, victory: t % 120 < 60 });
+      ctx.fillStyle = '#6d4c41'; ctx.fillRect(220, 300, 520, 90); ctx.fillStyle = '#8d6e63'; ctx.fillRect(220, 300, 520, 10);
+      drawStrip(300, 280, 90, 22, 1, 1); drawStrip(570, 280, 90, 22, 0.6, 1);
+      drawPig(130, 390, 1, CHARS[3].look, { scale: 0.8, t: t + 20 }); drawPig(830, 390, -1, CHARS[4].look, { scale: 0.8, t: t + 40 });
+      if (t % 8 === 0) smoke(rand(300, 660), 270);
+      break;
+    case 'whisper': {
+      sky('#2b2340', '#120c1e');
+      drawPig(360, 390, 1, boar, { scale: 1.3, t, move: 'jab', k: 0.4 });
+      drawPig(640, 390, -1, me, { scale: 1.3, t, scared: t % 90 < 30 });
+      const cy = 140 + Math.sin(t * 0.08) * 10;
+      ctx.save(); ctx.shadowColor = '#ffd740'; ctx.shadowBlur = 30; ctx.fillStyle = '#ffca28'; ell(480, cy, 56, 56); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = '#ff8f00'; ctx.lineWidth = 5; ell(480, cy, 46, 46); ctx.stroke();
+      txt('🐷', 480, cy, 40, '#000', null); txt('PIGCOIN', 480, cy + 76, 22, '#ffd740', '#000', 5);
+      txt('x100?!', 600, cy - 40, 30, '#69f0ae', '#000', 6);
+      break;
+    }
+    case 'pump': case 'crash': {
+      const crash = art === 'crash';
+      sky(crash ? '#3a0d0d' : '#0d1b2a', '#000');
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+      for (let x = 60; x < W; x += 60) line(x, 40, x, 390); for (let y = 40; y < 390; y += 50) line(40, y, W - 40, y);
+      const pts = []; for (let i = 0; i <= 40; i++) { const k = i / 40; let y = 370 - k * 300 + Math.sin(i * 1.7) * 18; if (crash && k > 0.6) y = 70 + (k - 0.6) / 0.4 * 340 + Math.sin(i * 3) * 10; pts.push([60 + k * 840, y]); }
+      const n = Math.min(pts.length, Math.floor(t / 2) + 2);
+      ctx.strokeStyle = crash ? '#ff1744' : '#00e676'; ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.beginPath(); pts.slice(0, n).forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+      if (!crash) { txt('▲ +9,900%', 760, 80, 34, '#00e676', '#000', 6); drawPig(200, 400 - Math.abs(Math.sin(t * 0.15)) * 40, 1, me, { scale: 1.1, t, victory: true }); }
+      else {
+        if (t > 50) { ctx.save(); ctx.translate(480, 200); ctx.rotate(-0.15); const sk = t < 60 ? 3 - (t - 50) / 5 : 1; ctx.scale(sk, sk); ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 8; rr(-190, -50, 380, 100, 16); ctx.stroke(); txt('상장폐지', 0, 0, 64, '#ff1744', null); ctx.restore(); }
+        drawPig(760, 420, -1, me, { scale: 1.2, t, scared: true });
+        ctx.fillStyle = `rgba(255,0,0,${0.15 * (1 + Math.sin(t * 0.3))})`; ctx.fillRect(0, 0, W, H);
+      }
+      break;
+    }
+    case 'boss': {
+      sky('#1a1a1a', '#000');
+      ctx.fillStyle = 'rgba(255,240,180,0.12)'; poly([[440, 0], [520, 0], [760, 400], [200, 400]]); ctx.fill();
+      drawPig(500, 340, -1, boss, { scale: 1.7, t });
+      ctx.fillStyle = '#ffd700'; ctx.lineWidth = 4; ctx.strokeStyle = '#ffd700'; ctx.beginPath(); ctx.arc(455, 225, 34, 0.3, Math.PI - 0.3); ctx.stroke();
+      ctx.fillStyle = '#4e342e'; ctx.fillRect(170, 300, 620, 100); ctx.fillStyle = '#6d4c41'; ctx.fillRect(170, 300, 620, 12);
+      ctx.save(); ctx.translate(560, 300); ctx.rotate(-0.1); ctx.fillStyle = '#fffde7'; ctx.fillRect(-70, -40, 140, 50);
+      txt('차 용 증', 0, -28, 14, '#333', null); txt('10,000코인', 0, -8, 16, '#c62828', null); ctx.restore();
+      ctx.save(); ctx.translate(320, 300); ctx.scale(0.45, 0.45); drawCleaver(0, 0, t % 60 < 10); ctx.restore();
+      drawPig(110, 400, 1, me, { scale: 0.9, t, scared: true });
+      break;
+    }
+    case 'fight':
+      drawStage();
+      drawPig(330, GROUND, 1, me, { scale: 1.15, t, move: t % 30 < 15 ? 'punch' : 'jab', k: 1 });
+      drawPig(630, GROUND, -1, CHARS[6].look, { scale: 1.3, t, hurt: t % 30 < 15 });
+      for (let i = 0; i < 6; i++) { const k = ((t * 0.02) + i / 6) % 1; ctx.fillStyle = '#ffd740'; ell(480 + Math.sin(i * 2) * 200 * k, 300 - k * 260, 10, 10); ctx.fill(); }
+      txt('상금 💰', 480, 70, 40, '#ffd740', '#000', 7);
+      break;
+    case 'bank':
+      sky('#90caf9', '#e3f2fd');
+      ctx.fillStyle = '#eceff1'; ctx.fillRect(300, 150, 360, 230);
+      ctx.fillStyle = '#cfd8dc'; poly([[280, 155], [480, 70], [680, 155]]); ctx.fill();
+      for (let i = 0; i < 5; i++) { ctx.fillStyle = '#b0bec5'; ctx.fillRect(325 + i * 70, 180, 22, 190); }
+      txt('🏦 꿀꿀 은행', 480, 125, 26, '#37474f', null);
+      drawPig(180, 400, 1, me, { scale: 1.1, t, victory: true });
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = '#a1887f'; ell(720 + i * 60, 370, 26, 30); ctx.fill(); txt('₩', 720 + i * 60, 372, 22, '#ffd740', null); }
+      break;
+    case 'fans':
+      stall();
+      ctx.fillStyle = '#fff59d'; ctx.fillRect(140, 150, 680, 54); txt('사장님 힘내세요!! 🔥 빚 청산 가즈아!', 480, 177, 26, '#c62828', null);
+      for (let i = 0; i < 8; i++) drawPig(110 + i * 105, 400 - Math.abs(Math.sin(t * 0.12 + i)) * 24, i < 4 ? 1 : -1, CHARS[i].look, { scale: 0.7, t: t + i * 9, victory: true });
+      break;
+    case 'ending':
+      sky('#0d1b2a', '#3d2352');
+      stall(); ctx.fillStyle = 'rgba(13,27,42,0.5)'; ctx.fillRect(0, 0, W, H);
+      txt('OPEN', 480, 200, 48, '#69f0ae', '#000', 8);
+      drawPig(480, 400, 1, { ...me, hat: 'crown' }, { scale: 1.5, t, victory: true });
+      txt('🎉 빚 청산 엔딩 🎉', 480, 260, 30, '#ffd740', '#000', 6);
+      break;
+  }
+}
+function drawStory() {
+  const pages = STORY[story.key], pg = pages[story.i];
+  if (!pg) return;
+  drawStoryArt(pg.art, story.t);
+  drawParts();
+  const s = storyText(pg), n = Math.min(s.length, Math.floor(story.t * 0.8));
+  ctx.fillStyle = 'rgba(0,0,0,0.85)'; rr(30, 408, 900, 118, 14); ctx.fill();
+  ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(30, 408, 900, 118, 14); ctx.stroke();
+  const sp = pg.sp.replace(/\{name\}/g, playerName);
+  ctx.font = `900 16px ${FONT}`; const sw = ctx.measureText(sp).width + 28;
+  ctx.fillStyle = '#ff7043'; rr(50, 392, sw, 30, 10); ctx.fill(); txt(sp, 50 + sw / 2, 407, 16, '#fff', null);
+  wrapText(s.slice(0, n), 60, 446, 840, 30, 20, '#fff');
+  if (n >= s.length && gT % 50 < 32) txt('▶ Enter / 탭', 912, 510, 13, '#ffcc80', null, 0, 'right');
+  txt(`${story.i + 1} / ${pages.length}`, 912, 392, 12, '#aaa', null, 0, 'right');
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(W - 120, 10, 110, 30, 8); ctx.fill(); txt('건너뛰기 (Esc)', W - 65, 25, 12, '#fff', null);
+  addHot(0, 0, W, H, () => { pressed.Enter = true; });
+  addHot(W - 120, 10, 110, 30, () => { pressed.Escape = true; });
 }
 
 // ================= game flow =================
@@ -2268,7 +2602,9 @@ function step() {
   else if (scene === 'betpick') updateBetPick();
   else if (scene === 'custom') updateCustom();
   else if (scene === 'online') updateOnline();
-  else if (scene === 'ranking') { if (pressed.Enter || pressed.Escape || pressed.Space) toTitle(); }
+  else if (scene === 'ranking') updateRanking();
+  else if (scene === 'story') updateStory();
+  else if (scene === 'bank') updateBank();
   else if (scene === 'opening') {
     sceneT++; updateOpening();
     if (sceneT >= OPEN_T || pressed.Space || pressed.Enter) { try { speechSynthesis.cancel(); } catch (e) {} nextOpponent(); }
@@ -2335,7 +2671,7 @@ function step() {
         if (on3) { scene = 'vs'; sceneT = 0; }
         else if (mode === 4) openBet();
         else if (mode !== 1) toTitle();
-        else if (runOver) scene = 'ranking';
+        else if (runOver) openRanking(true);
         else nextOpponent();
       } else if (skip) {
         if (!cut.chosen) { cut.prev = Math.min(cut.prev, 1.99); cut.t = CHOICE_T; }
@@ -2403,6 +2739,7 @@ function startCutscene(w, l) {
  cut.earn.win = meWin ? 80 : 0; if (meWin) addCoins(80);
     const r = lsGet('sgf_online', { w: 0, l: 0 }); r[meWin ? 'w' : 'l']++; lsSet('sgf_online', r);
   }
+  afterMatchEconomy(w);
 }
 // 요리 선택: 찰떡 궁합은 안정적, 모험 요리는 별점이 들쭉날쭉하지만 코인 2배
 function chooseDish(i) {
@@ -2471,6 +2808,7 @@ function updateCutscene() {
   }
   if (crossed(T_GRL)) { SFX.bell(); sizzleOn(); sizzleSet(0.03); }
   if (crossed(T_GRL + 1.3)) { SFX.stamp(); shake = 10; }
+  if (cut.tp && crossed(T_GRL + 1.9) && tierOf(cut.tp.after) > tierOf(cut.tp.before)) { SFX.bell(); speak('티어 승급!'); }
   if (t > T_GRL && Math.random() < 0.15) smoke(rand(470, 730), 390);
   if (t > T_GRL && cut.w === p1 && mode === 1 && gT % 18 === 0) burst(rand(80, W - 80), rand(40, 200), 24, [pick(['#ff5252', '#ffd740', '#69f0ae', '#40c4ff']), '#fff'], 8);
   cut.prev = t;
@@ -2807,7 +3145,15 @@ function drawFinal(f) {
     txt(parts2.join(' · '), 174, 296, 13, '#fff', null);
     txt(`보유 ${coins} 코인`, 174, 326, 16, '#ffe082', null);
   }
+  if (cut.tp && f > 1.9) {
+    const up = tierOf(cut.tp.after) > tierOf(cut.tp.before), down = tierOf(cut.tp.after) < tierOf(cut.tp.before);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; rr(24, 356, 300, 62, 12); ctx.fill();
+    const bw2 = drawTierBadge(36, 376, cut.tp.after, 12, 'left');
+    txt(`${cut.tp.d >= 0 ? '+' : ''}${cut.tp.d} TP (${cut.tp.after})${up ? ' ⬆ 승급!' : down ? ' ⬇ 강등' : ''}`, 44 + bw2, 376, 14, up ? '#69f0ae' : down ? '#ff8a80' : '#fff', null, 0, 'left');
+    txt(cut.interest ? `💸 사채 이자 +${cut.interest} · 남은 빚 ${fmtN(debt)}` : '👑 빚 없음!', 174, 402, 13, '#ffab91', null);
+  }
   addHot(0, 60, W, H - 60, () => { pressed.Enter = true; });
+
   if (mode === 1 && !runOver) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(W - 130, 8, 120, 34, 8); ctx.fill(); txt('그만하기', W - 70, 25, 15, '#fff', null); addHot(W - 130, 8, 120, 34, () => { pressed.Escape = true; }); }
   if (mode === 3) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(W - 130, 8, 120, 34, 8); ctx.fill(); txt('나가기', W - 70, 25, 15, '#fff', null); addHot(W - 130, 8, 120, 34, () => { pressed.Escape = true; }); }
   if (mode === 4 && f > 0.8) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 230, 196, 460, 44, 12); ctx.fill(); txt(bet4.stake ? (cut.earn.bet > 0 ? `🎉 베팅 적중! +${cut.earn.bet} 코인` : `💸 베팅 실패... -${bet4.stake} 코인`) : '👀 구경 끝!', W / 2, 218, 24, cut.earn.bet > 0 ? '#ffd740' : '#fff', '#000', 5); }
@@ -3094,6 +3440,7 @@ function drawVs() {
     txt(NET.names[0]
 , 220, 470, 34, '#fff', '#000', 8); txt(p1.base, 220, 505, 18, '#ffcdd2', '#000', 4);
     txt(NET.names[1], 740, 470, 34, '#fff', '#000', 8); txt(p2.base, 740, 505, 18, '#bbdefb', '#000', 4);
+    if (NET.tps) { drawTierBadge(220, 432, NET.tps[0], 13); drawTierBadge(740, 432, NET.tps[1], 13); }
     txt(`온라인 대전 · 코드 ${NET.code}`, W / 2, 50, 28, '#80d8ff', '#000', 6);
     txt(NET.me === p1 ? '◀ 나 (왼쪽)' : '나 (오른쪽) ▶', W / 2, 92, 18, '#ffeb3b', '#000', 4);
     txt('VS', W / 2, H / 2 - 40, 120 * (1 + (1 - k)), '#ffeb3b', '#000', 14);
@@ -3116,25 +3463,6 @@ function drawVs() {
     txt(TOUCH ? '고른 칸을 한 번 더 탭하면 시작' : '1/2/3 또는 ←→ 선택 · Enter 시작', W / 2, 190, 13, '#ccc', null);
   } else addHot(0, 0, W, H, () => { pressed.Enter = true; });
 }
-function drawRanking() {
-  ctx.drawImage(bgC, 0, 0);
-  ctx.fillStyle = 'rgba(10,5,20,0.82)'; ctx.fillRect(0, 0, W, H);
-  txt('🏆 연승 랭킹 TOP 10', W / 2, 46, 38, '#ffd54f', '#000', 7);
-  txt('이 브라우저에 저장된 기록 (온라인 랭킹은 준비 중)', W / 2, 82, 13, '#aaa', null);
-  const r = getRank();
-  if (!r.length) txt('아직 기록이 없어요. 연승 모드에 도전해 보세요!', W / 2, 260, 22, '#fff', null);
-  txt('순위', 190, 112, 14, '#bbb', null); txt('닉네임', 340, 112, 14, '#bbb', null); txt('캐릭터', 540, 112, 14, '#bbb', null); txt('연승', 700, 112, 14, '#bbb', null);
-  r.forEach((e, i) => {
-    const y = 140 + i * 36;
-    if (i === rankPos) { ctx.fillStyle = gT % 30 < 15 ? 'rgba(255,213,79,0.35)' : 'rgba(255,213,79,0.2)'; rr(150, y - 16, 660, 32, 8); ctx.fill(); }
-    const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
-    txt(`${i + 1}`, 190, y, 20, col, '#000', 4); txt(e.name, 340, y, 20, col, '#000', 4);
-    txt(e.char, 540, y, 18, '#ddd', '#000', 3); txt(`${e.streak}연승`, 700, y, 20, col, '#000', 4);
-  });
-  if (gT % 60 < 42) txt(TOUCH ? '탭하여 타이틀로' : '[Enter] 타이틀', W / 2, H - 22, 20, '#fff', '#000', 5);
-  addHot(0, 0, W, H, () => { pressed.Enter = true; });
-}
-
 function draw() {
   hot = []; syncPad(); if (AC) setMusic(trackFor(scene));
   ctx.save();
@@ -3144,6 +3472,8 @@ function draw() {
   else if (scene === 'online') drawOnline();
   else if (scene === 'market') drawMarket();
   else if (scene === 'betpick') drawBetPick();
+  else if (scene === 'story') drawStory();
+  else if (scene === 'bank') drawBank();
   else if (scene === 'select') drawSelect();
   else if (scene === 'vs') drawVs();
   else if (scene === 'ranking') drawRanking();
@@ -3243,8 +3573,15 @@ if (/autotest/.test(location.search)) {
     coins = 2000; for (let i = 0; i < SHOP.length; i++) shopAct(i);
     out.push('shop: own=' + Object.keys(inv.own).join(',') + ' use=' + JSON.stringify(inv.use) + ' coins=' + coins);
     scene = 'title'; draw(); p1.setChar(withCos(CHARS[0])); scene = 'fight'; draw(); scene = 'betpick'; draw();
+    // 스토리 · 은행 · 티어 · 랭킹
+    for (const k in STORY) { startStory(k); for (let i = 0; i < STORY[k].length; i++) { story.i = i; for (story.t = 1; story.t < 200; story.t += 40) { draw(); } } }
+    coins = 5000; debt = 10000; bankDebt = 0; chapSeen = []; scene = 'bank'; draw(); repay('debt', 3000);
+    out.push(`repay: debt=${debt} coins=${coins} scene=${scene} chap=${chapSeen.join(',')}`);
+    scene = 'bank'; coins = 0; borrow(100); out.push(`loan: bankDebt=${bankDebt} coins=${coins} limit=${loanLimit()}`);
+    tp = 720; out.push('tier 720 = ' + TIERS[tierOf(tp)][0]); draw(); openRanking(false); draw(); rk.tab = 1; draw(); scene = 'title'; draw();
     mode = 1;
     out.push('ults used: ' + JSON.stringify(ultCount));
+
 
 
     out.push('AUTOTEST PASS');
@@ -3259,7 +3596,10 @@ if (VIEW === 'fight') { mode = 0; p1.setChar(withCos(CHARS[0], { hat: 'crown', f
 else if (VIEW === 'betpick') openBet();
 else if (VIEW === 'market') { if (!fridge.length) { addDish(makeDish(MEATS[5].opts[0]), '갈비', 5); addDish(makeDish(MEATS[2].opts[0]), '등심', 4); addDish(makeDish(MEATS[4].opts[0]), '족', 3); } openMarket(); }
 else if (VIEW === 'shop') { openMarket(); mk.tab = 1; }
+else if (VIEW === 'bank') { scene = 'bank'; }
+else if (VIEW && VIEW.startsWith('story')) { startStory('intro'); story.i = +(VIEW.slice(5) || 0); story.t = 400; }
 if (NETTEST) { sel.c1 = NETTEST === 'host' ? 3 : 7; playerName = NETTEST; NET.code = new URLSearchParams(location.search).get('code') || '4321'; scene = 'online'; if (NETTEST === 'host') netHost(); else setTimeout(netJoin, 6000); setInterval(() => console.log('NETSTATUS ' + NET.status + ' | ' + NET.err + ' | f=' + NET.f), 5000); }
+if (!location.search && !lsGet('sgf_story_seen', false)) startStory('intro');
 let last = performance.now(), acc = 0;
 function frame(now) {
   acc += Math.min(100, now - last); last = now;
