@@ -2263,9 +2263,16 @@ const BANK_ACTS = [
 let resetAsk = -999;
 function resetAll() {
   if (gT - resetAsk > 180) { resetAsk = gT; SFX.block(); toast('⚠️ 한 번 더 누르면 모든 기록이 지워져요!'); return; }
-  if (RANK_DB) fetch(`${RANK_DB}/rank/${pid}.json`, { method: 'DELETE' }).catch(() => {});   // 내 랭킹 기록도 삭제
+  // 이 기기(=이 플레이어)의 기록만 지움: 서버의 rank/내ID 하나 + 이 브라우저 저장값. 다른 사람 기록은 그대로.
+  const myId = pid;
   try { Object.keys(localStorage).filter(k => k.startsWith('sgf_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  setTimeout(() => location.reload(), 300);
+  toast('🗑️ 서버 기록 삭제 중...');
+  let done = false; const reload = () => { if (!done) { done = true; location.reload(); } };
+  if (RANK_DB) {
+    fetch(`${RANK_DB}/rank/${myId}.json`, { method: 'DELETE', keepalive: true })
+      .then(r => { if (!r.ok) throw 0; }).catch(() => alert('서버 랭킹 기록은 지우지 못했어요 (인터넷/서버 규칙 확인). 기기 기록은 지워졌어요.')).finally(reload);
+    setTimeout(reload, 5000);   // 서버가 응답 없으면 5초 뒤 그냥 새로고침
+  } else reload();
 }
 function updateBank() {
   const n = BANK_ACTS.length;
