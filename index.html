@@ -50,8 +50,25 @@ function fit() {
 }
 let RES = 1;
 addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 200));
-// 모바일 웹: 첫 터치 때 전체 화면(지원하는 브라우저만), 길게 눌러 메뉴 뜨는 것 막기, 앱 전환 시 소리 멈춤
-if (TOUCH) addEventListener('pointerdown', () => { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); }, { once: true });
+// 모바일 웹: 기기에 맞는 전체 화면, 길게 눌러 메뉴 뜨는 것 막기, 앱 전환 시 소리 멈춤
+//  - 안드로이드 폰·태블릿: 터치하면 전체 화면 + 가로 화면 고정 (뒤로 가기로 나가도 다음 터치 때 다시 전체 화면)
+//  - 아이패드: 터치하면 전체 화면 (Safari 방식)
+//  - 아이폰: Safari가 전체 화면을 지원하지 않음 → '홈 화면에 추가'로 열면 전체 화면이라 처음 한 번 안내
+//  - PC·터치스크린 노트북, 이미 앱처럼(홈 화면에서) 연 경우: 아무것도 안 함
+const MOBILE = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+const STANDALONE = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches);
+const IPHONE = /iPhone|iPod/.test(navigator.userAgent);
+if (MOBILE && !STANDALONE) addEventListener('pointerdown', () => {
+  const d = document.documentElement;
+  if (IPHONE) {
+    if (!lsGet('sgf_homeTip', false)) { lsSet('sgf_homeTip', true); toast('📱 공유 → "홈 화면에 추가"로 열면 전체 화면!'); }
+    return;
+  }
+  if (document.fullscreenElement || document.webkitFullscreenElement) return;
+  const lockLand = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} };
+  if (d.requestFullscreen) d.requestFullscreen({ navigationUI: 'hide' }).then(lockLand).catch(() => {});
+  else if (d.webkitRequestFullscreen) d.webkitRequestFullscreen();
+});
 addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('visibilitychange', () => { try { if (typeof AC !== 'undefined' && AC) document.hidden ? AC.suspend() : AC.resume(); } catch (e) {} });
 
@@ -2445,14 +2462,24 @@ function uploadRank() {
   const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_rbest', 0), t: Date.now() };
   return rankAll(`/rank/${pid}.json`, { method: 'PUT', body: JSON.stringify(body) });
 }
+// 랭킹 불러오기는 서버 하나에서만 함(저장은 모든 서버에). 시작 서버를 무작위로 골라 부담을 나누고, 실패하면 다음 서버로.
+// 서버에서는 티어 상위·연승 상위 RANK_TOP명씩만 받음 → 플레이어가 늘어도 내려받는 양이 그대로.
+// 서버에 색인(.indexOn)이 없어 상위만 받기가 실패하면 그 서버에서 전체를 받음.
+const RANK_TOP = 150;
+function rankGet(db) {
+  const opt = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(6000) } : {};   // 응답 없는 서버는 6초 뒤 포기
+  const get = q => fetch(`${db}/rank.json${q}`, opt).then(r => { if (!r.ok) throw r.status; return r.json(); });
+  const top = k => get(`?orderBy=%22${k}%22&limitToLast=${RANK_TOP}`);
+  return Promise.all([top('tp'), top('streak')]).then(([a, b]) => ({ ...(a || {}), ...(b || {}) }), () => get(''));
+}
 function fetchRank() {
   if (!RANK_DBS.length) { rk.loading = false; rk.err = '온라인 랭킹 서버가 아직 연결되지 않았어요'; return; }
   rk.loading = true; rk.err = '';
-  rankAll("/rank.json").then(rs => Promise.all(rs.map(r => r.status === "fulfilled" ? r.value.json().catch(() => undefined) : undefined))).then(ds => {
-    if (ds.every(d => d === undefined)) throw 0;   // 모든 서버가 실패했을 때만 오류 (빈 랭킹은 null이라 정상)
-    const m = {};
-    for (const d of ds) for (const [id, v] of Object.entries(d || {})) if (v && (!m[id] || (v.t || 0) > (m[id].t || 0))) m[id] = { ...v, id };
-    rk.all = Object.values(m).filter(v => typeof v.tp === 'number' && (v.tp > 0 || v.streak > 0));   // 랭크전 기록이 없는 돼지는 숨김
+  const s = Math.floor(Math.random() * RANK_DBS.length);
+  const tryAt = i => i >= RANK_DBS.length ? Promise.reject(0) : rankGet(RANK_DBS[(s + i) % RANK_DBS.length]).catch(() => tryAt(i + 1));
+  tryAt(0).then(d => {   // 빈 랭킹은 null이라 정상
+    rk.all = Object.entries(d || {}).filter(([, v]) => v && typeof v.tp === 'number' && (v.tp > 0 || v.streak > 0))   // 랭크전 기록이 없는 돼지는 숨김
+      .map(([id, v]) => ({ ...v, id }));
     rankSort(); rk.loading = false;
   }).catch(() => { rk.loading = false; rk.err = '랭킹을 불러오지 못했어요 (인터넷 확인)'; });
 }
