@@ -14,24 +14,30 @@ canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-sha
   display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;text-align:center;line-height:1.1;text-shadow:0 1px 2px #000}
 #pad .b.on{background:rgba(255,200,80,.55)}
 #pad .c{border-radius:14px;background:rgba(255,120,80,.28)}
-#rot{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#111;color:#fff;font:900 20px sans-serif;text-align:center;z-index:9}
 </style>
 </head>
 <body>
 <canvas id="c" width="960" height="540"></canvas>
 <div id="pad"></div>
-<div id="rot">📱 화면을 가로로 돌려주세요</div>
 <script>
 'use strict';
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const W = 960, H = 540, GROUND = 460, ROUND_T = 60 * 60, GRAV = 0.75;
 const FONT = "'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
 const TOUCH = ('ontouchstart' in window) || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
+// 화면 맞추기: PC는 비율 유지(여백), 모바일 가로는 화면을 꽉 채움, 모바일 세로는 위쪽 게임 화면 + 아래쪽 조작 버튼
+let PORTRAIT = false, padReady = false;
 function fit() {
-  const s = Math.min(innerWidth / W, innerHeight / H); cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
-  document.getElementById('rot').style.display = TOUCH && innerHeight > innerWidth ? 'flex' : 'none';
+  const vw = innerWidth, vh = innerHeight;
+  PORTRAIT = TOUCH && vh > vw;
+  let w, h;
+  if (PORTRAIT) { w = vw; h = Math.min(vw * H / W, vh * 0.55); }
+  else if (TOUCH) { w = vw; h = vh; }
+  else { const s = Math.min(vw / W, vh / H); w = W * s; h = H * s; }
+  Object.assign(cv.style, { width: w + 'px', height: h + 'px', top: PORTRAIT ? '0' : '50%', transform: PORTRAIT ? 'translate(-50%,0)' : 'translate(-50%,-50%)' });
+  if (padReady) layoutPad(h);
 }
-addEventListener('resize', fit); fit();
+addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 200)); fit();
 
 // ================= utils =================
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -114,16 +120,40 @@ const PAD = [
   { t: '업어<br>치기', codes: ['KeyI', 'KeyK'], r: 27, b: 6, s: 56, c: 1 }, { t: '스킬', codes: ['KeyK', 'KeyL'], r: 27, b: 26, s: 56, c: 1 },
   { t: '필살기', codes: ['KeyA', 'KeyD', 'KeyK', 'KeyO'], r: 27, b: 46, s: 56, c: 1 }
 ];
+// 세로 화면 배치: [가운데 x, 가운데 y, 크기] — 단위 u 기준 (왼쪽 십자키 · 가운데 조합기 · 오른쪽 손발)
+const PAD_PORTRAIT = [[-1, 0, .9], [1, 0, .9], [0, -1, .9], [0, 1, .9],
+  ['r', -2.25, -.6, 1], ['r', -1.15, -.6, 1], ['r', -2.25, .6, 1], ['r', -1.15, .6, 1],
+  ['m', -1.05, .85], ['m', 0, .85], ['m', 1.05, .85]];
 const padEl = document.getElementById('pad');
+function layoutPad(canvasH) {
+  if (!TOUCH) return;
+  if (!PORTRAIT) {   // 가로: 화면 위에 겹쳐서
+    padEl.style.top = '0';
+    for (const p of PAD) {
+      Object.assign(p.el.style, { width: p.s + 'px', height: p.s + 'px', top: '', bottom: p.b + '%', left: p.l !== undefined ? p.l + '%' : '', right: p.l === undefined ? p.r + '%' : '' });
+    }
+    return;
+  }
+  // 세로: 게임 화면 아래 남는 공간에
+  padEl.style.top = canvasH + 'px';
+  const w = innerWidth, ph = innerHeight - canvasH;
+  const u = Math.min((w - 16) / 7, ph / 3.6, 80), cy = ph * 0.55, lx = 1.45 * u + 8, mx = (2.9 * u + 8 + w - 2.75 * u) / 2;
+  PAD.forEach((p, i) => {
+    const q = PAD_PORTRAIT[i]; let x, y, s;
+    if (q[0] === 'r') { x = w + q[1] * u; y = cy + q[2] * u; s = q[3] * u; }
+    else if (q[0] === 'm') { x = mx; y = cy + q[1] * u; s = q[2] * u; }
+    else { x = lx + q[0] * u; y = cy + q[1] * u; s = q[2] * u; }
+    Object.assign(p.el.style, { width: s + 'px', height: s + 'px', left: x - s / 2 + 'px', top: y - s / 2 + 'px', right: '', bottom: '' });
+  });
+}
 for (const p of PAD) {
-  const d = document.createElement('div'); d.className = 'b' + (p.c ? ' c' : ''); d.innerHTML = p.t;
-  Object.assign(d.style, { width: p.s + 'px', height: p.s + 'px', bottom: p.b + '%' });
-  if (p.l !== undefined) d.style.left = p.l + '%'; else d.style.right = p.r + '%';
+  const d = document.createElement('div'); d.className = 'b' + (p.c ? ' c' : ''); d.innerHTML = p.t; p.el = d;
   const down = e => { e.preventDefault(); initAudio(); d.classList.add('on'); for (const c of p.codes) press(c); d.setPointerCapture?.(e.pointerId); };
   const up = e => { e.preventDefault(); d.classList.remove('on'); for (const c of p.codes) keys[c] = false; };
   d.addEventListener('pointerdown', down); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
   padEl.appendChild(d);
 }
+padReady = true; fit();
 let padShown = false;
 function syncPad() {
   const want = TOUCH && ['intro', 'fight', 'roundEnd'].includes(scene);
@@ -2263,7 +2293,7 @@ function drawBank() {
     ctx.fillStyle = on ? '#1e88e5' : 'rgba(255,255,255,0.08)'; rr(x, y, 218, 84, 14); ctx.fill();
     if (on) { ctx.strokeStyle = '#90caf9'; ctx.lineWidth = 2; rr(x, y, 218, 84, 14); ctx.stroke(); }
     txt(label, x + 109, y + 42, 16, '#fff', null);
-    addHot(x, y, 218, 84, () => { if (bk.sel === i) pressed.Enter = true; else { bk.sel = i; SFX.select(); } });
+    addHot(x, y, 218, 84, () => { bk.sel = i; pressed.Enter = true; });   // 한 번 탭하면 바로 실행
   });
   txt('대출 수수료 10% · 사채는 판마다 이자 0.3% · W/A/S/D 이동, Enter 실행', 690, 470, 12, '#90a4ae', null);
   drawParts();
