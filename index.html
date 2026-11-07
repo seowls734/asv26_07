@@ -4,12 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="삼겹살 파이터">
+<meta name="theme-color" content="#111111">
+<meta name="format-detection" content="telephone=no">
 <title>삼겹살 파이터 — 철판 대난투</title>
 <style>
-html,body{margin:0;height:100%;background:#111;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;height:100%;background:#111;overflow:hidden;touch-action:none;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 40px #000}
 #r{position:absolute;left:0;top:0;color:#fff;background:#000c;font:12px monospace;margin:0;padding:8px;white-space:pre-wrap}
-#pad{position:fixed;inset:0;pointer-events:none;display:none;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif}
+#pad{position:fixed;top:0;bottom:env(safe-area-inset-bottom);left:env(safe-area-inset-left);right:env(safe-area-inset-right);pointer-events:none;display:none;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif}
 #pad .b{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.45);color:#fff;
   display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;text-align:center;line-height:1.1;text-shadow:0 1px 2px #000}
 #pad .b.on{background:rgba(255,200,80,.55)}
@@ -35,9 +40,17 @@ function fit() {
   else if (TOUCH) { w = vw; h = vh; }
   else { const s = Math.min(vw / W, vh / H); w = W * s; h = H * s; }
   Object.assign(cv.style, { width: w + 'px', height: h + 'px', top: PORTRAIT ? '0' : '50%', transform: PORTRAIT ? 'translate(-50%,0)' : 'translate(-50%,-50%)' });
+  // 실제 화면 픽셀에 맞춰 캔버스 해상도를 올림 (흐릿함 방지). 휴대폰 성능을 위해 최대 2배
+  const r = Math.min(2, Math.max(1, Math.max(w / W, h / H) * (window.devicePixelRatio || 1)));
+  if (Math.abs(r - RES) > 0.01) { RES = r; cv.width = Math.round(W * RES); cv.height = Math.round(H * RES); ctx.imageSmoothingQuality = 'high'; }
   if (padReady) layoutPad(h);
 }
-addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 200)); fit();
+let RES = 1;
+addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 200));
+// 모바일 웹: 첫 터치 때 전체 화면(지원하는 브라우저만), 길게 눌러 메뉴 뜨는 것 막기, 앱 전환 시 소리 멈춤
+if (TOUCH) addEventListener('pointerdown', () => { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen({ navigationUI: 'hide' }).catch(() => {}); }, { once: true });
+addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('visibilitychange', () => { try { if (typeof AC !== 'undefined' && AC) document.hidden ? AC.suspend() : AC.resume(); } catch (e) {} });
 
 // ================= utils =================
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -129,8 +142,9 @@ function layoutPad(canvasH) {
   if (!TOUCH) return;
   if (!PORTRAIT) {   // 가로: 화면 위에 겹쳐서
     padEl.style.top = '0';
+    const k = Math.max(0.7, Math.min(1.15, innerHeight / 430));   // 작은 폰은 버튼도 작게
     for (const p of PAD) {
-      Object.assign(p.el.style, { width: p.s + 'px', height: p.s + 'px', top: '', bottom: p.b + '%', left: p.l !== undefined ? p.l + '%' : '', right: p.l === undefined ? p.r + '%' : '' });
+      Object.assign(p.el.style, { width: p.s * k + 'px', height: p.s * k + 'px', top: '', bottom: p.b + '%', left: p.l !== undefined ? p.l + '%' : '', right: p.l === undefined ? p.r + '%' : '' });
     }
     return;
   }
@@ -632,9 +646,10 @@ function drawStrip(x, y, w, h, cook, marks) {
 }
 
 // ================= stage: 포장마차 철판 =================
-const bgC = document.createElement('canvas'); bgC.width = W; bgC.height = H;
+const BG_RES = 2;   // 배경은 2배 해상도로 만들어 두고 W×H로 줄여 그림 (고해상도 화면에서 선명)
+const bgC = document.createElement("canvas"); bgC.width = W * BG_RES; bgC.height = H * BG_RES;
 (function buildBg() {
-  const g = bgC.getContext('2d');
+  const g = bgC.getContext("2d"); g.scale(BG_RES, BG_RES);
   let gr = g.createLinearGradient(0, 0, 0, GROUND);
   gr.addColorStop(0, '#140c2c'); gr.addColorStop(0.6, '#3d2352'); gr.addColorStop(1, '#6e3346');
   g.fillStyle = gr; g.fillRect(0, 0, W, H);
@@ -665,7 +680,7 @@ const bgC = document.createElement('canvas'); bgC.width = W; bgC.height = H;
   g.save(); g.shadowColor = '#ff4081'; g.shadowBlur = 20; g.fillStyle = '#ff80ab';
   g.font = `900 46px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('꿀꿀 포차', W / 2, 210);
   g.shadowColor = '#40c4ff'; g.fillStyle = '#80d8ff'; g.font = `900 18px ${FONT}`; g.fillText('철판 대난투 · 24시', W / 2, 250); g.restore();
-  bgC._back = document.createElement('canvas'); bgC._back.width = W; bgC._back.height = H; bgC._back.getContext('2d').drawImage(bgC, 0, 0);
+  bgC._back = document.createElement('canvas'); bgC._back.width = W * BG_RES; bgC._back.height = H * BG_RES; bgC._back.getContext("2d").drawImage(bgC, 0, 0);
   // crowd
   for (let i = 0; i < 22; i++) {
     const x = 20 + i * 44 + Math.sin(i * 3) * 8, y = 360 + (i % 2) * 8;
@@ -676,7 +691,7 @@ const bgC = document.createElement('canvas'); bgC.width = W; bgC.height = H;
     g.fillStyle = 'rgba(255,170,190,0.25)'; g.beginPath(); g.ellipse(x + 2, y + 6, 8, 6, 0, 0, 7); g.fill();
   }
   // counter (전경 레이어에도 따로)
-  bgC._front = document.createElement('canvas'); bgC._front.width = W; bgC._front.height = H;
+  bgC._front = document.createElement('canvas'); bgC._front.width = W * BG_RES; bgC._front.height = H * BG_RES; bgC._front.getContext("2d").scale(BG_RES, BG_RES);
   for (const gg of [g, bgC._front.getContext('2d')]) {
     gg.fillStyle = '#4e342e'; gg.fillRect(0, 378, W, 60);
     gg.fillStyle = '#6d4c41'; gg.fillRect(0, 378, W, 8);
@@ -1039,7 +1054,7 @@ function dealHit(a, d, h) {
     // 숙성 패링
     const canDef = d.y >= GROUND && ['idle', 'walk', 'block', 'cblock', 'crouch', 'blockstun'].includes(d.state);
     if (d.parryT > 0 && !h.unblockable && canDef) {
-      d.parryT = 0; d.stats.parries++; d.meter = Math.min(100, d.meter + 10); d.state = 'idle';
+      d.parryT = 0; d.stats.parries++; d.meter = Math.min(100, d.meter + 5); d.state = 'idle';
       if (!h.proj) { a.state = 'parried'; a.stun = 50; a.atk = null; a.vx = 0; a.ultInv = false; a.ultArmor = false; }
       SFX.gong(); hitstop = Math.max(hitstop, 14); shake = 6;
       burst((h.src + d.x) / 2, d.y - 100, 18, ['#e1f5fe', '#ffffff', '#81d4fa'], 8);
@@ -1055,7 +1070,7 @@ function dealHit(a, d, h) {
         const chip = h.dmg * (h.chip ?? 0.1) * a.dmgMul(h.kind);
         d.hp = Math.max(1, d.hp - chip); d.blockLow = cb; d.state = 'blockstun'; d.stun = Math.round((h.stun || 16) * 0.6);
         d.vx = (Math.sign(d.x - h.src) || -d.facing) * (h.kb || 4) * 0.6;
-        d.meter = Math.min(100, d.meter + 3); if (!d.tfOn) d.tfG = Math.min(100, d.tfG + 2);
+        if (!d.tfOn) d.tfG = Math.min(100, d.tfG + 2);   // 막기는 필살 게이지 없음
         burst(h.hx ?? (h.src + d.x) / 2, d.y - 95 * d.sc / 1.15, 8, ['#80d8ff', '#ffffff'], 6); SFX.block(); hitstop = Math.max(hitstop, 3);
         return 'block';
       }
@@ -1462,7 +1477,7 @@ function updateOpening() {
 function drawOpening() {
   const t = sceneT / 60;
   ctx.save(); if (shake > 0.5) ctx.translate(rand(-shake, shake), rand(-shake, shake));
-  ctx.drawImage(bgC, 0, 0); drawFloor();
+  ctx.drawImage(bgC, 0, 0, W, H); drawFloor();
   ctx.fillStyle = `rgba(0,0,0,${t < 1.4 ? 0.9 : 0.55})`; ctx.fillRect(0, 0, W, H);
   for (let i = 0; i < 3; i++) {
     const cx = 200 + i * 280 + Math.sin(t * 2 + i * 2) * 140;
@@ -1586,7 +1601,7 @@ function updateCustom() {
   if (pressed.Escape) scene = 'select';
 }
 function drawCustom() {
-  ctx.drawImage(bgC, 0, 0); ctx.fillStyle = 'rgba(10,5,20,0.82)'; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(bgC, 0, 0, W, H); ctx.fillStyle = 'rgba(10,5,20,0.82)'; ctx.fillRect(0, 0, W, H);
   txt('커스텀 캐릭터 만들기', W / 2, 32, 30, '#fff', '#000', 6);
   txt('W/S 항목 · A/D 바꾸기 · Enter 결정 · Esc 취소', W / 2, 60, 13, '#aaa', null);
   const d = ed.d, c = buildCustom(d), used = d.hp + d.pw + d.sp;
@@ -1742,7 +1757,7 @@ function updateOnline() {
   if (pressed.Escape) { if (NET.peer) { netReset(); NET.err = '취소했어요'; } else toTitle(); }
 }
 function drawOnline() {
-  ctx.drawImage(bgC, 0, 0); ctx.fillStyle = 'rgba(10,5,20,0.82)'; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(bgC, 0, 0, W, H); ctx.fillStyle = 'rgba(10,5,20,0.82)'; ctx.fillRect(0, 0, W, H);
   txt('온라인 1:1 대전', W / 2, 40, 36, '#fff', '#000', 7);
   txt('친구와 같은 4자리 코드를 입력 → 한 명은 "방 만들기", 다른 한 명은 "참가하기"', W / 2, 76, 15, '#ffe082', null);
   const c = getChar(sel.c1) || CHARS[0];
@@ -2095,7 +2110,7 @@ const glowC = document.createElement('canvas'); glowC.width = glowC.height = 64;
 })();
 let hype = 0;
 function drawStage() {
-  ctx.drawImage(bgBackC, 0, 0);
+  ctx.drawImage(bgBackC, 0, 0, W, H);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let x = 20, i = 0; x < W; x += 40, i++) {
     const t = x / W, y = (1 - t) * (1 - t) * 100 + 2 * (1 - t) * t * 150 + t * t * 100 + 8;
@@ -2114,7 +2129,7 @@ function drawStage() {
     if (hype > 0.5 && i % 2) { ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 6; ctx.lineCap = 'round'; line(x - 14, y + 4, x - 24, y - 26 - jump); line(x + 14, y + 4, x + 24, y - 26 - jump); }
     ctx.fillStyle = 'rgba(255,170,190,0.25)'; ell(x + 2, y + 6, 8, 6); ctx.fill();
   }
-  ctx.drawImage(bgFrontC, 0, 0);
+  ctx.drawImage(bgFrontC, 0, 0, W, H);
   drawFloor();
 }
 // 돼지 입체감: 왼쪽 위에서 빛을 받은 그라데이션
@@ -2203,8 +2218,9 @@ function drawTitle() {
 }
 
 // ================= 티어 =================
-const TIERS = [['등외', 0, '#9e9e9e'], ['3등급', 100, '#a1887f'], ['2등급', 250, '#b0bec5'], ['1등급', 450, '#ffd54f'],
-  ['1+등급', 700, '#4dd0e1'], ['1++등급', 1000, '#ce93d8'], ['마블링 마스터', 1400, '#ff5252']];
+const TIERS = [['아이언', 0, '#9e9e9e'], ['브론즈', 100, '#cd7f32'], ['실버', 250, '#cfd8dc'], ['골드', 450, '#ffd54f'],
+  ['플레티넘', 700, '#80cbc4'], ['에메랄드스플레시', 1000, '#2ecc71'], ['다이아', 1400, '#81d4fa'], ['울트라', 1850, '#ff8a65'],
+  ['마스터', 2350, '#ce93d8'], ['스타플래티나', 2900, '#b388ff'], ['그렌드마더', 3500, '#ff5252'], ['그렌드피아노', 4200, '#ffd700']];
 let tp = lsGet('sgf_tp', 0);
 const tierOf = v => { let i = 0; TIERS.forEach((t, k) => { if (v >= t[1]) i = k; }); return i; };
 const fmtN = n => Math.round(n).toLocaleString('ko-KR');
@@ -2421,9 +2437,9 @@ const STORY = {
   ],
   // 최고 티어 달성
   master: [
-    { sp: '내레이션', tx: '🏆 마블링 마스터 달성! {name}님은 철판 대난투 역사상 최고의 돼지가 되었습니다.', art: 'master' },
+    { sp: '내레이션', tx: '🏆 최고 티어 그렌드피아노 달성! {name}님은 철판 대난투 역사상 최고의 돼지가 되었습니다.', art: 'master' },
     { sp: '사채업자 멧돼지 실장', tx: '"...전설의 돼지라니. 사인 한 장만 해 주겠나? 우리 애가 팬이라서."', art: 'boss' },
-    { sp: '내레이션', tx: '이제 골목의 아기 돼지들은 모두 {name}님처럼 되고 싶어 합니다. 🏆 마블링 마스터 엔딩', art: 'master' }
+    { sp: '내레이션', tx: '이제 골목의 아기 돼지들은 모두 {name}님처럼 되고 싶어 합니다. 🏆 그렌드피아노 엔딩', art: 'master' }
   ],
   // 빚 다 갚고 큰돈 모으기
   rich: [
@@ -2432,7 +2448,7 @@ const STORY = {
     { sp: '내레이션', tx: '꿀꿀 포차는 전국 100호점을 돌파했습니다. 레버리지 없이, 삼겹살 한 점 한 점으로. 💰 재벌 엔딩', art: 'rich' }
   ]
 };
-const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '마블링 마스터'], ['bad', '삼겹살']];
+const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '그렌드피아노'], ['bad', '삼겹살']];
 const RICH_GOAL = 30000;
 let endSeen = lsGet('sgf_end', []);
 const isBroke = () => coins <= 0 && debt + bankDebt > 0;   // 코인이 0이 되면 배드 엔딩
@@ -2589,7 +2605,7 @@ function drawStoryArt(art, t) {
       drawPig(480, 332, 1, { ...me, hat: 'crown' }, { scale: 1.2, t, victory: true });
       const ty = 120 + Math.sin(t * 0.08) * 8;   // 트로피
       ctx.fillStyle = '#ffd700'; poly([[440, ty - 40], [520, ty - 40], [505, ty + 10], [455, ty + 10]]); ctx.fill(); ctx.fillRect(472, ty + 10, 16, 20); ctx.fillRect(455, ty + 30, 50, 10);
-      txt('🏆 마블링 마스터 엔딩', 480, 50, 36, '#ffd740', '#000', 7);
+      txt('🏆 그렌드피아노 엔딩', 480, 50, 36, '#ffd740', '#000', 7);
       break;
     }
     case 'rich': {   // 포차 체인 + 코인 비
@@ -3503,7 +3519,7 @@ function drawFight() {
 }
 
 function drawSelect() {
-  ctx.drawImage(bgC, 0, 0);
+  ctx.drawImage(bgC, 0, 0, W, H);
   ctx.fillStyle = 'rgba(10,5,20,0.75)'; ctx.fillRect(0, 0, W, H);
   txt('캐릭터 선택', W / 2, 36, 36, '#fff', '#000', 7);
   txt('A/D/W/S 또는 방향키 이동 · I / Space / Enter 결정 · C 커스텀 만들기 · Esc 뒤로', W / 2, 64, 13, '#aaa', null);
@@ -3592,6 +3608,7 @@ function drawVs() {
 }
 function draw() {
   hot = []; syncPad(); if (AC) setMusic(trackFor(scene));
+  ctx.setTransform(RES, 0, 0, RES, 0, 0);   // 고해상도 화면에서도 선명하게
   ctx.save();
   if (scene === 'title') drawTitle();
   else if (scene === 'opening') drawOpening();
