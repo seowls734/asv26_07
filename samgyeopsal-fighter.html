@@ -1765,7 +1765,7 @@ function cpuInput(me, op) {
 
 // ================= 필드 이벤트 (재미 요소) =================
 let evT = 0, blackoutT = 0, saltT = 0, evBanner = '', evBannerT = 0;
-function banner(s) { evBanner = s; evBannerT = 150; }
+function banner(s) {}   // (이벤트 안내 띠 글씨는 뺐음)
 function updateEvents() {
   if (evBannerT > 0) evBannerT--;
   if (--evT <= 0) {
@@ -1785,10 +1785,10 @@ function updateEvents() {
 function pickup(f, k) {
   SFX.bell();
   if (k === 'gold') {
-    if (f === p1 && mode === 1) { addCoins(30); popText(f.x, f.y - 190, '+30 코인!', '#ffd700', 30); }
-    else popText(f.x, f.y - 190, '저금통 뺏김!', '#ffd700', 26);
-  } else if (k === 'soju') { f.drunkT = 360; popText(f.x, f.y - 190, '취권 모드! 공격력↑', '#69f0ae', 26); }
-  else { f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.15); popText(f.x, f.y - 190, '쌈 한입! 체력 회복', '#9ccc65', 26); }
+    if (f === p1 && mode === 1) addCoins(30);
+    // (아이템 주울 때 뜨던 글씨는 뺐음)
+  } else if (k === 'soju') { f.drunkT = 360; }
+  else { f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.15); }
 }
 function envUpdate(o) {
   if (o.kind === 'item') {
