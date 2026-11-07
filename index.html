@@ -134,9 +134,9 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-const MAP1 = { left: 'KeyA', right: 'KeyD', up: 'KeyW', down: 'KeyS', lp: 'KeyI', rp: 'KeyO', lk: 'KeyK', rk: 'KeyL', grab: 'KeyJ', skill: 'KeyU', ultD: 'KeyY' };   // J 업어치기 · U 스킬 · Y 필살기 (한 번에 누르는 단축키)
-const MAP2 = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown', lp: 'Numpad7', rp: 'Numpad8', lk: 'Numpad4', rk: 'Numpad5', grab: 'Numpad1', skill: 'Numpad9', ultD: 'Numpad6' };
-const EMPTY = { ultD: false, left: false, right: false, up: false, down: false, leftP: false, rightP: false, lp: false, rp: false, lk: false, rk: false, grab: false, skill: false, ult: false, adCmd: false, cpu: false, mash: false, n1: false, n2: false, n3: false, ok: false };
+const MAP1 = { left: 'KeyA', right: 'KeyD', up: 'KeyW', down: 'KeyS', lp: 'KeyI', rp: 'KeyO', lk: 'KeyK', rk: 'KeyL', grab: 'KeyJ', skill: 'KeyU', ultD: 'KeyY', tf: 'KeyT' };   // J 업어치기 · U 스킬 · Y 필살기 (한 번에 누르는 단축키)
+const MAP2 = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown', lp: 'Numpad7', rp: 'Numpad8', lk: 'Numpad4', rk: 'Numpad5', grab: 'Numpad1', skill: 'Numpad9', ultD: 'Numpad6', tf: 'Numpad0' };
+const EMPTY = { tf: false, ultD: false, left: false, right: false, up: false, down: false, leftP: false, rightP: false, lp: false, rp: false, lk: false, rk: false, grab: false, skill: false, ult: false, adCmd: false, cpu: false, mash: false, n1: false, n2: false, n3: false, ok: false };
 // 두 키를 거의 동시에(6프레임 이내) 눌렀는지
 function chord(a, b) { return !!(keys[a] && keys[b] && (pressed[a] || pressed[b]) && Math.abs((lastPress[a] ?? -99) - (lastPress[b] ?? -99)) <= 6); }
 function readInput(m) {
@@ -145,6 +145,7 @@ function readInput(m) {
   o.grab = !!pressed[m.grab] || chord(m.lp, m.lk) || chord(m.rp, m.rk);   // I+K / O+L = 업어치기
   o.skill = !!pressed[m.skill] || chord(m.lk, m.rk);                       // K+L = 스킬
   o.adCmd = chord(m.left, m.right);                                         // A+D = 필살 준비
+  o.tf = !!pressed[m.tf];   // 변신 (게이지가 꽉 찼을 때)
   o.ultD = !!pressed[m.ultD];   // 필살기 단축키(Y, 모바일 필살기 버튼): A+D 없이 바로
   o.ult = chord(m.lk, m.rp) || o.ultD;                                                // (A+D 후) K+O = 필살기
   o.cpu = false;
@@ -171,11 +172,11 @@ const PAD = [
   { t: 'I<br>오른손', codes: ['KeyI'] }, { t: 'O<br>왼손', codes: ['KeyO'] },
   { t: 'K<br>오른발', codes: ['KeyK'] }, { t: 'L<br>왼발', codes: ['KeyL'] },
   { t: '업어<br>치기', codes: ['KeyJ'], c: 1 }, { t: '스킬', codes: ['KeyU'], c: 1 },   // 모바일: 동시 누르기 대신 버튼 하나로
-  { t: '필살기', codes: ['KeyY'], c: 1 }
+  { t: '필살기', codes: ['KeyY'], c: 1 }, { t: '변신', codes: ['KeyT'], c: 1 }
 ];
 // 버튼 위치: 오른쪽 아래 모서리 기준 [가로, 세로, 크기] (단위 u)
 const PAD_POS = [[-2.15, -1.75, 1], [-1.0, -2.05, 1], [-2.15, -0.62, 1], [-1.0, -0.92, 1],
-  [-3.3, -0.55, 0.86], [-3.3, -1.5, 0.86], [-3.3, -2.45, 0.86]];
+  [-3.3, -0.55, 0.86], [-3.3, -1.5, 0.86], [-3.3, -2.45, 0.86], [-2.15, -2.9, 0.8]];   // 마지막: 변신 버튼 (오른손 버튼 위)
 const padEl = document.getElementById('pad');
 const joyZ = document.createElement('div'), joyB = document.createElement('div'), joyK = document.createElement('div');
 joyZ.id = 'joyz'; joyB.id = 'joyb'; joyK.id = 'joyk'; joyZ.append(joyB, joyK); padEl.appendChild(joyZ);
@@ -1136,6 +1137,7 @@ function freeUpdate(f, o, inp) {
   if (ground) f.facing = o.x > f.x ? 1 : -1;
   const back = f.facing > 0 ? inp.left : inp.right, backP = f.facing > 0 ? inp.leftP : inp.rightP;
   if (backP && f.parryCD <= 0 && ground) { f.parryT = 7; f.parryCD = 26; }
+  if (inp.tf && f.tfG >= 100 && !f.tfOn && ground) return startTf(f);   // 변신: 변신 게이지가 꽉 차면 T(모바일: 변신 버튼)
   if (inp.ult && f.meter >= 100 && ground && (f.cmdT > 0 || inp.cpu || inp.ultD)) return startUlt(f);
   if (inp.skill && f.skillCD <= 0 && ground) return startSkill(f, false);
   if (inp.grab && ground) {
@@ -1728,7 +1730,8 @@ function cpuInput(me, op) {
   if (--ai.think <= 0) {
     ai.think = Math.max(2, 6 - L * 0.3) + (Math.random() * Math.max(4, 14 - L * 0.6) | 0);
     const r = Math.random();
-    if (me.meter >= 100 && dist < ULT_RANGE[me.ch.ult.type] && r < 0.5) { inp.ult = true; inp.cpu = true; }
+    if (me.tfG >= 100 && !me.tfOn && r < 0.6) inp.tf = true;   // 변신 게이지가 차면 변신
+    else if (me.meter >= 100 && dist < ULT_RANGE[me.ch.ult.type] && r < 0.5) { inp.ult = true; inp.cpu = true; }
     else if (me.skillCD <= 0 && r < 0.35 && skillGood(me.ch.skill.type, dist, op)) inp.skill = true;
     else if (dist < 130 && r < 0.12) inp.grab = true;
     else if (dist < 200) {
@@ -1874,7 +1877,7 @@ const defToChar = d => withCos(CHARS[clamp((d && d.idx) | 0, 0, CHARS.length - 1
 // 두 브라우저가 매 프레임 입력만 주고받고, 같은 시드로 똑같이 시뮬레이션한다 (락스텝).
 const NET = { peer: null, conn: null, host: false, code: '', status: '', err: '', ready: false, delay: 5, f: 0,
   local: {}, remote: {}, me: null, names: ['', ''], lastRecv: 0, theirName: '', theirDef: null };
-const NETKEYS = ['left', 'right', 'up', 'down', 'leftP', 'rightP', 'lp', 'rp', 'lk', 'rk', 'grab', 'skill', 'ult', 'adCmd', 'mash', 'n1', 'n2', 'n3', 'ok', 'ultD'];
+const NETKEYS = ['left', 'right', 'up', 'down', 'leftP', 'rightP', 'lp', 'rp', 'lk', 'rk', 'grab', 'skill', 'ult', 'adCmd', 'mash', 'n1', 'n2', 'n3', 'ok', 'ultD', 'tf'];
 const HELD_MASK = (1 << NETKEYS.indexOf('left')) | (1 << NETKEYS.indexOf('right')) | (1 << NETKEYS.indexOf('down'));
 const packIn = o => NETKEYS.reduce((m, k, i) => o[k] ? m | (1 << i) : m, 0);
 const unpackIn = b => { const o = { cpu: false }; NETKEYS.forEach((k, i) => { o[k] = !!(b & (1 << i)); }); return o; };
@@ -2645,7 +2648,7 @@ function drawTitle() {
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
   drawPig(810, 470, -1, CHARS[(i + 5) % CHARS.length].look, { t: gT + 30, scale: CHARS[(i + 5) % CHARS.length].scale * 1.1 });
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(60, 482, 840, 50, 10); ctx.fill();
-  txt('이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J(I+K) · 스킬 U(K+L) · 필살 Y(A+D→K+O)', W / 2, 497, 13, '#ffd6df', null);
+  txt('이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y · 변신 T', W / 2, 497, 13, '#ffd6df', null);
   txt(TOUCH ? '📱 버튼으로 조작 · 메뉴는 탭!' : 'W/S 메뉴 이동 · Enter 선택 · 숫자키 바로가기 · M 배경음', W / 2, 518, 12, '#80d8ff', null);
   txt(`🔊 ${musicMuted ? '꺼짐' : '켜짐'}`, W - 16, 20, 13, '#ccc', '#000', 3, 'right');
   addHot(W - 90, 6, 84, 28, () => { toggleMute(); });
@@ -4092,7 +4095,7 @@ function drawFighter(f) {
 function keyHint(f, which) {
   if (mode === 0 || (mode === 3 ? f !== NET.me : f === p2)) return '';
   if (TOUCH) return '';   // 모바일은 버튼에 이름이 써 있음
-  const m = { ult: 'Y', skill: 'U' };   // 한 번에 누르는 단축키로 안내
+  const m = { ult: 'Y', skill: 'U', tf: 'T' };   // 한 번에 누르는 단축키로 안내
   return `[${m[which]}]`;
 }
 function drawHUD() {
@@ -4130,6 +4133,13 @@ function drawHUD() {
     ctx.fillStyle = full ? (gT % 20 < 10 ? '#ff4081' : '#ffeb3b') : '#ffb300';
     ctx.fillRect(dir > 0 ? mx : mx + mw - mwF, H - 50, mwF, 12);
     if (full) txt('MAX!', mx + mw / 2, H - 44, 12, '#fff', '#000', 3);
+    // 변신 게이지 (필살 게이지 아래): 꽉 차면 T(모바일: 변신 버튼)로 변신, 변신 중엔 남은 시간
+    const tk = f.tfOn ? f.tfT / 480 : f.tfG / 100, tw2 = mw * clamp(tk), tReady = !f.tfOn && f.tfG >= 100;
+    ctx.fillStyle = '#222'; rr(mx - 3, H - 30, mw + 6, 11, 4); ctx.fill();
+    ctx.fillStyle = tReady ? (gT % 20 < 10 ? '#ffffff' : f.ch.tf.color) : f.ch.tf.color; ctx.globalAlpha = f.tfOn || tReady ? 1 : 0.75;
+    ctx.fillRect(dir > 0 ? mx : mx + mw - tw2, H - 28, tw2, 7); ctx.globalAlpha = 1;
+    const tLabel = f.tfOn ? `변신 중 · ${f.ch.tf.name}` : tReady ? `변신 가능! ${keyHint(f, 'tf')} ${f.ch.tf.name}` : `변신 ${f.ch.tf.name}`;
+    txt(tLabel, max, H - 11, 11, tReady ? '#fff' : '#b2ebf2', '#000', 3, mal);
     const sx = dir > 0 ? mx + mw + 14 : mx - 14 - 120;
     ctx.fillStyle = '#222'; rr(sx, H - 52, 120, 40, 8); ctx.fill();
     if (f.skillCD > 0) { const cdMax = f.ch.skill.cd; ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(sx, H - 52, 120 * (1 - f.skillCD / cdMax), 40); }
@@ -4248,6 +4258,8 @@ function drawSelect() {
   ctx.fillStyle = '#333'; ctx.fillRect(x + 312, 385, 110, 10);
   ctx.fillStyle = '#ffb300'; ctx.fillRect(x + 312, 385, 110 * clamp((ur - 0.6) / 0.7), 10);
   txt(ur >= 1.15 ? '빠름' : ur <= 0.85 ? '느림' : '보통', x + 312, 408, 12, '#ffcc80', null, 0, 'left');
+  const tfInfo = `변신 [T]: ${c.tf.name} — ${c.tf.desc}`;   // 변신 게이지가 꽉 차면 T
+  txt(tfInfo, x + 250, 428, fitSize(tfInfo, 12, 200), '#80deea', null, 0, 'left');
   ctx.fillStyle = '#ff5252'; rr(x + 470, 324, 150, 40, 10); ctx.fill(); txt(selFor === 'online' ? '이 돼지로 온라인!' : '이 돼지로 시작!', x + 545, 344, 16, '#fff', null);
   addHot(x + 470, 324, 150, 40, () => { pressed.Enter = true; });
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 70, 30, 8); ctx.fill(); txt('← 뒤로', 49, 29, 13, '#fff', null);
