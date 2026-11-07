@@ -318,43 +318,55 @@ function impact(p, kind) {
   if (!AC) return;
   p = clamp(p);
   const now = AC.currentTime, rapid = now - lastImpact < 0.04; lastImpact = now;   // 연타가 겹치면 가볍게
-  // 기본 공격 = 펀치 녹음 그대로. 킥은 조금 낮게, 셀수록 더 낮고 크게
-  const rate = (kind === 'kick' ? 0.86 : 1.04) * rnd(0.96, 1.05) - p * 0.12;
-  thump(rate, (rapid ? 0.55 : 0.85) + p * 0.35, 0, { pan: rnd(-0.12, 0.12) });
-  if (!rapid && p > 0.6) thump(rate * 0.72, 0.5 * p, 0.012, { lp: 1800 });   // 센 공격: 낮은 펀치를 한 겹 더 (묵직함)
+  const pan = rnd(-0.12, 0.12), jit = rnd(0.96, 1.05);
+  if (kind === 'kick') thump((0.9 - p * 0.15) * jit, (rapid ? 0.55 : 0.85) + p * 0.3, 0, { pan });   // 킥: 묵직한 펀치 녹음
+  else knock((1.02 - p * 0.12) * jit, (rapid ? 0.5 : 0.8) + p * 0.3, 0, { pan });                    // 손: 밝은 너클 펀치 녹음
+  if (!rapid && p > 0.6) thump(0.72 * jit, 0.5 * p, 0.012, { lp: 1800 });                          // 센 공격: 낮은 펀치 한 겹 더
 }
 function whoosh(d = 0.15, v = 0.2, lo = 500, hi = 3200, at = 0) { nz(d, { v, freq: lo, f2: hi, type: 'bandpass', q: 1.4, at, atk: d * 0.4 }); }
-// ---- 실제 녹음된 펀치 소리(universfield-punch-04) 를 타격음 재료로 사용 ----
-// 높낮이(재생 속도)만 바꿔서 펀치·킥·센 공격·스킬 타격·폭발까지 만듦. 못 불러오면(내 컴퓨터 파일로 열 때 등) 노이즈로 대신함
-let punchBuf = null;
+// 녹음 파일들. off = 앞쪽 무음을 건너뛰는 위치(초) — 안 건너뛰면 맞는 순간보다 0.07~0.17초 늦게 들림
+const SAMPLES = {
+  punch:   { file: 'universfield-punch-04-383965.mp3', off: 0.065 },              // 묵직하고 어두운 펀치 → 킥·센 공격
+  knuckle: { file: 'khoamthanh-punch-knuckle-blunt-medium-503895.mp3', off: 0.16 },  // 밝고 딱 끊기는 너클 펀치 → 손 공격
+  whip:    { file: 'freesound_community-whip01-6952.mp3', off: 0.1 },                // 휘익~착 → 휘두르는 스킬
+  gun:     { file: 'dragon-studio-machine-gun-sfx-631486.mp3', off: 0.02 },          // 빠른 연타 13번 → 연타 필살기
+};
+const BUF = {};
+let punchBuf = null;   // (예전 이름 유지) = BUF.punch
 function loadSamples() {
-  if (!AC || punchBuf || location.protocol === 'file:') return;
-  fetch('universfield-punch-04-383965.mp3').then(r => { if (!r.ok) throw r.status; return r.arrayBuffer(); })
-    .then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no))).then(buf => { punchBuf = buf; }).catch(() => {});
+  if (!AC || location.protocol === 'file:') return;   // 내 컴퓨터 파일로 열면 브라우저가 막음 → 노이즈로 대신
+  for (const [k, sm] of Object.entries(SAMPLES)) {
+    if (BUF[k]) continue;
+    fetch(sm.file).then(r => { if (!r.ok) throw r.status; return r.arrayBuffer(); })
+      .then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no))).then(buf => { BUF[k] = buf; if (k === 'punch') punchBuf = buf; }).catch(() => {});
+  }
 }
 function playS(buf, o = {}) {
   if (!AC || !buf) return;
-  const { rate = 1, v = 0.8, at = 0, pan = 0, hp, lp, out } = o;
+  const { rate = 1, v = 0.8, at = 0, pan = 0, hp, lp, out, off = 0, dur } = o;
   const s = AC.createBufferSource(), g = AC.createGain(); s.buffer = buf; s.playbackRate.value = rate; g.gain.value = v;
   let node = s;
   for (const [type, fr] of [['highpass', hp], ['lowpass', lp]]) if (fr) { const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = fr; node.connect(f); node = f; }
   node.connect(g);
   const dest = out || sfxOut || master;
   if (pan && AC.createStereoPanner) { const p = AC.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(dest); } else g.connect(dest);
-  s.start(AC.currentTime + at);
+  const t = AC.currentTime + at;
+  if (dur) { g.gain.setValueAtTime(v, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur); s.start(t, off, dur * rate + 0.05); } else s.start(t, off);
 }
-// 타격 한 방: rate 낮을수록 묵직(0.6~0.8), 높을수록 가볍고 빠름(1.1~1.4)
-function thump(rate = 1, v = 0.8, at = 0, o = {}) {
-  if (punchBuf) playS(punchBuf, { rate, v, at, ...o });
-  else nz(0.09, { v: v * 0.6, freq: 1100 * rate, f2: 150, at, out: o.out });
-}
+function smp(k, o = {}) { if (BUF[k]) { playS(BUF[k], { off: SAMPLES[k].off, ...o }); return true; } return false; }
+// 타격 한 방(묵직한 펀치 녹음): rate 낮을수록 묵직, 높을수록 가볍게
+function thump(rate = 1, v = 0.8, at = 0, o = {}) { if (!smp('punch', { rate, v, at, ...o })) nz(0.09, { v: v * 0.6, freq: 1100 * rate, f2: 150, at, out: o.out }); }
+// 손 공격용 밝은 너클 펀치 (없으면 묵직한 펀치로)
+function knock(rate = 1, v = 0.8, at = 0, o = {}) { if (!smp('knuckle', { rate, v, at, ...o })) thump(rate * 1.1, v, at, o); }
+// 채찍 '휘익~착' (없으면 바람 소리)
+function whipS(rate = 1, v = 0.6, at = 0, o = {}) { if (!smp('whip', { rate, v, at, ...o })) whoosh(0.2, v * 0.4, 400, 3500, at); }
 const SFX = {
   // ---- 싸움 소리: 펀치 녹음(높낮이 바꿔 씀) + 노이즈(쉬익·촤악). 낮은 '뚱·뜨등' 합성음은 쓰지 않음 ----
   punch(dmg = 6) { impact(dmg / 20, 'punch'); },
   kick(dmg = 9) { impact(dmg / 17, 'kick'); },
   heavy(dmg = 16) { impact(Math.max(0.8, dmg / 16), 'kick'); },
-  counterHit() { thump(1.25, 0.5, 0.03, { hp: 900 }); },                                   // 카운터: 짧고 높은 펀치 한 번 더
-  block() { thump(1.45, 0.5, 0, { hp: 1200 }); nz(0.03, { v: 0.25, freq: 3000, type: 'highpass' }); },   // 막기: 가볍고 높은 '탁'
+  counterHit() { knock(1.3, 0.55, 0.03, { hp: 900 }); },                                   // 카운터: 짧고 높은 너클 한 번 더
+  block() { knock(1.5, 0.45, 0, { hp: 1300 }); },   // 막기: 가볍고 높은 '탁'
   whiff() { whoosh(0.13, 0.18, 500, 2800); },
   jump() { whoosh(0.15, 0.12, 250, 1100); },
   special() { whoosh(0.3, 0.22, 300, 2600); thump(0.9, 0.5, 0.05); },
@@ -398,6 +410,8 @@ const SFX = {
   partBreak() { nz(0.2, { v: 0.4, freq: 2000 }); },
   stamp() { thump(0.7, 0.8, 0, { lp: 1500 }); },
   hot() { noise(0.15, 0.12, 4000, 'highpass'); },
+  flurryHit() { knock(rnd(1.05, 1.2), 0.32); },   // 연타 중 한 방 한 방은 작게 (연타 소리가 주인공)
+  flurry() { smp('gun', { v: 0.55, lp: 2600, rate: 0.95 }); },   // 연타 필살기: 빠른 연타 소리 (기관총 녹음을 조금 둥글게)
   select() { tone(620, 0.05, 'sine', 0.06); },
   confirm() { tone(523, 0.08, 'sine', 0.08); setTimeout(() => tone(784, 0.12, 'sine', 0.08), 80); }
 };
@@ -1481,7 +1495,7 @@ function ultUpdate(f, o) {
           if (T % 2 === 0) burst(f.x - f.facing * 40, GROUND - 5, 2, ['#a07850', '#c8a070'], 4);
           if (inFront(150) && Math.abs(o.y - f.y) < 120) {
             const r = U({ dmg: 4, stun: 30, hitstop: 8, kb: 0 });
-            if (r === 'hit' || r === 'armor') { f.ultHit = true; f.uT = 0; lock(); }
+            if (r === 'hit' || r === 'armor') { f.ultHit = true; f.uT = 0; lock(); SFX.flurry(); }   // 연타 시작: 두두두두 연타 소리
             else if (r !== 'miss') ultEnd(f, o);
           }
         } else ultEnd(f, o);
@@ -1489,7 +1503,7 @@ function ultUpdate(f, o) {
         f.vx = 0;
         if (o.state === 'locked') {
           o.x = clamp(f.x + f.facing * 120 * s, 50, W - 50);
-          if (T % 5 === 0 && T < 65) U({ dmg: 2.2, force: true, noReact: true, hitstop: 1, shake: 4, sfx: kick ? 'kick' : 'punch', txt: kick ? ['슉', '팡', '파박', '촤악'] : ['퍽', '팍', '빡', '퍼퍽'], hx: o.x - f.facing * 20 });
+          if (T % 5 === 0 && T < 65) U({ dmg: 2.2, force: true, noReact: true, hitstop: 1, shake: 4, sfx: 'flurryHit', txt: kick ? ['슉', '팡', '파박', '촤악'] : ['퍽', '팍', '빡', '퍼퍽'], hx: o.x - f.facing * 20 });
           if (T === 70) U({ dmg: 14, force: true, launch: -14, kb: 12, stun: 40, hitstop: 16, shake: 16, txt: [kick ? '천족난무!!' : '삼겹 폭풍!!'] });
         }
         if (T >= 85) ultEnd(f, o);
@@ -2265,16 +2279,16 @@ function castPunch() {
 const SKILL_SFX = {
   dash() { const b = bus(0, 0.25); nz(0.5, { v: 0.4, freq: 90, f2: 500, atk: 0.25, out: b }); whoosh(0.3, 0.3, 250, 2200, 0.15); thump(0.75, 0.6, 0.3, { lp: 2200 }); },   // 우르르릉 → 휙 → 쿵
   armorShoulder() { const b = bus(0, 0.35); nz(0.45, { v: 0.45, freq: 120, f2: 400, atk: 0.15, out: b }); thump(0.65, 0.75, 0.05, { lp: 1800 }); nz(0.05, { v: 0.3, freq: 1500, type: 'bandpass', q: 1.5, at: 0.08, out: b }); },   // 쿠웅 + 철컥
-  launcher() { const b = bus(0, 0.3); whoosh(0.2, 0.32, 3500, 400); for (let i = 0; i < 6; i++) nz(0.025, { v: 0.16, freq: 2200, type: 'bandpass', q: 1.2, at: 0.08 + i * 0.035, out: b }); thump(1.1, 0.45, 0.22); },   // 휙 걸고 촤르륵
+  launcher() { const b = bus(0, 0.3); whipS(1.0, 0.7); for (let i = 0; i < 6; i++) nz(0.025, { v: 0.16, freq: 2200, type: 'bandpass', q: 1.2, at: 0.08 + i * 0.035, out: b }); thump(1.1, 0.45, 0.22); },   // 휙 걸고 촤르륵
   roll() { [0, 0.09, 0.18, 0.27].forEach((t, i) => thump(0.9 - i * 0.05, 0.35, t, { lp: 1500 })); whoosh(0.4, 0.15, 250, 1100); },   // 데굴데굴
   iceProj() { whoosh(0.15, 0.2, 2000, 6000); },
   fireProj() { const b = bus(0, 0.3); nz(0.4, { v: 0.45, freq: 150, f2: 2500, atk: 0.12, out: b }); },   // 화악
   stewSplash() { nz(0.25, { v: 0.25, freq: 600, f2: 1400, type: 'bandpass', q: 0.9 }); },
-  spinKick() { [0, 0.11, 0.2, 0.27].forEach((t, i) => whoosh(0.13, 0.3, 350 + i * 250, 3000 + i * 500, t)); },   // 휘익휘익휘익휙
+  spinKick() { [0, 0.11, 0.2].forEach((t, i) => whipS(1.15 + i * 0.12, 0.5, t)); },   // 휘익 휘익 휘익 (채찍 녹음, 점점 높게)
   counter() { const b = bus(0, 0.4); whoosh(0.2, 0.3, 2500, 8000); nz(0.03, { v: 0.35, freq: 5000, type: 'highpass', at: 0.18, out: b }); },   // 스르릉 → 착
   teleport() { nz(0.15, { v: 0.3, freq: 6000, f2: 500, type: 'bandpass', q: 1, out: bus(-0.6, 0.4) }); nz(0.15, { v: 0.3, freq: 500, f2: 6000, type: 'bandpass', q: 1, at: 0.2, out: bus(0.6, 0.4) }); },   // 슉 … 슉
   uppercut() { whoosh(0.25, 0.35, 300, 5000); },   // 아래에서 위로 슈웅
-  boneSwing() { const b = bus(0, 0.25); whoosh(0.38, 0.38, 150, 1100); thump(1.2, 0.4, 0.3, { hp: 800 }); },   // 부웅~ 딱
+  boneSwing() { whipS(0.75, 0.75); thump(1.2, 0.35, 0.25, { hp: 800 }); },   // 무거운 갈빗대: 낮은 채찍 '부웅~착' + 딱
 };
 SFX.coin = () => { tone(1320, 0.08, 'sine', 0.08); setTimeout(() => tone(1760, 0.16, 'sine', 0.07), 70); };
 
