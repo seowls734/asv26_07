@@ -586,7 +586,7 @@ const MEATS = [
 ];
 const FIT = ['', '모험! 별점 랜덤 · 비싸게 팔림', '괜찮은 궁합', '찰떡 궁합 ★'];
 const FITCOL = ['', '#ff8a80', '#fff59d', '#69f0ae'];
-function makeDish(o) { return { name: o[0], method: o[1], fit: o[2], ...METHODS[o[1]] }; }
+function makeDish(o) { return { name: o[0], method: o[1], fit: o[2], ...METHODS[o[1]], cap: (typeof DISH_CAP !== 'undefined' && DISH_CAP[o[0]]) || METHODS[o[1]].cap }; }   // 요리마다 다른 설명
 
 // ---- 코인 · 음성 ----
 let coins = lsGet('sgf_coin', 100), bet = 0, betSel = 0;
@@ -3815,13 +3815,160 @@ function drawPot(g, braise) {
     if (!braise && g > 4.7) drawKimchi(cx + 190, cy + 60, 1.2);
   }
 }
+// ================= 요리 장면도 요리마다 다르게 =================
+// 조리법(굽기·튀기기·볶기·끓이기) 흐름은 같고, 올라가는 재료·곁들임·마무리 동작이 요리마다 다름.
+// 삼겹살 구이·돈까스·제육볶음·족발·보쌈은 원래 장면 그대로(이미 그 요리에 맞음).
+const hx2rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+function lerpHex(a, b, k) { const A = hx2rgb(a), B = hx2rgb(b); k = clamp(k); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join(''); }
+const DISH_CAP = {
+  '삼겹살 구이': '두툼한 삼겹을 노릇노릇~ 가위로 싹둑!', '목살 스테이크': '큼직한 목살 한 덩이, 겉바속촉으로!', '등심 구이': '담백한 등심을 버섯이랑 같이 구워요',
+  '돼지갈비': '양념 발라 가며 뼈째 굽는 갈비!', '항정살 구이': '얇은 항정살을 센 불에 후다닥, 소금 톡톡', '돈까스': '빵가루 입혀 바삭하게!',
+  '삼겹 튀김': '길쭉하게 썬 삼겹을 바삭바삭', '목살 탕수육': '튀긴 목살에 새콤달콤 소스 촤악!', '앞다리 돈까스': '왕 돈까스 한 장 통째로!',
+  '족발 튀김': '족발을 튀겨서 겉바속촉', '갈비 튀김': '뼈 붙은 갈비를 통째로 튀김', '제육볶음': '고추장 양념에 불맛 가득 웍질!',
+  '불족발 볶음': '매운 양념에 족발을 달달 볶아요', '항정 볶음': '간장 양념에 숙주랑 휘리릭', '족발': '한약재 넣고 뭉근하게 졸여요',
+  '등심 장조림': '간장에 메추리알이랑 졸졸 졸여요', '갈비찜': '당근·밤 넣고 푹 쪄 낸 갈비', '보쌈': '푹 삶아서 김치랑 쌈 싸 먹기',
+  '수육': '부들부들 삶아서 새우젓 콕', '항정 수육': '얇게 돌돌 말아 겨자에 콕'
+};
+function grillPan() {
+  const cx = 480, cy = 295, R = 230;
+  ctx.fillStyle = '#8d8d8d'; ell(cx, cy, R + 14, R + 14); ctx.fill();
+  const rg = ctx.createRadialGradient(cx - 60, cy - 60, 20, cx, cy, R); rg.addColorStop(0, '#4a4a4a'); rg.addColorStop(1, '#151515');
+  ctx.fillStyle = rg; ell(cx, cy, R, R); ctx.fill();
+  ctx.save(); ell(cx, cy, R, R); ctx.clip();
+  for (let y = cy - R; y < cy + R; y += 22) { ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 4; line(cx - R, y, cx + R, y); ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 2; line(cx - R, y + 4, cx + R, y + 4); }
+  ctx.restore();
+}
+const GRILL_STYLE = {
+  '목살 스테이크': { items: [{ x: 0, y: 290, w: 320, h: 130, raw: '#e9888f', done: '#9c4e26', opt: { marble: true } }], knife: true, herb: true },
+  '등심 구이': { items: [[-115, 225], [115, 225], [-115, 335], [115, 335]].map(([x, y]) => ({ x, y, w: 190, h: 82, raw: '#ec9a9a', done: '#b9734a', opt: { rim: '#f3d9a8' } })), mush: true },
+  '돼지갈비': { items: [205, 290, 375].map(y => ({ x: 25, y, w: 290, h: 58, raw: '#e07a80', done: '#7b3214', opt: {}, bone: true })), glaze: true },
+  '항정살 구이': { items: [...Array(8)].map((_, i) => ({ x: -195 + (i % 4) * 130, y: i < 4 ? 240 : 345, w: 112, h: 50, raw: '#f6c9c4', done: '#d8a07a', opt: {} })), salt: true },
+};
+function drawGrillDish(g, st) {
+  const cx = 480; grillPan();
+  st.items.forEach((it, i) => {
+    const land = 0.5 + i * 0.12; if (g < land - 0.3) return;
+    const y = lerp(-80, it.y, ease((g - (land - 0.3)) / 0.3)), cook = clamp((g - land) / 3.6);
+    const fp = clamp((g - (2.6 + i * 0.1)) / 0.35), sy = Math.abs(Math.cos(fp * Math.PI)), lift = Math.sin(fp * Math.PI) * 30;
+    const shown = fp < 0.5 ? cook * 0.45 : Math.min(1, cook * 1.1);
+    let col = lerpHex(it.raw, it.done, shown);
+    const glazed = st.glaze && g > 3.4; if (glazed) col = lerpHex(col, '#5a1e08', clamp((g - 3.4) / 0.8) * 0.6);
+    ctx.save(); ctx.translate(cx + it.x, y - lift); ctx.scale(1, Math.max(0.05, sy));
+    if (it.bone) boneStick(-it.w / 2 - 30, 0, -it.w / 2 + 6, 0, 13);
+    slab(0, 0, it.w, it.h, 0, col, { ...it.opt, marks: fp >= 0.5, gloss: glazed });
+    ctx.restore();
+  });
+  if (st.mush && g > 1.2) for (const [mx, my] of [[-230, 280], [230, 280], [0, 175], [0, 400]]) { ctx.fillStyle = lerpHex('#bcaaa4', '#6d4c41', clamp((g - 1.2) / 3)); ell(cx + mx, my, 26, 18); ctx.fill(); ctx.fillStyle = '#efebe9'; ctx.fillRect(cx + mx - 6, my, 12, 18); }
+  if (st.glaze && g > 3.2 && g < 4.6) {   // 양념 붓으로 바르기
+    const k = (g - 3.2) / 1.4, by = 200 + (k * 3 % 1) * 180, bx = cx - 100 + Math.sin(g * 10) * 120;
+    ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.5); ctx.fillStyle = '#8d6e63'; ctx.fillRect(0, -6, 110, 12); ctx.fillStyle = '#5a1e08'; rr(-30, -12, 34, 24, 8); ctx.fill(); ctx.restore();
+  }
+  if (st.salt && g > 3.9) for (let i = 0; i < 40; i++) { const k = ((g - 3.9) * 1.5 + i * 0.07) % 1; ctx.fillStyle = 'rgba(255,255,255,0.9)'; ell(cx - 200 + (i * 37) % 400, 120 + k * 260, 2, 2); ctx.fill(); }
+  if (st.herb && g > 3.6) { ctx.strokeStyle = '#558b2f'; ctx.lineWidth = 4; line(cx + 60, 250, cx + 150, 210); for (let i = 0; i < 8; i++) { ctx.fillStyle = '#689f38'; ell(cx + 70 + i * 10, 244 - i * 4.5, 8, 3, -0.4); ctx.fill(); } }
+  if (st.knife && g > 4.3) {   // 칼로 비스듬히 썰기
+    const n = Math.min(6, Math.floor((g - 4.3) / 0.12)); ctx.strokeStyle = 'rgba(60,20,5,0.9)'; ctx.lineWidth = 4;
+    for (let i = 0; i < n; i++) line(cx - 120 + i * 48, 230, cx - 140 + i * 48, 350);
+    if (n < 6) { const kx = cx - 120 + n * 48; ctx.fillStyle = '#cfd8dc'; poly([[kx, 140], [kx + 14, 140], [kx, 300]]); ctx.fill(); ctx.fillStyle = '#4e342e'; ctx.fillRect(kx - 4, 90, 20, 50); }
+  }
+}
+function fryPot(g) {
+  const cx = 480, cy = 300;
+  ctx.fillStyle = '#455a64'; ell(cx, cy + 20, 285, 172); ctx.fill();
+  ctx.fillStyle = '#263238'; ell(cx, cy, 265, 152); ctx.fill();
+  const og = ctx.createRadialGradient(cx, cy - 30, 20, cx, cy, 250); og.addColorStop(0, '#ffca28'); og.addColorStop(1, '#e65100');
+  ctx.fillStyle = og; ell(cx, cy, 248, 140); ctx.fill();
+  for (let i = 0; i < 40; i++) {
+    const a = i * 2.39, r = 40 + ((i * 53) % 200), ph = (g * 3 + i * 0.37) % 1;
+    ctx.strokeStyle = 'rgba(255,249,196,' + (0.8 * (1 - ph)) + ')'; ctx.lineWidth = 2;
+    ell(cx + Math.cos(a) * r * 0.95, cy + Math.sin(a) * r * 0.5, 2 + ph * 6, 2 + ph * 6); ctx.stroke();
+  }
+}
+const FRY_STYLE = {
+  '삼겹 튀김': { n: 6, at: i => [-250 + i * 100, 285 + (i % 2) * 24], draw: (x, y, k) => slab(x, y, 42, 120, 0.3, lerpHex('#f1e3c4', DC.golden, k), { crumb: k > 0.3, gloss: k > 0.7 }) },
+  '목살 탕수육': { n: 10, at: i => [-200 + (i % 5) * 100, 250 + (i < 5 ? 0 : 70)], draw: (x, y, k) => blob(x, y, 38, 28, 0.2, lerpHex('#f3e2bf', DC.golden, k), DC.goldenHi), sauce: '#ff7043' },
+  '앞다리 돈까스': { n: 1, at: () => [0, 290], draw: (x, y, k) => { ctx.save(); ctx.translate(x, y); ctx.scale(1.9, 1.7); drawCutlet(0, 0, k, false, 1); ctx.restore(); }, ketchup: true },
+  '족발 튀김': { n: 4, at: i => [-210 + i * 140, 290 + (i % 2) * 30], draw: (x, y, k) => { blob(x, y, 52, 42, 0, lerpHex('#ead2b0', DC.golden, k), DC.goldenHi); boneStick(x + 26, y - 26, x + 56, y - 66, 12); } },
+  '갈비 튀김': { n: 4, at: i => [-40, 215 + i * 58], draw: (x, y, k) => { slab(x, y, 260, 40, 0.04, lerpHex('#efd9b0', DC.golden, k), { crumb: k > 0.3, gloss: k > 0.7 }); boneStick(x + 130, y, x + 180, y, 12); } },
+};
+function drawFryDish(g, st) {
+  const cx = 480; fryPot(g);
+  for (let i = 0; i < st.n; i++) {
+    const land = 0.5 + i * 0.12; if (g < land - 0.3) continue;
+    const [px, py] = st.at(i), lift = g > 3 ? ease((g - 3) / 0.4) * 50 : 0;
+    st.draw(cx + px, lerp(-80, py, ease((g - (land - 0.3)) / 0.3)) - lift, clamp((g - land) / 2.4), i);
+  }
+  if (st.sauce && g > 3.8) {   // 소스 붓기
+    const k = clamp((g - 3.8) / 0.8); ctx.strokeStyle = st.sauce; ctx.lineWidth = 14; ctx.lineCap = 'round';
+    if (k < 1) { ctx.beginPath(); ctx.moveTo(cx + 260, 60); ctx.quadraticCurveTo(cx + 180, 150, cx + 120, 240); ctx.stroke(); }
+    drizzle([...Array(9)].map((_, j) => [cx - 220 + j * 55 * k, 230 + (j % 2 ? 60 : 0)]), 'rgba(255,112,67,0.9)', 12);
+  }
+  if (st.ketchup && g > 4.1) { const k = clamp((g - 4.1) / 0.6); drizzle([...Array(9)].map((_, j) => [cx - 160 + j * 40 * k, 270 + (j % 2 ? 36 : -10)]), '#c62828', 10); }
+}
+const WOK_STYLE = {
+  '불족발 볶음': { n: 12, piece: (x, y, r, k, s) => slab(x, y, 46, 32, r, lerpHex(lerpHex('#e7b8a0', '#6d3a1f', k), '#b3281b', s), { rim: '#3e1a0a', gloss: s > 0.5 }), veg: ['#d32f2f', '#43a047'], pour: '#c62828' },
+  '항정 볶음': { n: 14, piece: (x, y, r, k, s) => slab(x, y, 52, 18, r, lerpHex(lerpHex('#f6c9c4', '#d8a07a', k), '#8a5530', s), { gloss: s > 0.5 }), veg: ['#fff9c4', '#f0f4c3'], pour: '#4e2c12', sprout: true },
+};
+function drawWokDish(g, st) {
+  const cx = 480, cy = 320;
+  for (let i = 0; i < 9; i++) {
+    const h = 50 + Math.sin(g * 20 + i * 1.3) * 18, x = cx - 200 + i * 50;
+    ctx.fillStyle = i % 2 ? '#ff9800' : '#ff5722'; poly([[x - 22, 480], [x, 480 - h], [x + 22, 480]]); ctx.fill();
+    ctx.fillStyle = '#ffeb3b'; poly([[x - 10, 480], [x, 480 - h * 0.5], [x + 10, 480]]); ctx.fill();
+  }
+  ctx.fillStyle = '#5d4037'; rr(cx + 270, cy - 12, 160, 24, 10); ctx.fill();
+  ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.ellipse(cx, cy, 280, 140, 0, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = '#383838'; ell(cx, cy, 276, 40); ctx.fill();
+  ctx.strokeStyle = '#616161'; ctx.lineWidth = 8; ell(cx, cy, 280, 42); ctx.stroke();
+  const cook = clamp((g - 0.5) / 2.5), sauce = clamp((g - 3.0) / 0.6), ph = (g * 0.9) % 1, tossing = g > 1 && ph < 0.35;
+  const up = i => tossing ? Math.sin(ph / 0.35 * Math.PI) * (80 + (i % 5) * 20) : 0;
+  for (let i = 0; i < st.n; i++) {
+    const bx = cx + Math.sin(i * 1.7) * 200 * ((i % 4) / 4 * 0.5 + 0.5), by = cy + Math.cos(i * 2.3) * 14;
+    st.piece(bx, lerp(-50, by, ease((g - i * 0.03) / 0.5)) - up(i), i + (tossing ? g * 6 : 0), cook, sauce);
+  }
+  if (g > 2.2) for (let i = 0; i < 12; i++) {   // 채소(고추 / 숙주)
+    ctx.save(); ctx.translate(cx - 200 + i * 36, cy - 8 + Math.sin(i * 2) * 10 - up(i) * 0.7); ctx.rotate(i + (tossing ? g * 5 : 0));
+    ctx.fillStyle = st.veg[i % 2];
+    if (st.sprout) { ctx.fillRect(-14, -2, 28, 4); ctx.fillStyle = '#fbc02d'; ell(14, 0, 4, 3); ctx.fill(); } else { rr(-9, -4, 18, 8, 4); ctx.fill(); }
+    ctx.restore();
+  }
+  if (g > 3.0 && g < 3.6) { ctx.strokeStyle = st.pour; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(cx - 120, 60); ctx.quadraticCurveTo(cx - 60, 180, cx - 40, cy); ctx.stroke(); }
+}
+const POT_STYLE = {
+  '등심 장조림': { liq: '#4e2c12', items: (g, cx, y, k) => { for (let i = 0; i < 8; i++) slab(cx - 150 + i * 42, y + Math.sin(g * 3 + i) * 5, 30, 22, i, lerpHex('#e98c8c', '#6d3a1a', k)); for (let i = 0; i < 3; i++) { ctx.fillStyle = lerpHex('#ffffff', '#7a4a22', k); ell(cx - 90 + i * 90, y - 20 + Math.sin(g * 2 + i) * 4, 22, 17); ctx.fill(); } } },
+  '갈비찜': { liq: '#4a2410', items: (g, cx, y, k) => {
+    for (let i = 0; i < 5; i++) { const x = cx - 160 + i * 80, yy = y + Math.sin(g * 3 + i) * 5; blob(x, yy, 30, 24, i, lerpHex('#e07a80', '#5d2810', k), lerpHex('#f0a0a0', '#8a4a24', k)); boneStick(x - 6, yy - 18, x + 8, yy - 40, 8); }
+    ctx.fillStyle = '#ef6c00'; ell(cx - 120, y - 30, 18, 12); ctx.fill(); ell(cx + 140, y - 26, 16, 11); ctx.fill(); ctx.fillStyle = '#ffe0b2'; ell(cx + 40, y - 34, 15, 13); ctx.fill();
+  } },
+  '수육': { liq: '#b3e5fc', items: (g, cx, y, k) => { slab(cx, y, 220, 90, 0, lerpHex('#f2a0a8', '#ecd9cc', k), { rim: lerpHex('#f6d0c8', '#c99a7c', k) }); ctx.strokeStyle = '#7cb342'; ctx.lineWidth = 8; line(cx - 160, y - 50, cx - 60, y - 30); line(cx + 70, y - 40, cx + 170, y - 56); } },
+  '항정 수육': { liq: '#b3e5fc', items: (g, cx, y, k) => { for (let i = 0; i < 3; i++) slab(cx - 120 + i * 120, y + Math.sin(g * 2 + i) * 6, 100, 40, 0.1 * (i - 1), lerpHex('#f6c9c4', '#f3e3d8', k)); } },
+};
+function drawPotDish(g, st, name) {
+  const cx = 480, cy = 300;
+  if (g < 3.6) {
+    ctx.fillStyle = '#78909c'; rr(cx - 235, cy - 70, 470, 230, 30); ctx.fill();
+    ctx.fillStyle = '#546e7a'; rr(cx - 270, cy - 40, 40, 24, 8); ctx.fill(); rr(cx + 230, cy - 40, 40, 24, 8); ctx.fill();
+    ctx.fillStyle = '#90a4ae'; ell(cx, cy - 70, 235, 62); ctx.fill();
+    ctx.fillStyle = st.liq; ell(cx, cy - 66, 220, 54); ctx.fill();
+    for (let i = 0; i < 24; i++) {
+      const a = i * 2.39, r = 30 + ((i * 53) % 180), ph = (g * 2 + i * 0.37) % 1;
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.6 * (1 - ph)) + ')'; ctx.lineWidth = 2; ell(cx + Math.cos(a) * r, cy - 66 + Math.sin(a) * r * 0.25, 2 + ph * 6, 1 + ph * 3); ctx.stroke();
+    }
+    const drop = ease((g - 0.2) / 0.4), lift = g > 3 ? ease((g - 3) / 0.5) * 140 : 0;
+    st.items(g, cx, lerp(-80, cy - 70, drop) - lift, clamp((g - 0.6) / 2.4));
+    if (lift < 40) { ctx.fillStyle = st.liq; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.ellipse(cx, cy - 66, 220, 54, 0, 0, Math.PI); ctx.fill(); ctx.globalAlpha = 1; }
+  } else {   // 도마 위에 완성된 요리를 크게 (요리마다 다른 그림)
+    ctx.fillStyle = '#d7a86e'; rr(cx - 260, cy - 40, 520, 240, 24); ctx.fill(); ctx.strokeStyle = '#a1764a'; ctx.lineWidth = 4; ctx.stroke();
+    const k = ease(clamp((g - 3.7) / 0.5));
+    drawDishArt(name, '', cx, cy + 80, 1.6 + 0.6 * k);
+  }
+}
 function drawCook(g) {
   drawTable();
-  const m = cut.dish.method;
-  if (m === 'grill') drawGrill(g);
-  else if (m === 'fry') drawFry(g);
-  else if (m === 'wok') drawWok(g);
-  else drawPot(g, m === 'braise');
+  const m = cut.dish.method, nm = cut.dish.name;   // 요리마다 다른 장면이 있으면 그것, 없으면 조리법 기본 장면
+  if (m === 'grill') GRILL_STYLE[nm] ? drawGrillDish(g, GRILL_STYLE[nm]) : drawGrill(g);
+  else if (m === 'fry') FRY_STYLE[nm] ? drawFryDish(g, FRY_STYLE[nm]) : drawFry(g);
+  else if (m === 'wok') WOK_STYLE[nm] ? drawWokDish(g, WOK_STYLE[nm]) : drawWok(g);
+  else POT_STYLE[nm] ? drawPotDish(g, POT_STYLE[nm], nm) : drawPot(g, m === 'braise');
   if (g > 0.6 && g < 5.2) {
     ctx.save(); ctx.translate(480, 75); ctx.rotate(Math.sin(g * 8) * 0.05);
     txt(cut.dish.sfx, 0, 0, 44 + Math.sin(g * 20) * 3, '#ffb74d', '#4e2600', 8);
