@@ -334,6 +334,7 @@ const SAMPLES = {
   boom:    { file: 'dragon-studio-explosion-with-debris-494320.mp3', off: 0.015 }, // 폭발 + 파편 → 화염구 폭발
   deep:    { file: 'dragon-studio-large-underwater-explosion-sfx-450455.mp3', off: 0.015 },   // 아주 낮고 깊은 울림 → 필살기 '쾅'
   sizzle:  { file: '99DF20505CF11BED30.mp3', off: 0 },                            // 지글지글 굽는 소리 (27초) → 요리 장면
+  blizzard: { file: 'dragon-studio-blizzard-transition-463210.mp3', off: 0.3 },     // 눈보라 휘몰아침 → 얼음이 필살기·얼음 변신
 };
 const BUF = {};
 let punchBuf = null;   // (예전 이름 유지) = BUF.punch
@@ -1166,7 +1167,7 @@ function startSkill(f, chain) {
 }
 function startTf(f) {
   f.tfG = 0; f.tfOn = true; f.tfT = 480; f.state = 'transforming'; f.af = 0; f.vx = 0;
-  superFreeze = 36; superOwner = f; superKind = 'tf'; SFX.transform();
+  superFreeze = 36; superOwner = f; superKind = 'tf'; SFX.transform(); if (f.ch.tf.type === 'freeze') smp('blizzard', { v: 0.75, dur: 2.2 });   // 얼음 변신: 눈보라
   burst(f.x, f.y - 80, 30, [f.ch.tf.color, '#ffffff'], 10);
 }
 function attackUpdate(f, o, inp) {
@@ -1486,7 +1487,7 @@ function grabUpdate(a, d, inp) {
 const ultCount = {};
 function startUlt(f) {
   f.meter = 0; f.state = 'ult'; f.uT = 0; f.ultHit = false; f.ultInv = true; f.ultArmor = false; f.landed = false; f.vx = 0; f.atk = null;
-  superFreeze = 50; superOwner = f; superKind = 'ult'; SFX.ultStart(); speak(f.ch.ult.name + '!', 1.2);
+  superFreeze = 50; superOwner = f; superKind = 'ult'; SFX.ultStart(); if (f.ch.ult.type === 'absoluteZero') smp('blizzard', { v: 0.8 });   // 절대영도: 눈보라가 휘몰아침 speak(f.ch.ult.name + '!', 1.2);
   ultCount[f.ch.ult.type] = (ultCount[f.ch.ult.type] || 0) + 1;
 }
 function ultEnd(f, o) {
