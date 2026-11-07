@@ -2158,13 +2158,14 @@ function drawPortrait(cx, cy, r, C, face) {
 
 // ================= 타이틀 메뉴 =================
 const MENU = [
-  ['🔥 연승 모드', 'CPU와 끝없는 연승 도전', () => { mode = 1; selFor = 'run'; scene = 'select'; }],
-  ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; selFor = 'online'; NET.err = ''; scene = 'online'; }],
+  ['🏆 랭크전', '티어에 맞춰 강해지는 CPU · 랭킹 반영', () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }],
+  ['🔥 연승 모드', 'CPU와 끝없는 연승 도전 (랭킹 미반영)', () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; }],
+  ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; ranked = false; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
   ['🏮 포장마차 시장', '요리 팔기 · 꾸미기 상점', () => openMarket()],
   ['🏦 은행 · 빚 갚기', () => totalDebt() > 0 ? `빚 ${fmtN(totalDebt())} 남음` : '빚 청산 완료! 👑', () => { bk.sel = 0; scene = 'bank'; }],
-  ['✏️ 커스텀 캐릭터', '나만의 돼지 만들기', () => { selFor = 'run'; openEditor(); }],
-  ['🏆 랭킹', '전체 티어 랭킹 · 연승 기록', () => openRanking(false)]
+  ['✏️ 커스텀 캐릭터', '나만의 돼지 만들기', () => { ranked = false; selFor = 'run'; openEditor(); }],
+  ['📊 랭킹', '랭크전 최고 티어 · 최고 연승 TOP 100', () => openRanking(false)]
 ];
 let titleSel = 0;
 function updateTitle() {
@@ -2191,17 +2192,17 @@ function drawTitle() {
   const best = getRank().filter(r => r.name === playerName).reduce((m, r) => Math.max(m, r.streak), 0);
   const tw = drawTierBadge(W / 2 - 330, 138, tp, 12, 'left');
   txt(`👤 ${playerName} [N]  ·  🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`, W / 2 + tw / 2, 139, 14, '#e0e0e0', '#000', 4);
-  if (coins < 10 && gT % 60 < 40) txt('💸 파산 직전! 🏦 은행에서 대출받으세요', W / 2, 438, 15, '#ff8a80', '#000', 4);
+  if (coins < 10 && gT % 60 < 40) txt("💸 파산 직전! 🏦 은행에서 대출받으세요", W / 2, 464, 15, '#ff8a80', '#000', 4);
   addHot(W / 2 - 300, 128, 600, 24, () => { pressed.KeyN = true; });
   MENU.forEach(([label, sub], i) => {
-    const x = W / 2 - 190, y = 154 + i * 40, on = titleSel === i;
+    const x = W / 2 - 190, y = 152 + i * 37, on = titleSel === i;
     if (on) {
       const g = ctx.createLinearGradient(x, 0, x + 380, 0); g.addColorStop(0, '#ff5252'); g.addColorStop(1, '#ff9100');
-      ctx.save(); ctx.shadowColor = '#ff5252'; ctx.shadowBlur = 16; ctx.fillStyle = g; rr(x, y, 380, 34, 11); ctx.fill(); ctx.restore();
-    } else { ctx.fillStyle = 'rgba(25,12,40,0.85)'; rr(x, y, 380, 34, 11); ctx.fill(); }
-    txt(`${i + 1}  ${label}`, x + 18, y + 17, 17, '#fff', on ? '#7f0000' : null, 4, 'left');
-    txt(typeof sub === 'function' ? sub() : sub, x + 366, y + 17, 12, on ? '#fff' : '#bbb', null, 0, 'right');
-    addHot(x, y, 380, 34, () => { if (titleSel === i) pressed.Enter = true; else { titleSel = i; SFX.select(); } });
+      ctx.save(); ctx.shadowColor = '#ff5252'; ctx.shadowBlur = 16; ctx.fillStyle = g; rr(x, y, 380, 32, 11); ctx.fill(); ctx.restore();
+    } else { ctx.fillStyle = "rgba(25,12,40,0.85)"; rr(x, y, 380, 32, 11); ctx.fill(); }
+    txt(`${i + 1}  ${label}`, x + 18, y + 16, 17, '#fff', on ? '#7f0000' : null, 4, 'left');
+    txt(typeof sub === "function" ? sub() : sub, x + 366, y + 16, 12, on ? '#fff' : '#bbb', null, 0, 'right');
+    addHot(x, y, 380, 32, () => { titleSel = i; pressed.Enter = true; });   // 한 번 탭하면 바로 들어감
   });
   const i = (gT / 150 | 0) % 10;
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
@@ -2291,9 +2292,13 @@ function afterMatchEconomy(w) {
   cut.tp = null; cut.interest = 0;
   if (mode !== 1 && mode !== 3) return;
   const me = mode === 1 ? p1 : NET.me, win = w === me, before = tp;
-  const res = rankedResult(win, mode === 3);
-  cut.tp = { before, after: tp, d: tp - before, msg: res };
-  if (mode === 1 && win) lsSet('sgf_best', Math.max(lsGet('sgf_best', 0), streak));
+  if (mode === 1 && win) lsSet("sgf_best", Math.max(lsGet("sgf_best", 0), streak));
+  if (mode === 1 && ranked) {   // 티어 점수·랭킹 기록은 랭크전에서만
+    const res = rankedResult(win, false);
+    cut.tp = { before, after: tp, d: tp - before, msg: res };
+    if (win) lsSet("sgf_rbest", Math.max(lsGet("sgf_rbest", 0), streak));   // 랭크전 최고 연승
+    lsSet("sgf_peak", Math.max(lsGet("sgf_peak", 0), tp));                   // 랭크전 최고 TP
+  }
   if (debt > 0) { cut.interest = Math.max(1, Math.ceil(debt * 0.003)); debt += cut.interest; saveDebt(); }
   uploadRank();
 }
@@ -2370,18 +2375,21 @@ function drawBank() {
 const RANK_DB = location.protocol === 'file:' || /autotest|view=|shot=|nettest/i.test(location.search) ? '' : 'https://samgyeopsal-fighter-default-rtdb.asia-southeast1.firebasedatabase.app';
 let pid = lsGet('sgf_pid', null);
 if (!pid) { pid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); lsSet('sgf_pid', pid); }
-const rk = { tab: 0, list: null, err: '', loading: false };
+const rk = { tab: 0, list: null, err: '', loading: false, page: 0 };   // 한 쪽에 10명, 최대 10쪽(100위)
 function uploadRank() {
-  if (!RANK_DB) return;
-  const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_best', 0), net: Math.round(netWorth()), debt: Math.round(totalDebt()), t: Date.now() };
+  // 랭킹에는 랭크전 최고 기록만: 최고 티어(TP) + 최고 연승. 랭크전 기록이 없으면 올리지 않음
+  const peak = lsGet("sgf_peak", 0), rbest = lsGet("sgf_rbest", 0);
+  if (!RANK_DB || (peak <= 0 && rbest <= 0)) return;
+  const body = { name: playerName.slice(0, 8), tier: tierOf(peak), tp: peak, streak: rbest, t: Date.now() };
   fetch(`${RANK_DB}/rank/${pid}.json`, { method: 'PUT', body: JSON.stringify(body) }).catch(() => {});
 }
 function fetchRank() {
   if (!RANK_DB) { rk.err = '온라인 랭킹 서버가 아직 연결되지 않았어요'; return; }
   rk.loading = true; rk.err = '';
   fetch(`${RANK_DB}/rank.json`).then(r => r.json()).then(d => {
-    rk.list = Object.entries(d || {}).map(([id, v]) => ({ ...v, id })).filter(v => typeof v.tp === "number" && (v.tp > 0 || v.streak > 0))   // 판 기록이 없는(새로 시작·초기화한) 돼지는 숨김
-      .sort((a, b) => b.tp - a.tp || b.net - a.net);
+    rk.list = Object.entries(d || {}).map(([id, v]) => ({ ...v, id })).filter(v => typeof v.tp === "number" && (v.tp > 0 || v.streak > 0))   // 랭크전 기록이 없는 돼지는 숨김
+      .sort((a, b) => b.tp - a.tp || (b.streak || 0) - (a.streak || 0)).slice(0, 100);   // 최고 티어 → 최고 연승 순, 100위까지
+    rk.page = 0;
     rk.loading = false;
   }).catch(() => { rk.loading = false; rk.err = '랭킹을 불러오지 못했어요 (인터넷 확인)'; });
 }
@@ -2390,6 +2398,9 @@ function updateRanking() {
   if (pressed.Digit1 || pressed.Numpad1) { rk.tab = 0; SFX.select(); }
   if (pressed.Digit2 || pressed.Numpad2) { rk.tab = 1; SFX.select(); }
   if (pressed.KeyR) fetchRank();
+  const pages = Math.max(1, Math.ceil((rk.list || []).length / 10));
+  if (rk.tab === 0 && (pressed.KeyA || pressed.ArrowLeft) && rk.page > 0) { rk.page--; SFX.select(); }
+  if (rk.tab === 0 && (pressed.KeyD || pressed.ArrowRight) && rk.page < pages - 1) { rk.page++; SFX.select(); }
   if (pressed.Enter || pressed.Escape || pressed.Space) toTitle();
 }
 function drawRanking() {
@@ -2397,33 +2408,39 @@ function drawRanking() {
   txt('🏆 랭킹', W / 2, 32, 32, '#ffd54f', '#000', 6);
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 16, 80, 32, 8); ctx.fill(); txt('← 나가기', 54, 32, 13, '#fff', null);
   addHot(14, 16, 80, 32, () => { pressed.Escape = true; });
-  ['🌐 전체 랭킹 (티어)', '📱 내 기기 연승 기록'].forEach((s, i) => {
+  addHot(0, 100, W, H - 100, () => { pressed.Enter = true; });   // 빈 곳 탭 = 나가기 (쪽 넘김 버튼보다 먼저 등록해야 버튼이 우선)
+  ['🌐 랭크전 랭킹 TOP 100', '📱 내 기기 연승 기록'].forEach((s, i) => {
     const x = W / 2 - 250 + i * 255, on = rk.tab === i;
     ctx.fillStyle = on ? '#ff7043' : 'rgba(255,255,255,0.12)'; rr(x, 56, 245, 34, 10); ctx.fill();
     txt(`[${i + 1}] ${s}`, x + 122, 73, 15, '#fff', null);
     addHot(x, 56, 245, 34, () => { pressed['Digit' + (i + 1)] = true; });
   });
   if (rk.tab === 0) {
-    const cols = [[90, '순위'], [230, '닉네임'], [400, '티어'], [540, 'TP'], [660, '순자산'], [800, '최고 연승']];
+    // 랭크전 최고 기록만: 최고 티어 · 최고 연승
+    const cols = [[120, '순위'], [320, '닉네임'], [560, '최고 티어'], [780, '최고 연승']];
     cols.forEach(([x, s]) => txt(s, x, 110, 13, '#999', null));
+    const list = rk.list || [], pages = Math.max(1, Math.ceil(list.length / 10));
+    rk.page = Math.min(rk.page, pages - 1);
     if (rk.loading) txt('불러오는 중...', W / 2, 260, 20, '#fff', null);
     else if (rk.err) { txt(rk.err, W / 2, 250, 18, '#ff8a80', null); txt('R: 다시 시도', W / 2, 284, 14, '#aaa', null); }
-    else if (!rk.list || !rk.list.length) txt('아직 아무도 없어요. 첫 1등이 되어 보세요!', W / 2, 260, 20, '#fff', null);
+    else if (!list.length) txt('아직 아무도 없어요. 랭크전에서 첫 1등이 되어 보세요!', W / 2, 260, 20, '#fff', null);
     else {
-      const meIdx = rk.list.findIndex(v => v.id === pid);
-      const show = rk.list.slice(0, 10).map((v, i) => [v, i]);
-      if (meIdx >= 10) show.push([rk.list[meIdx], meIdx]);
-      show.forEach(([v, i], r) => {
-        const y = 140 + r * 34 + (r === 10 ? 8 : 0), me = v.id === pid;
-        if (me) { ctx.fillStyle = 'rgba(255,213,79,0.25)'; rr(40, y - 15, 880, 30, 8); ctx.fill(); }
+      list.slice(rk.page * 10, rk.page * 10 + 10).forEach((v, r) => {
+        const i = rk.page * 10 + r, y = 140 + r * 32, me = v.id === pid;
+        if (me) { ctx.fillStyle = 'rgba(255,213,79,0.25)'; rr(60, y - 14, 840, 28, 8); ctx.fill(); }
         const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
-        txt(`${i + 1}`, 90, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 8) + (me ? ' (나)' : ''), 230, y, 17, col, '#000', 3);
-        drawTierBadge(400, y, v.tp, 12); txt(fmtN(v.tp), 540, y, 16, '#fff', null);
-        txt(fmtN(v.net || 0), 660, y, 15, (v.net || 0) >= 0 ? '#69f0ae' : '#ff8a80', null);
-        txt(`${v.streak || 0}연승${v.debt === 0 ? ' 👑' : ''}`, 800, y, 15, '#fff', null);
+        txt(`${i + 1}`, 120, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 8) + (me ? ' (나)' : ''), 320, y, 17, col, '#000', 3);
+        drawTierBadge(560, y, v.tp, 12);
+        txt(`${v.streak || 0}연승`, 780, y, 16, '#fff', null);
       });
+      // 쪽 넘김
+      const pb = (x, label, ok, fn) => { ctx.globalAlpha = ok ? 1 : 0.3; ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(x, 466, 90, 30, 8); ctx.fill(); txt(label, x + 45, 481, 14, '#fff', null); ctx.globalAlpha = 1; if (ok) addHot(x, 466, 90, 30, fn); };
+      pb(W / 2 - 170, '◀ 이전', rk.page > 0, () => { pressed.ArrowLeft = true; });
+      txt(`${rk.page * 10 + 1}~${Math.min(list.length, rk.page * 10 + 10)}위 / ${list.length}명`, W / 2, 481, 14, '#ccc', null);
+      pb(W / 2 + 80, '다음 ▶', rk.page < pages - 1, () => { pressed.ArrowRight = true; });
     }
-    txt(`나: ${playerName} · ${TIERS[tierOf(tp)][0]} ${tp}TP · 순자산 ${fmtN(netWorth())}   (👑 = 빚 청산 완료)`, W / 2, 524, 13, '#ffe082', null);
+    const meIdx = list.findIndex(v => v.id === pid);
+    txt(`나: ${playerName} · 최고 ${TIERS[tierOf(lsGet('sgf_peak', 0))][0]} · 최고 ${lsGet('sgf_rbest', 0)}연승 · ${meIdx >= 0 ? `${meIdx + 1}위` : '순위 밖'}   (현재 ${TIERS[tierOf(tp)][0]} ${tp}TP)`, W / 2, 522, 13, '#ffe082', null);
   } else {
     const r = getRank();
     if (!r.length) txt('아직 기록이 없어요. 연승 모드에 도전해 보세요!', W / 2, 260, 20, '#fff', null);
@@ -2435,7 +2452,6 @@ function drawRanking() {
       txt(e.char, 540, y, 18, '#ddd', '#000', 3); txt(`${e.streak}연승`, 700, y, 20, col, '#000', 4);
     });
   }
-  addHot(0, 100, W, H - 100, () => { pressed.Enter = true; });
 }
 
 // ================= 스토리 =================
@@ -2681,6 +2697,9 @@ let roundMsg = '', roundWinner = null, cut = null;
 let superFreeze = 0, superOwner = null, superKind = 'ult';
 const sel = { c1: 0 };
 let streak = 0, runOver = false, rankPos = -1, lastOpp = -1, toastMsg = '', toastT = 0;
+// 랭크전: 연승 모드와 같은 흐름이지만 CPU 실력이 내 티어에 맞춰짐. 티어 점수(TP)는 랭크전에서만 오르내림
+let ranked = false;
+const oppLv = () => mode === 0 ? 3 : ranked ? Math.round(tierOf(tp) * 1.4) + Math.min(4, Math.floor(streak / 2)) : streak;
 
 function startRun() { streak = 0; runOver = false; rankPos = -1; lastOpp = -1; betSel = 0; p1.setChar(withCos(getChar(sel.c1))); scene = 'opening'; sceneT = 0; parts = []; texts = []; }
 function nextOpponent() {
@@ -2691,11 +2710,11 @@ function nextOpponent() {
 function quitRun() { if (mode === 1 && !runOver && streak > 0) { rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now() }); runOver = true; } toTitle(); }
 function startMatch() {
   if (mode !== 3) sseed(Math.random() * 4294967296 >>> 0);
-  p1.cpuLv = mode === 0 ? 3 : 0; p2.cpuLv = mode === 0 ? 3 : streak;
+  p1.cpuLv = mode === 0 ? 3 : 0; p2.cpuLv = oppLv();
   p1.newMatch(); p2.newMatch();
   p1.name = mode === 0 ? p1.base + ' (CPU)' : playerName;
-  p2.name = mode === 0 ? p2.base + ' (CPU)' : `${p2.base} Lv.${streak + 1}`;
-  if (mode === 1) p2.meter = Math.min(60, streak * 6);
+  p2.name = mode === 0 ? p2.base + ' (CPU)' : `${p2.base} Lv.${oppLv() + 1}`;
+  if (mode === 1) p2.meter = Math.min(60, (ranked ? tierOf(tp) : streak) * 6);
   if (mode === 3) { p1.cpuLv = p2.cpuLv = 0; p1.name = NET.names[0]; p2.name = NET.names[1]; }
   p1.hpMul = p2.hpMul = 1;
   if (mode === 4) { p1.cpuLv = COND_LV[bet4.ca]; p2.cpuLv = COND_LV[bet4.cb]; p1.name = `${p1.base} ×${bet4.oa.toFixed(2)}`; p2.name = `${p2.base} ×${bet4.ob.toFixed(2)}`; }
@@ -3307,7 +3326,7 @@ function drawFinal(f) {
   if (mode === 1 && f > 0.8) {
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 230, 196, 460, 44, 12); ctx.fill();
     if (cut.revived) txt(`💖 부활권 사용! ${streak}연승 유지`, W / 2, 218, 22, '#ff80ab', '#000', 5);
-    else if (!runOver) txt(`🔥 ${streak}연승 달성! 다음 상대 Lv.${streak + 1}`, W / 2, 218, 24, '#ffeb3b', '#000', 5);
+    else if (!runOver) txt(`🔥 ${streak}연승 달성! 다음 상대 Lv.${oppLv() + 1}`, W / 2, 218, 24, '#ffeb3b', '#000', 5);
     else txt(`연승 종료 — 최종 ${streak}연승${rankPos >= 0 ? ` · 랭킹 ${rankPos + 1}위!` : ''}`, W / 2, 218, 24, '#ff8a80', '#000', 5);
   }
   if ((mode === 1 || mode === 3 || mode === 4) && f > 1.6) {
@@ -3492,7 +3511,7 @@ function drawHUD() {
   ctx.fillStyle = '#222'; ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3;
   rr(W / 2 - 38, 12, 76, 54, 10); ctx.fill(); ctx.stroke();
   txt(String(Math.max(0, Math.ceil(timer / 60))), W / 2, 40, 36, timer < 600 ? '#ff5252' : '#fff', null);
-  if (mode === 1) txt(`${streak}연승 중`, W / 2, 82, 15, '#ffeb3b', '#000', 4);
+  if (mode === 1) txt(`${ranked ? "랭크전 · " : ""}${streak}연승 중`, W / 2, 82, 15, '#ffeb3b', '#000', 4);
   if (mode === 4) {
     txt(bet4.stake ? `🎲 ${(bet4.side ? p2 : p1).base}에 ${bet4.stake}코인` : '👀 구경 중', W / 2, 82, 14, '#ffd740', '#000', 4);
     ctx.fillStyle = bet4.fast ? '#ff9100' : 'rgba(0,0,0,0.55)'; rr(W / 2 - 64, 136, 128, 26, 8); ctx.fill();
@@ -3622,7 +3641,7 @@ function drawVs() {
     return;
   }
   txt(playerName, 220, 470, 36, '#fff', '#000', 8); txt(`${p1.base} · ${p1.ch.title}`, 220, 505, 18, '#ffcdd2', '#000', 4);
-  txt(`${p2.base} Lv.${streak + 1}`, 740, 470, 36, '#fff', '#000', 8); txt(p2.ch.title, 740, 505, 18, '#bbdefb', '#000', 4);
+  txt(`${p2.base} Lv.${oppLv() + 1}`, 740, 470, 36, '#fff', '#000', 8); txt(p2.ch.title, 740, 505, 18, '#bbdefb', '#000', 4);
   txt(streak === 0 ? '첫 번째 상대!' : `현재 ${streak}연승 · ${streak + 1}번째 도전자`, W / 2, 50, 28, '#ffeb3b', '#000', 6);
   txt('VS', W / 2, H / 2 - 40, 120 * (1 + (1 - k)), '#ffeb3b', '#000', 14);
   if (mode === 1 && coins > 0) {
