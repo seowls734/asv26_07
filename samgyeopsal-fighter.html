@@ -2263,15 +2263,36 @@ function borrow(amt) {
   saveDebt(); SFX.coin();
   toast(`${fmtN(amt)}코인 대출! 갚을 돈 ${fmtN(owe)} (수수료 10%)`); uploadRank();
 }
+// ---- 랭크 점수 (다른 대전 게임처럼) ----
+// · 티어가 높을수록 이기면 덜 오르고, 지면 더 많이 깎임
+// · 다음 티어 문턱에 닿으면 바로 못 올라가고 '승급전'(3판 2선승)을 이겨야 승급. 지면 문턱 아래로 밀려남
+let promo = lsGet('sgf_promo', null);   // { w, l } 승급전 진행 중일 때만
+const winTP = (i, online) => (online ? Math.max(8, 20 - i) : Math.max(6, 16 - i)) + (online ? 0 : Math.min(2, Math.floor(streak / 4)));
+const loseTP = (i, online) => (online ? 12 : 10) + i;
+function rankedResult(win, online) {
+  const i = tierOf(tp), next = TIERS[i + 1];
+  if (promo && next) {   // 승급전 진행 중
+    if (win) promo.w++; else promo.l++;
+    let msg;
+    if (promo.w >= 2) { tp = next[1]; promo = null; msg = `🎉 승급전 통과! ${next[0]} 승급`; }
+    else if (promo.l >= 2) { tp = Math.max(0, next[1] - 40); promo = null; msg = '💥 승급전 실패... 다시 도전하세요'; }
+    else msg = `승급전 ${promo.w}승 ${promo.l}패 (3판 2선승)`;
+    lsSet('sgf_promo', promo); lsSet('sgf_tp', tp); return msg;
+  }
+  promo = null;
+  if (win) {
+    tp += winTP(i, online);
+    if (next && tp >= next[1]) { tp = next[1] - 1; promo = { w: 0, l: 0 }; lsSet('sgf_promo', promo); lsSet('sgf_tp', tp); return `🔥 ${next[0]} 승급전 시작! (3판 2선승)`; }
+  } else tp = Math.max(0, tp - Math.round(loseTP(i, online) * (cut.revived ? 0.5 : 1)));
+  lsSet('sgf_promo', promo); lsSet('sgf_tp', tp); return '';
+}
 // 매 판 끝: 티어 점수 · 사채 이자 · 랭킹 업로드
 function afterMatchEconomy(w) {
   cut.tp = null; cut.interest = 0;
   if (mode !== 1 && mode !== 3) return;
   const me = mode === 1 ? p1 : NET.me, win = w === me, before = tp;
-  // 티어 점수: 이기면 조금, 지면 많이 깎임 (티어 올리기 어렵게)
-  const d = mode === 1 ? (win ? 8 + Math.min(7, Math.floor(streak / 2)) : cut.revived ? -5 : -15) : (win ? 15 : -20);
-  tp = Math.max(0, tp + d); lsSet('sgf_tp', tp);
-  cut.tp = { before, after: tp, d };
+  const res = rankedResult(win, mode === 3);
+  cut.tp = { before, after: tp, d: tp - before, msg: res };
   if (mode === 1 && win) lsSet('sgf_best', Math.max(lsGet('sgf_best', 0), streak));
   if (debt > 0) { cut.interest = Math.max(1, Math.ceil(debt * 0.003)); debt += cut.interest; saveDebt(); }
   uploadRank();
@@ -2322,7 +2343,7 @@ function drawBank() {
   ctx.fillStyle = '#333'; rr(54, 320, 374, 16, 8); ctx.fill();
   ctx.fillStyle = '#66bb6a'; rr(54, 320, Math.max(16, 374 * repaid), 16, 8); ctx.fill();
   drawTierBadge(54, 362, tp, 15, 'left'); txt(`${tp} TP`, 428, 362, 16, '#fff', null, 0, 'right');
-  const nt = TIERS[tierOf(tp) + 1]; txt(nt ? `다음 티어 ${nt[0]}까지 ${nt[1] - tp} TP` : '최고 티어!', 54, 390, 13, '#aaa', null, 0, 'left');
+  const nt = TIERS[tierOf(tp) + 1]; txt(promo && nt ? `🔥 ${nt[0]} 승급전 ${promo.w}승 ${promo.l}패 (3판 2선승)` : nt ? `다음 티어 ${nt[0]}까지 ${nt[1] - tp} TP` : '최고 티어!', 54, 390, 13, '#aaa', null, 0, 'left');
   // 엔딩 수집 (오른쪽 아래 빈 칸)
   ctx.fillStyle = 'rgba(255,224,130,0.08)'; rr(704, 368, 218, 66, 14); ctx.fill();
   txt(`🎬 엔딩 수집 ${endSeen.length}/${ENDINGS.length}`, 813, 386, 14, '#ffe082', null);
@@ -2477,7 +2498,7 @@ function checkChapters() {
 // 배드 엔딩 뒤: 돈·빚·티어·스토리 진행만 처음으로 (닉네임·캐릭터·엔딩 수집 기록은 유지)
 function restartLife() {
   coins = 100; lsSet('sgf_coin', coins); debt = DEBT_START; bankDebt = 0; debtBase = DEBT_START; saveDebt();
-  tp = 0; lsSet('sgf_tp', tp); chapSeen = ['intro']; lsSet('sgf_chap', chapSeen); uploadRank();
+  tp = 0; lsSet('sgf_tp', tp); promo = null; lsSet('sgf_promo', null); chapSeen = ['intro']; lsSet('sgf_chap', chapSeen); uploadRank();
 }
 const story = { key: 'intro', i: 0, t: 0, back: 'title' };
 const storyText = pg => pg.tx.replace(/\{name\}/g, playerName);
@@ -3303,7 +3324,8 @@ function drawFinal(f) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; rr(24, 356, 300, 62, 12); ctx.fill();
     const bw2 = drawTierBadge(36, 376, cut.tp.after, 12, 'left');
     txt(`${cut.tp.d >= 0 ? '+' : ''}${cut.tp.d} TP (${cut.tp.after})${up ? ' ⬆ 승급!' : down ? ' ⬇ 강등' : ''}`, 44 + bw2, 376, 14, up ? '#69f0ae' : down ? '#ff8a80' : '#fff', null, 0, 'left');
-    txt(cut.interest ? `💸 사채 이자 +${cut.interest} · 남은 빚 ${fmtN(debt)}` : '👑 빚 없음!', 174, 402, 13, '#ffab91', null);
+    if (cut.tp.msg) txt(cut.tp.msg, 174, 402, 13, '#ffd740', null);   // 승급전 소식이 있으면 우선 표시
+    else txt(cut.interest ? `💸 사채 이자 +${cut.interest} · 남은 빚 ${fmtN(debt)}` : '👑 빚 없음!', 174, 402, 13, '#ffab91', null);
   }
   addHot(0, 60, W, H - 60, () => { pressed.Enter = true; });
 
