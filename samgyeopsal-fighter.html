@@ -250,56 +250,66 @@ function sizzleOff() { if (sizzleNode) { try { sizzleNode.stop(); } catch (e) {}
 // ================= characters =================
 const look = (body, dark, belly, snout, hoof, brow, band, acc, bw = 1) => ({ body, dark, belly, snout, hoof, brow, band, acc, bw });
 const CHARS = [
-  { name: '분홍이', title: '근본 삼겹살', type: '밸런스', hp: 100, power: 1.0, speed: 1.0, scale: 1.15,
+  { name: '분홍이', title: '근본 삼겹살', type: '밸런스', hp: 102, power: 1.04, speed: 1.0, scale: 1.15,
     look: look('#ffb5c5', '#d9718c', '#ffd6df', '#ff93ac', '#7a3b4a', '#5a2030', '#e53935', ['band']),
     skill: { name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진' },
     tf: { name: '불꽃 분홍', type: 'fire', color: '#ff5722', desc: '공격력↑ · 화상' },
     ult: { name: '삼겹 폭풍 연타', type: 'rush', desc: '돌진 후 폭풍 연타' } },
-  { name: '깜돌이', title: '제주 흑돼지', type: '파워', hp: 110, power: 1.15, speed: 0.9, scale: 1.2,
+  { name: '깜돌이', title: '제주 흑돼지', type: '파워', hp: 82, power: 1.03, speed: 0.9, scale: 1.2,
     look: look('#4b3d44', '#1f181b', '#62525a', '#7d6670', '#0d090b', '#0a0a0a', '#1e88e5', ['band', 'scar']),
     skill: { name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 돌진' },
     tf: { name: '한라산 돌돼지', type: 'stone', color: '#9e9e9e', desc: '받는 피해↓ · 슈퍼아머' },
     ult: { name: '한라산 대분화', type: 'eruption', desc: '앞으로 용암 기둥' } },
-  { name: '멧돌이', title: '산속 멧돼지', type: '돌격', hp: 105, power: 1.1, speed: 1.05, scale: 1.2,
+  { name: '멧돌이', title: '산속 멧돼지', type: '돌격', hp: 110, power: 1.18, speed: 1.05, scale: 1.2,
     look: look('#a1887f', '#4e342e', '#bcaaa4', '#8d6e63', '#3e2723', '#2b1a14', '#ff9800', ['tusks', 'bristle']),
     skill: { name: '엄니 올려치기', type: 'launcher', cd: 140, desc: '상대를 띄운다' },
     tf: { name: '야생 폭주', type: 'wild', color: '#ff9800', desc: '이동·공격 속도↑' },
     ult: { name: '멧돼지 대돌진', type: 'charge', desc: '화면 끝까지 무적 돌진' } },
-  { name: '꼬미', title: '미니피그', type: '스피드', hp: 85, power: 0.85, speed: 1.3, scale: 0.92,
+  { name: '꼬미', title: '미니피그', type: '스피드', hp: 84, power: 1.0, speed: 1.3, scale: 0.92,
     look: look('#ffe3d6', '#e0a58f', '#fff1ea', '#ffc2ad', '#8d5a4a', '#6d3a2a', '#ff4081', ['ribbon', 'spots']),
     skill: { name: '데굴데굴 구르기', type: 'roll', cd: 120, desc: '무적 하단 구르기' },
     tf: { name: '분신술', type: 'clone', color: '#f8bbd0', desc: '분신이 추가타' },
     ult: { name: '미니피그 군단', type: 'stampede', desc: '꼬마 돼지 8마리 돌격' } },
-  { name: '얼음이', title: '냉동 대패', type: '원거리', hp: 95, power: 0.95, speed: 1.0, scale: 1.1,
+  { name: '얼음이', title: '냉동 대패', type: '원거리', hp: 104, power: 1.04, speed: 1.0, scale: 1.1,
     look: look('#e3eef9', '#7f9bbf', '#f5f9ff', '#c5d8ef', '#4a6488', '#2c3e5a', '#4fc3f7', ['frost', 'scarf']),
     skill: { name: '대패 표창', type: 'iceProj', cd: 110, desc: '얼음 대패 투척 · 둔화' },
     tf: { name: '급속 냉동', type: 'freeze', color: '#4fc3f7', desc: '적중 시 둔화' },
     ult: { name: '절대영도 대패썰기', type: 'absoluteZero', desc: '얼리고 대패로 썬다' } },
-  { name: '족발왕', title: '태권 족발', type: '발차기', hp: 100, power: 1.05, speed: 1.1, scale: 1.15,
+  { name: '족발왕', title: '태권 족발', type: '발차기', hp: 96, power: 1.05, speed: 1.1, scale: 1.15,
     look: look('#f0c595', '#a8703f', '#f8dcb8', '#e0a878', '#ffc107', '#5d3a1a', '#ffffff', ['band', 'belt']),
     skill: { name: '족발 회오리킥', type: 'spinKick', cd: 150, desc: '3연속 회전 킥' },
     tf: { name: '무쇠 족발', type: 'ironHoof', color: '#ffd54f', desc: '발차기 피해 1.5배' },
     ult: { name: '천족난무', type: 'thousandKicks', desc: '돌진 후 발차기 난무' } },
-  { name: '오겹장군', title: '스모 챔피언', type: '탱커', hp: 130, power: 1.2, speed: 0.8, scale: 1.3,
+  { name: '오겹장군', title: '스모 챔피언', type: '탱커', hp: 124, power: 0.95, speed: 0.8, scale: 1.3,
     look: look('#ffcab8', '#d08a74', '#ffe0d4', '#ffaa94', '#6d3a2a', '#5a2a1a', '#7b1fa2', ['mawashi', 'topknot'], 1.15),
     skill: { name: '뱃살 튕기기', type: 'counter', cd: 160, desc: '반격 자세' },
     tf: { name: '오겹 거대화', type: 'giant', color: '#ce93d8', desc: '몸집·사거리↑ · 아머' },
     ult: { name: '스모 대압살', type: 'bodySlam', desc: '하늘에서 깔아뭉개기' } },
-  { name: '양념이', title: '고추장 불돼지', type: '원거리', hp: 95, power: 1.0, speed: 1.0, scale: 1.12,
+  { name: '양념이', title: '고추장 불돼지', type: '원거리', hp: 100, power: 1.05, speed: 1.0, scale: 1.12,
     look: look('#ff8a65', '#bf360c', '#ffab91', '#ff7043', '#5d1a0a', '#4a1000', '#ffeb3b', ['chili']),
     skill: { name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '화염구 · 화상' },
     tf: { name: '청양 각성', type: 'spicy', color: '#ff1744', desc: '화염구 2연발 · 쿨↓' },
     ult: { name: '지옥불 양념 빔', type: 'beam', desc: '화면을 가르는 불 빔' } },
-  { name: '항정', title: '그림자 닌자', type: '기술', hp: 90, power: 0.95, speed: 1.25, scale: 1.08,
+  { name: '항정', title: '그림자 닌자', type: '기술', hp: 86, power: 1.03, speed: 1.25, scale: 1.08,
     look: look('#b9a9cf', '#5e4b78', '#d5cae4', '#a593c2', '#2e2440', '#1a1028', '#4a148c', ['mask']),
     skill: { name: '항정 순보', type: 'teleport', cd: 130, desc: '상대 뒤로 순간이동' },
     tf: { name: '그림자 모드', type: 'shadow', color: '#7e57c2', desc: '30% 회피 · 속도↑' },
     ult: { name: '비전 · 천살', type: 'thousandCuts', desc: '보이지 않는 천 번 베기' } },
-  { name: '목살', title: '복싱 챔프', type: '펀치', hp: 100, power: 1.1, speed: 1.05, scale: 1.15,
+  { name: '목살', title: '복싱 챔프', type: '펀치', hp: 92, power: 1.08, speed: 1.05, scale: 1.15,
     look: look('#ffb59e', '#c75b39', '#ffd2c4', '#ff9a80', '#6d2a1a', '#4a1a0a', '#ffd600', ['band', 'gloves']),
     skill: { name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼' },
     tf: { name: '챔피언 모드', type: 'champion', color: '#ffd600', desc: '펀치 피해·속도↑' },
-    ult: { name: '메가톤 펀치', type: 'megaton', desc: '가드 파괴 한 방' } }
+    ult: { name: '메가톤 펀치', type: 'megaton', desc: '가드 파괴 한 방' } },
+  { name: '갈비', title: '숯불 양념갈비', type: '리치', hp: 108, power: 1.08, speed: 0.95, scale: 1.15,
+    look: look('#c8743f', '#7a3a18', '#e3a173', '#d98a58', '#4e2410', '#3a1a0a', '#ffb300', ['scar', 'belt']),
+    skill: { name: '갈빗대 휘두르기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 멀리서 후려침' },
+    tf: { name: '숯불 직화', type: 'fire', color: '#ff7043', desc: '공격력↑ · 화상' },
+    ult: { name: '숯불 화산', type: 'eruption', desc: '앞으로 숯불 기둥' } },
+  { name: '감자탕', title: '뼈해장국 장인', type: '지구력', hp: 128, power: 1.06, speed: 0.9, scale: 1.22,
+    look: look('#e8b48a', '#9a5a32', '#f5d2b2', '#e09a6e', '#5d3a1a', '#4a2a10', '#d84315', ['band', 'scarf'], 1.08),
+    skill: { name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 타고 가는 뜨거운 국물 · 화상' },
+    tf: { name: '뚝배기 갑옷', type: 'stone', color: '#8d6e63', desc: '받는 피해↓ · 슈퍼아머' },
+    ult: { name: '펄펄 국물 대방출', type: 'beam', desc: '끓는 국물로 화면을 가른다' } }
 ];
 const GHOST = look('#f4f8ff', '#aab8d6', '#ffffff', '#dde6f7', '#aab8d6', '#7a88a6', '#0000', []);
 const ULT_RANGE = { rush: 280, thousandKicks: 280, charge: 900, eruption: 700, stampede: 900, absoluteZero: 700, bodySlam: 500, beam: 900, thousandCuts: 480, megaton: 230 };
@@ -367,14 +377,17 @@ const NORM = {
 const SKILLDEF = {
   dash:          { startup: 10, active: 18, recovery: 18, dmg: 16, range: 150, height: 'mid', kb: 14, stun: 34, launch: -9, dash: 15, pose: 'dash', hitstop: 10, shake: 12, txt: ['꾸에엑!!', '쿠아앙!!'] },
   armorShoulder: { startup: 12, active: 14, recovery: 20, dmg: 17, range: 150, height: 'mid', kb: 16, stun: 30, dash: 11, armor: true, pose: 'dash', hitstop: 12, shake: 12, txt: ['쿵!!'] },
-  launcher:      { startup: 9,  active: 6,  recovery: 22, dmg: 13, range: 150, height: 'mid', kb: 3, stun: 40, launch: -17, pose: 'uppercut', hitstop: 9, shake: 8, txt: ['엄니!!'] },
-  roll:          { startup: 4,  active: 24, recovery: 14, dmg: 11, range: 110, height: 'low', kb: 6, stun: 20, dash: 12, knockdown: true, invuln: true, invulnF: 16, pose: 'roll', txt: ['데굴!'] },
+  launcher:      { startup: 9,  active: 9,  recovery: 18, dmg: 16, range: 160, height: 'mid', kb: 3, stun: 40, launch: -17, dash: 6, pose: 'uppercut', hitstop: 9, shake: 8, txt: ['엄니!!'] },
+  // 밸런스: 전에는 너무 멀리(288px) 굴러 상대를 지나쳐 등 뒤에서 반격당함 → 이동거리↓ 사거리↑
+  roll:          { startup: 4,  active: 18, recovery: 12, dmg: 12, range: 140, height: 'low', kb: 6, stun: 22, dash: 9, knockdown: true, invuln: true, invulnF: 14, pose: 'roll', txt: ['데굴!'] },
   iceProj:       { startup: 12, active: 1,  recovery: 20, proj: { kind: 'ice', speed: 9, dmg: 9, slow: 120, height: 'mid' }, pose: 'throw' },
   fireProj:      { startup: 12, active: 1,  recovery: 20, proj: { kind: 'fire', speed: 7, dmg: 11, burn: 120, height: 'mid' }, pose: 'throw' },
   spinKick:      { startup: 8,  active: 24, recovery: 16, dmg: 6, hits: 3, hitEvery: 8, range: 165, height: 'mid', kb: 3, stun: 18, dash: 4, pose: 'spin', kind: 'kick', txt: ['휙!', '팍!', '빡!'] },
   counter:       { startup: 2,  active: 40, recovery: 16, counter: true, pose: 'counter' },
   teleport:      { startup: 16, active: 5,  recovery: 14, dmg: 12, range: 150, height: 'mid', kb: 8, stun: 24, teleport: true, invuln: true, invulnF: 13, pose: 'punch', txt: ['슉!'] },
-  uppercut:      { startup: 3,  active: 10, recovery: 24, dmg: 15, range: 140, height: 'mid', kb: 4, stun: 40, launch: -17, rise: -13, invuln: true, invulnF: 8, pose: 'uppercut', kind: 'punch', txt: ['어퍼!!'] }
+  boneSwing:     { startup: 11, active: 8,  recovery: 20, dmg: 15, range: 215, height: 'mid', kb: 12, stun: 28, dash: 3, pose: 'punch', hitstop: 9, shake: 8, txt: ['갈비!!', '뼈다귀!!'] },
+  stewSplash:    { startup: 14, active: 1,  recovery: 22, proj: { kind: 'fire', speed: 6, dmg: 10, burn: 160, height: 'low', y: 28 }, pose: 'throw' },
+  uppercut:      { startup: 3,  active: 10, recovery: 20, dmg: 18, range: 150, dash: 4, height: 'mid', kb: 4, stun: 40, launch: -17, rise: -13, invuln: true, invulnF: 8, pose: 'uppercut', kind: 'punch', txt: ['어퍼!!'] }
 };
 const THROWDEF = { startup: 6, active: 1, recovery: 16, proj: { kind: 'meat', speed: 11, dmg: 14, height: 'mid' }, pose: 'throw', skill: true };
 const GRABDEF = { startup: 6, active: 3, recovery: 24, range: 125, grab: true, pose: 'grab' };
@@ -1134,7 +1147,8 @@ function checkHit(a, d) {
   const at = a.atk;
   if (at.counter || at.proj) return;
   if (a.af < at.startup || a.af >= at.startup + at.active) return;
-  const s = a.sc / 1.15;
+  // 몸집이 사거리에 주는 영향을 줄임 (전: 몸집 비례 → 작은 돼지는 헛치고 큰 돼지는 사거리 우위)
+  const s = 1 + (a.sc / 1.15 - 1) * 0.35;
   const reach = (at.range || 150) * s + (d.sc - 1.15) * 40 + (a.weapon && !at.skill && !at.grab ? 20 : 0);
   const dx = (d.x - a.x) * a.facing;
   if (dx < -20 || dx > reach || Math.abs(d.y - a.y) > 110) return;
@@ -1357,7 +1371,8 @@ function ultUpdate(f, o) {
 
 // ================= CPU =================
 function skillGood(t, dist, op) {
-  if (t === 'iceProj' || t === 'fireProj') return dist > 200;
+  if (t === 'iceProj' || t === 'fireProj' || t === 'stewSplash') return dist > 200;
+  if (t === 'boneSwing') return dist > 120 && dist < 230;
   if (t === 'teleport') return true;
   if (t === 'uppercut' || t === 'launcher') return dist < 170;
   if (t === 'counter') return op.state === 'attack' || dist < 170;
@@ -1511,8 +1526,8 @@ function drawOpening() {
     ctx.save(); ctx.translate(W / 2 + rand(-4, 4), 150); ctx.scale(2.4 - 1.4 * k, 2.4 - 1.4 * k);
     txt('이겨라!!!', 0, 0, 90, '#ffd740', '#b71c1c', 14); ctx.restore();
     drawPig(lerp(-150, 170, ease((t - 6.3) / 0.3)), 470, 1, p1.C, { scale: 1.3, victory: true, t: sceneT });
-    for (let i = 0; i < 10; i++) {   // 돼지 퍼레이드
-      const x = ((t - 6.15) * 160 + i * 110) % (W + 200) - 100;
+    for (let i = 0; i < CHARS.length; i++) {   // 돼지 퍼레이드
+      const x = ((t - 6.15) * 160 + i * (W + 200) / CHARS.length) % (W + 200) - 100;
       drawPig(W - x, 520, -1, CHARS[i].look, { scale: 0.42, walk: true, t: sceneT * 2 + i * 9 });
     }
   }
@@ -1565,7 +1580,8 @@ function buildCustom(d) {
     skill: { ...CHARS[d.skill].skill }, tf: NONE_TF, ult: { ...CHARS[d.ult].ult } };
 }
 // 선택 칸: 0~9 기본 캐릭터, 10 커스텀, 11 만들기/수정
-const getChar = i => i < CHARS.length ? CHARS[i] : (i === 10 && customDef ? buildCustom(customDef) : null);
+const CUSTOM_IDX = CHARS.length, EDIT_IDX = CHARS.length + 1, SEL_SLOTS = CHARS.length + 2, SEL_COLS = 7;   // 선택 화면: 캐릭터들 + 커스텀 + 만들기
+const getChar = i => i < CHARS.length ? CHARS[i] : (i === CUSTOM_IDX && customDef ? buildCustom(customDef) : null);
 const charDef = i => ({ ...(i < CHARS.length ? { idx: i } : { custom: fixDef(customDef) }), cos: { hat: inv.eq.hat, fx: inv.eq.fx } });
 const defToChar = d => withCos(d && d.custom ? buildCustom(d.custom) : CHARS[clamp((d && d.idx) | 0, 0, CHARS.length - 1)], d && d.cos);
 
@@ -1591,7 +1607,7 @@ function edName() {
   for (const k in keys) keys[k] = false;
   if (n && n.trim()) ed.d.name = n.trim().slice(0, 6);
 }
-function edSave() { customDef = fixDef(ed.d); lsSet('sgf_custom', customDef); sel.c1 = 10; scene = 'select'; SFX.confirm(); }
+function edSave() { customDef = fixDef(ed.d); lsSet('sgf_custom', customDef); sel.c1 = CUSTOM_IDX; scene = 'select'; SFX.confirm(); }
 function updateCustom() {
   if (pressed.KeyW || pressed.ArrowUp) { ed.row = (ed.row + ED_ROWS.length - 1) % ED_ROWS.length; SFX.select(); }
   if (pressed.KeyS || pressed.ArrowDown) { ed.row = (ed.row + 1) % ED_ROWS.length; SFX.select(); }
@@ -2204,9 +2220,9 @@ function drawTitle() {
     txt(typeof sub === "function" ? sub() : sub, x + 366, y + 16, 12, on ? '#fff' : '#bbb', null, 0, 'right');
     addHot(x, y, 380, 32, () => { titleSel = i; pressed.Enter = true; });   // 한 번 탭하면 바로 들어감
   });
-  const i = (gT / 150 | 0) % 10;
+  const i = (gT / 150 | 0) % CHARS.length;
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
-  drawPig(810, 470, -1, CHARS[(i + 5) % 10].look, { t: gT + 30, scale: CHARS[(i + 5) % 10].scale * 1.1 });
+  drawPig(810, 470, -1, CHARS[(i + 5) % CHARS.length].look, { t: gT + 30, scale: CHARS[(i + 5) % CHARS.length].scale * 1.1 });
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(60, 482, 840, 50, 10); ctx.fill();
   txt('이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 I+K · 스킬 K+L · 필살 A+D→K+O', W / 2, 497, 13, '#ffd6df', null);
   txt(TOUCH ? '📱 버튼으로 조작 · 메뉴는 탭!' : 'W/S 메뉴 이동 · Enter 선택 · 숫자키 바로가기 · M 배경음', W / 2, 518, 12, '#80d8ff', null);
@@ -2775,9 +2791,9 @@ function updateFighters(frozen) {
 
 function updateSelect() {
   let i = sel.c1;
-  if (pressed.KeyA || pressed.ArrowLeft) i = (i + 11) % 12;
-  if (pressed.KeyD || pressed.ArrowRight) i = (i + 1) % 12;
-  if (pressed.KeyW || pressed.KeyS || pressed.ArrowUp || pressed.ArrowDown) i = (i + 6) % 12;
+  if (pressed.KeyA || pressed.ArrowLeft) i = (i + SEL_SLOTS - 1) % SEL_SLOTS;
+  if (pressed.KeyD || pressed.ArrowRight) i = (i + 1) % SEL_SLOTS;
+  if (pressed.KeyW || pressed.KeyS || pressed.ArrowUp || pressed.ArrowDown) i = (i + SEL_COLS) % SEL_SLOTS;
   if (i !== sel.c1) { sel.c1 = i; SFX.select(); }
   if (pressed.KeyC) { openEditor(); return; }
   if (pressed.KeyI || pressed.KeyJ || pressed.Space || pressed.Enter) {
@@ -3579,15 +3595,15 @@ function drawSelect() {
   ctx.fillStyle = 'rgba(10,5,20,0.75)'; ctx.fillRect(0, 0, W, H);
   txt('캐릭터 선택', W / 2, 36, 36, '#fff', '#000', 7);
   txt('A/D/W/S 또는 방향키 이동 · I / Space / Enter 결정 · C 커스텀 만들기 · Esc 뒤로', W / 2, 64, 13, '#aaa', null);
-  const cw = 126, ch = 112, gx = (W - 6 * cw) / 2, gy = 80;
-  for (let i = 0; i < 12; i++) {
-    const c = getChar(i), x = gx + (i % 6) * cw, y = gy + (i / 6 | 0) * ch;
-    ctx.fillStyle = i >= 10 ? 'rgba(255,213,79,0.12)' : 'rgba(255,255,255,0.08)'; rr(x + 4, y + 4, cw - 8, ch - 8, 10); ctx.fill();
-    if (i === 11) { txt('✏️', x + cw / 2, y + 44, 30, '#fff', null); txt(customDef ? '커스텀 수정' : '커스텀 만들기', x + cw / 2, y + ch - 16, 14, '#ffd54f', '#000', 3); }
+  const cw = 126, ch = 112, gx = (W - SEL_COLS * cw) / 2, gy = 80;
+  for (let i = 0; i < SEL_SLOTS; i++) {
+    const c = getChar(i), x = gx + (i % SEL_COLS) * cw, y = gy + (i / SEL_COLS | 0) * ch;
+    ctx.fillStyle = i >= CUSTOM_IDX ? 'rgba(255,213,79,0.12)' : 'rgba(255,255,255,0.08)'; rr(x + 4, y + 4, cw - 8, ch - 8, 10); ctx.fill();
+    if (i === EDIT_IDX) { txt('✏️', x + cw / 2, y + 44, 30, '#fff', null); txt(customDef ? '커스텀 수정' : '커스텀 만들기', x + cw / 2, y + ch - 16, 14, '#ffd54f', '#000', 3); }
     else if (!c) { txt('?', x + cw / 2, y + 48, 40, '#888', null); txt('커스텀 (비어 있음)', x + cw / 2, y + ch - 16, 12, '#aaa', null); }
     else {
       drawPig(x + cw / 2 - 6, y + ch - 26, 1, c.look, { scale: 0.5, t: gT + i * 10 });
-      txt(c.name, x + cw / 2, y + ch - 14, 15, i === 10 ? '#ffd54f' : '#fff', '#000', 3);
+      txt(c.name, x + cw / 2, y + ch - 14, 15, i === CUSTOM_IDX ? '#ffd54f' : '#fff', '#000', 3);
     }
     addHot(x + 4, y + 4, cw - 8, ch - 8, () => { if (sel.c1 === i) pressed.Enter = true; else { sel.c1 = i; SFX.select(); } });
     if (sel.c1 === i) { ctx.strokeStyle = gT % 20 < 10 ? '#ff5252' : '#ff8a80'; ctx.lineWidth = 5; rr(x + 3, y + 3, cw - 6, ch - 6, 10); ctx.stroke(); }
@@ -3695,7 +3711,7 @@ function draw() {
 // ================= autotest (?autotest) =================
 if (/autotest/.test(location.search)) {
   const out = [];
-  const qs = new URLSearchParams(location.search), from = +(qs.get('from') || 0), cnt = +(qs.get('n') || 10), every = +(qs.get('draw') || 30);
+  const qs = new URLSearchParams(location.search), from = +(qs.get('from') || 0), cnt = +(qs.get('n') || CHARS.length), every = +(qs.get('draw') || 30);
   try {
     for (let i = from; i < Math.min(CHARS.length, from + cnt); i++) {
       mode = 0; p1.setChar(CHARS[i]); p2.setChar(CHARS[(i + 3) % CHARS.length]); startMatch();
@@ -3730,8 +3746,8 @@ if (/autotest/.test(location.search)) {
     scene = 'vs'; sceneT = 30; draw();
     // 커스텀 캐릭터
     openEditor(); for (ed.row = 1; ed.row <= 8; ed.row++) { edChange(1); edChange(1); } draw(); edSave(); draw();
-    out.push('custom: ' + JSON.stringify(customDef) + ' hp=' + getChar(10).hp + ' pow=' + getChar(10).power.toFixed(2));
-    sel.c1 = 11; draw(); scene = 'online'; draw(); scene = 'title'; draw();
+    out.push('custom: ' + JSON.stringify(customDef) + ' hp=' + getChar(CUSTOM_IDX).hp + ' pow=' + getChar(CUSTOM_IDX).power.toFixed(2));
+    sel.c1 = EDIT_IDX; draw(); scene = 'online'; draw(); scene = 'title'; draw();
     // 온라인 락스텝 결정성: 같은 시드 + 같은 입력이면 두 번 돌려도 결과가 같아야 한다
     const hsh = (k) => { let x = Math.imul(k ^ 0x9e3779b9, 2654435761) >>> 0; x ^= x >>> 15; return Math.imul(x, 0x85ebca6b) >>> 0; };
     const genIn = (n, side) => {
