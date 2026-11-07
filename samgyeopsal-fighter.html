@@ -19,6 +19,9 @@ canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-sha
   display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;text-align:center;line-height:1.1;text-shadow:0 1px 2px #000}
 #pad .b.on{background:rgba(255,200,80,.55)}
 #pad .c{border-radius:14px;background:rgba(255,120,80,.28)}
+#joyz{position:absolute;pointer-events:auto;touch-action:none}
+#joyb{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:rgba(255,255,255,.07);pointer-events:none}
+#joyk{position:absolute;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,255,255,.38);border:2px solid rgba(255,255,255,.6);pointer-events:none}
 </style>
 </head>
 <body>
@@ -125,53 +128,85 @@ cv.addEventListener('pointerdown', e => {
 });
 
 // ---- 모바일 터치 패드 ----
+// 왼쪽: 아무 데나 누르고 끌면 움직이는 조이스틱 (↖↗ 대각선 점프 · 아래로 끌면 앉기 · 뒤로 끌면 막기)
+// 오른쪽: 공격 버튼. 손가락을 떼지 않고 옆 버튼으로 미끄러져도 바로 눌림
 const PAD = [
-  { t: '◀', codes: ['KeyA'], l: 3, b: 22, s: 64 }, { t: '▶', codes: ['KeyD'], l: 19, b: 22, s: 64 },
-  { t: '▲', codes: ['KeyW'], l: 11, b: 40, s: 60 }, { t: '▼<br>앉기', codes: ['KeyS'], l: 11, b: 4, s: 60 },
-  { t: 'I<br>왼손', codes: ['KeyI'], r: 15, b: 30, s: 62 }, { t: 'O<br>오른손', codes: ['KeyO'], r: 4, b: 38, s: 62 },
-  { t: 'K<br>왼발', codes: ['KeyK'], r: 15, b: 8, s: 62 }, { t: 'L<br>오른발', codes: ['KeyL'], r: 4, b: 16, s: 62 },
-  { t: '업어<br>치기', codes: ['KeyI', 'KeyK'], r: 27, b: 6, s: 56, c: 1 }, { t: '스킬', codes: ['KeyK', 'KeyL'], r: 27, b: 26, s: 56, c: 1 },
-  { t: '필살기', codes: ['KeyA', 'KeyD', 'KeyK', 'KeyO'], r: 27, b: 46, s: 56, c: 1 }
+  { t: 'I<br>왼손', codes: ['KeyI'] }, { t: 'O<br>오른손', codes: ['KeyO'] },
+  { t: 'K<br>왼발', codes: ['KeyK'] }, { t: 'L<br>오른발', codes: ['KeyL'] },
+  { t: '업어<br>치기', codes: ['KeyI', 'KeyK'], c: 1 }, { t: '스킬', codes: ['KeyK', 'KeyL'], c: 1 },
+  { t: '필살기', codes: ['KeyA', 'KeyD', 'KeyK', 'KeyO'], c: 1 }
 ];
-// 세로 화면 배치: [가운데 x, 가운데 y, 크기] — 단위 u 기준 (왼쪽 십자키 · 가운데 조합기 · 오른쪽 손발)
-const PAD_PORTRAIT = [[-1, 0, .9], [1, 0, .9], [0, -1, .9], [0, 1, .9],
-  ['r', -2.25, -.6, 1], ['r', -1.15, -.6, 1], ['r', -2.25, .6, 1], ['r', -1.15, .6, 1],
-  ['m', -1.05, .85], ['m', 0, .85], ['m', 1.05, .85]];
+// 버튼 위치: 오른쪽 아래 모서리 기준 [가로, 세로, 크기] (단위 u)
+const PAD_POS = [[-2.15, -1.75, 1], [-1.0, -2.05, 1], [-2.15, -0.62, 1], [-1.0, -0.92, 1],
+  [-3.3, -0.55, 0.86], [-3.3, -1.5, 0.86], [-3.3, -2.45, 0.86]];
 const padEl = document.getElementById('pad');
+const joyZ = document.createElement('div'), joyB = document.createElement('div'), joyK = document.createElement('div');
+joyZ.id = 'joyz'; joyB.id = 'joyb'; joyK.id = 'joyk'; joyZ.append(joyB, joyK); padEl.appendChild(joyZ);
+let joyHome = [0, 0];
 function layoutPad(canvasH) {
   if (!TOUCH) return;
-  if (!PORTRAIT) {   // 가로: 화면 위에 겹쳐서
-    padEl.style.top = '0';
-    const k = Math.max(0.7, Math.min(1.15, innerHeight / 430));   // 작은 폰은 버튼도 작게
-    for (const p of PAD) {
-      Object.assign(p.el.style, { width: p.s * k + 'px', height: p.s * k + 'px', top: '', bottom: p.b + '%', left: p.l !== undefined ? p.l + '%' : '', right: p.l === undefined ? p.r + '%' : '' });
-    }
-    return;
-  }
-  // 세로: 게임 화면 아래 남는 공간에
-  padEl.style.top = canvasH + 'px';
-  const w = innerWidth, ph = innerHeight - canvasH;
-  const u = Math.min((w - 16) / 7, ph / 3.6, 80), cy = ph * 0.55, lx = 1.45 * u + 8, mx = (2.9 * u + 8 + w - 2.75 * u) / 2;
+  const top = PORTRAIT ? canvasH : 0, w = innerWidth, h = innerHeight - top;
+  padEl.style.top = top + 'px';
+  const u = PORTRAIT ? Math.min((w - 16) / 7.4, h / 3.3, 84) : Math.max(52, Math.min(84, innerHeight / 5));
+  const right = w - 8, bottom = h - 8;
   PAD.forEach((p, i) => {
-    const q = PAD_PORTRAIT[i]; let x, y, s;
-    if (q[0] === 'r') { x = w + q[1] * u; y = cy + q[2] * u; s = q[3] * u; }
-    else if (q[0] === 'm') { x = mx; y = cy + q[1] * u; s = q[2] * u; }
-    else { x = lx + q[0] * u; y = cy + q[1] * u; s = q[2] * u; }
-    Object.assign(p.el.style, { width: s + 'px', height: s + 'px', left: x - s / 2 + 'px', top: y - s / 2 + 'px', right: '', bottom: '' });
+    const [qx, qy, qs] = PAD_POS[i], s = qs * u * 0.96;
+    Object.assign(p.el.style, { width: s + 'px', height: s + 'px', left: right + qx * u - s / 2 + 'px', top: bottom + qy * u - s / 2 + 'px', right: '', bottom: '' });
   });
+  // 조이스틱 영역: 버튼 왼쪽의 남는 곳 (가로 화면은 위쪽 HUD는 비워 둠)
+  const zr = right - 3.85 * u, zt = PORTRAIT ? 0 : h * 0.3;
+  Object.assign(joyZ.style, { left: '0', top: zt + 'px', width: Math.max(120, Math.min(zr, PORTRAIT ? zr : w * 0.45)) + 'px', height: h - zt + 'px' });
+  joyHome = [Math.min(zr / 2, 1.6 * u + 20), (h - zt) - 1.6 * u];
+  joyShow(joyHome[0], joyHome[1], 0, 0, false);
 }
-for (const p of PAD) {
-  const d = document.createElement('div'); d.className = 'b' + (p.c ? ' c' : ''); d.innerHTML = p.t; p.el = d;
-  const down = e => { e.preventDefault(); initAudio(); d.classList.add('on'); for (const c of p.codes) press(c); d.setPointerCapture?.(e.pointerId); };
-  const up = e => { e.preventDefault(); d.classList.remove('on'); for (const c of p.codes) keys[c] = false; };
-  d.addEventListener('pointerdown', down); d.addEventListener('pointerup', up); d.addEventListener('pointercancel', up);
+// 여러 손가락이 같은 키를 누를 수 있으니 몇 개가 누르고 있는지 센다
+const padHold = {};
+function padDown(c) { padHold[c] = (padHold[c] || 0) + 1; if (padHold[c] === 1) press(c); }
+function padUp(c) { if (!padHold[c]) return; if (--padHold[c] === 0) keys[c] = false; }
+function padReleaseAll() { for (const c in padHold) { if (padHold[c] > 0) keys[c] = false; padHold[c] = 0; } joy.id = null; for (const p of PAD) p.el.classList.remove('on'); btnPtr.clear(); }
+// 조이스틱
+const joy = { id: null, x0: 0, y0: 0, held: {} };
+function joyShow(x, y, dx, dy, active) {
+  Object.assign(joyB.style, { left: x + 'px', top: y + 'px', opacity: active ? 1 : 0.45 });
+  Object.assign(joyK.style, { left: x + dx + 'px', top: y + dy + 'px', opacity: active ? 1 : 0.45 });
+}
+function joyMove(x, y) {
+  const R = 52; let dx = x - joy.x0, dy = y - joy.y0;
+  const d = Math.hypot(dx, dy);
+  if (d > R * 1.3) { const k = (d - R * 1.3) / d; joy.x0 += dx * k; joy.y0 += dy * k; dx = x - joy.x0; dy = y - joy.y0; }   // 손가락을 따라옴 → 반대로 빨리 꺾기 쉬움
+  const want = { KeyA: dx < -16, KeyD: dx > 16, KeyW: dy < -30, KeyS: dy > 26 };
+  for (const c in want) { if (want[c] && !joy.held[c]) { joy.held[c] = true; padDown(c); } else if (!want[c] && joy.held[c]) { joy.held[c] = false; padUp(c); } }
+  const m = Math.min(R, Math.hypot(dx, dy)) / (Math.hypot(dx, dy) || 1);
+  joyShow(joy.x0, joy.y0, dx * m, dy * m, true);
+}
+function joyEnd() { for (const c in joy.held) if (joy.held[c]) { joy.held[c] = false; padUp(c); } joy.id = null; joyShow(joyHome[0], joyHome[1], 0, 0, false); }
+const zxy = e => { const r = joyZ.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+joyZ.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); if (joy.id !== null) return; joy.id = e.pointerId; [joy.x0, joy.y0] = zxy(e); joyMove(joy.x0, joy.y0); try { joyZ.setPointerCapture(e.pointerId); } catch (er) {} });
+joyZ.addEventListener('pointermove', e => { if (e.pointerId === joy.id) { e.preventDefault(); joyMove(...zxy(e)); } });
+for (const ev of ['pointerup', 'pointercancel']) joyZ.addEventListener(ev, e => { if (e.pointerId === joy.id) joyEnd(); });
+// 공격 버튼: 손가락마다 지금 어느 버튼 위에 있는지 추적 (미끄러지면 바꿔 누름)
+const btnPtr = new Map();
+function btnSet(id, idx) {
+  const old = btnPtr.get(id);
+  if (old === idx) return;
+  if (old !== undefined) { PAD[old].el.classList.remove('on'); for (const c of PAD[old].codes) padUp(c); }
+  if (idx === undefined) { btnPtr.delete(id); return; }
+  btnPtr.set(id, idx); PAD[idx].el.classList.add('on'); for (const c of PAD[idx].codes) padDown(c);
+  try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
+}
+const btnAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest && el.closest('#pad .b'); return b ? +b.dataset.i : undefined; };
+PAD.forEach((p, i) => {
+  const d = document.createElement('div'); d.className = 'b' + (p.c ? ' c' : ''); d.innerHTML = p.t; d.dataset.i = i; p.el = d;
+  d.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); btnSet(e.pointerId, i); try { d.releasePointerCapture(e.pointerId); } catch (er) {} });   // 캡처를 풀어야 옆 버튼으로 미끄러질 수 있음
   padEl.appendChild(d);
-}
+});
+addEventListener('pointermove', e => { if (btnPtr.has(e.pointerId)) { e.preventDefault(); const i = btnAt(e.clientX, e.clientY); if (i !== undefined) btnSet(e.pointerId, i); } });
+for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if (btnPtr.has(e.pointerId)) btnSet(e.pointerId, undefined); });
 padReady = true; fit();
 let padShown = false;
 function syncPad() {
   const want = TOUCH && ['intro', 'fight', 'roundEnd'].includes(scene);
-  if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; }
+  if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; if (!want) { joyEnd(); padReleaseAll(); } }   // 숨길 때 눌린 키가 남지 않게
 }
 
 // ================= audio =================
@@ -352,13 +387,8 @@ function makeDish(o) { return { name: o[0], method: o[1], fit: o[2], ...METHODS[
 // ---- 코인 · 음성 ----
 let coins = lsGet('sgf_coin', 100), bet = 0, betSel = 0;
 function addCoins(n) { coins = Math.max(0, Math.round(coins + n)); lsSet('sgf_coin', coins); }
-function speak(s, pitch = 1.3, rate = 1.05) {
-  try {
-    if (mode === 0 || !window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance(s); u.lang = 'ko-KR'; u.pitch = pitch; u.rate = rate;
-    speechSynthesis.cancel(); speechSynthesis.speak(u);
-  } catch (e) {}
-}
+// 음성(TTS)은 껐음 — 호출하는 곳은 그대로 두고 아무것도 하지 않음
+function speak() {}
 
 // ================= moves =================
 // height: high(앉으면 피함) / mid(서서 막기) / low(앉아 막기)
@@ -2716,7 +2746,9 @@ let streak = 0, runOver = false, rankPos = -1, lastOpp = -1, toastMsg = '', toas
 let ranked = false;
 const oppLv = () => mode === 0 ? 3 : ranked ? Math.round(tierOf(tp) * 1.4) + Math.min(4, Math.floor(streak / 2)) : streak;
 
-function startRun() { streak = 0; runOver = false; rankPos = -1; lastOpp = -1; betSel = 0; p1.setChar(withCos(getChar(sel.c1))); scene = 'opening'; sceneT = 0; parts = []; texts = []; }
+function startRun() { streak = 0; runOver = false; rankPos = -1; lastOpp = -1; betSel = 0; p1.setChar(withCos(getChar(sel.c1))); sceneT = 0;
+  // 오프닝 컷신은 처음 한 번만. 그 뒤로는 바로 상대 소개로
+  if (lsGet('sgf_open_seen', false)) nextOpponent(); else { lsSet('sgf_open_seen', true); scene = 'opening'; } parts = []; texts = []; }
 function nextOpponent() {
   let i; do { i = Math.random() * CHARS.length | 0; } while (i === sel.c1 || i === lastOpp);
   lastOpp = i; p2.setChar(CHARS[i]); scene = 'vs'; sceneT = 0;
