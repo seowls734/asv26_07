@@ -21,6 +21,17 @@ canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-sha
 #pad .c{border-radius:14px;background:rgba(255,120,80,.28)}
 #joyz{position:absolute;pointer-events:auto;touch-action:none}
 #joyb{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:rgba(255,255,255,.07);pointer-events:none}
+#auth{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,5,20,.72);z-index:50;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;-webkit-user-select:text;user-select:text;touch-action:auto}
+#auth .box{width:min(340px,88vw);max-height:92vh;overflow:auto;background:#2b1622;border:2px solid #ff8fab;border-radius:18px;padding:18px 20px;color:#fff;text-align:center;box-shadow:0 0 40px #000}
+#auth h2{margin:2px 0 6px;font-size:22px;color:#ffc1d0}
+#auth p{margin:0 0 12px;font-size:14px;color:#ffe0b2}
+#auth small{display:block;margin:8px 0;font-size:12px;color:#d7b8c4;line-height:1.4}
+#auth input{display:block;box-sizing:border-box;width:100%;margin:7px 0;padding:11px 12px;border-radius:10px;border:2px solid #6d3b52;background:#1a0d14;color:#fff;font-size:16px;outline:none}
+#auth input:focus{border-color:#ff8fab}
+#auth button{display:block;width:100%;margin:8px 0 0;padding:12px;border:0;border-radius:12px;background:#ff5c8a;color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit}
+#auth button.sub{background:rgba(255,255,255,.14);font-weight:700}
+#auth button:disabled{opacity:.5}
+#auth .err{min-height:18px;margin-top:6px;font-size:13px;color:#ff8a80}
 #joyk{position:absolute;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,255,255,.38);border:2px solid rgba(255,255,255,.6);pointer-events:none}
 </style>
 </head>
@@ -109,6 +120,7 @@ function josa(name, a, b) { const c = name.charCodeAt(name.length - 1); if (c < 
 const keys = {}, pressed = {}, lastPress = {};
 function press(code) { if (!keys[code]) { pressed[code] = true; lastPress[code] = gT; } keys[code] = true; }
 addEventListener('keydown', e => {
+  if (authShown) return;   // 로그인 창이 떠 있으면 게임 조작 무시
   if (!e.repeat) { pressed[e.code] = true; lastPress[e.code] = gT; }
   keys[e.code] = true; initAudio();
   if (e.code.startsWith('Arrow') || e.code === 'Space' || e.code.startsWith('Numpad')) e.preventDefault();
@@ -370,7 +382,53 @@ const WEAPON = { head: '목살 몽둥이', belly: '삼겹 채찍', legs: '족발
 
 // ---- 로컬 저장 (연승 랭킹 · 닉네임) ----
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
-function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} if (!SAVE_SKIP.includes(k)) cloudDirty(); }
+
+// ---- 계정 (게스트 / 회원) ----
+// 회원 정보와 게임 진행 상황은 랭킹 서버와 따로, 회원 서버(Cloudflare Workers + D1)에 저장함.
+// 회원은 기록이 바뀌면 몇 초 뒤 자동으로 계정에 저장 → 다른 기기에서 로그인해도 이어서 할 수 있음. 게스트는 이 기기에만 저장, 랭킹에 안 오름.
+const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
+const AUTH_TEST = /autotest|view=|shot=|nettest/i.test(location.search);   // 자동 테스트에서는 회원 서버에 저장 안 함
+const SAVE_SKIP = ['sgf_auth', 'sgf_pid', 'sgf_homeTip', 'sgf_pidDropped'];   // 기기마다 다른 값 → 계정 저장에서 뺌
+let auth = lsGet('sgf_auth', null);   // null: 아직 선택 안 함 · { guest: true } · { uid, login, token, syncT }
+const isMember = () => !!(auth && auth.token);
+function setAuth(a) { auth = a; try { localStorage.setItem('sgf_auth', JSON.stringify(a)); } catch (e) {} }
+function authFetch(path, method = 'GET', data, extra = {}) {
+  const h = { 'Content-Type': 'application/json' };
+  if (isMember()) h.Authorization = 'Bearer ' + auth.token;
+  return fetch(AUTH_URL + path, { method, headers: h, body: data === undefined ? undefined : JSON.stringify(data), ...extra })
+    .then(r => r.json().catch(() => ({})).then(d => { if (!r.ok) throw Object.assign(new Error(d.error || '서버 오류'), { status: r.status }); return d; }));
+}
+// 계정에 올리는 저장 데이터 = 이 기기의 sgf_ 값 전부(기기 전용 값 제외)
+function collectSave() {
+  const o = {};
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('sgf_') && !SAVE_SKIP.includes(k)) o[k] = localStorage.getItem(k); } } catch (e) {}
+  return o;
+}
+function applySave(s) {
+  try {
+    Object.keys(localStorage).filter(k => k.startsWith('sgf_') && !SAVE_SKIP.includes(k)).forEach(k => localStorage.removeItem(k));
+    for (const [k, v] of Object.entries(s || {})) if (k.startsWith('sgf_') && !SAVE_SKIP.includes(k) && typeof v === 'string') localStorage.setItem(k, v);
+  } catch (e) {}
+}
+let cloudTimer = 0;
+function cloudDirty() { if (!isMember() || AUTH_TEST) return; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudPush, 4000); }
+function cloudPush(keepalive) {
+  clearTimeout(cloudTimer); cloudTimer = 0;
+  if (!isMember() || AUTH_TEST) return Promise.resolve();
+  return authFetch('/save', 'PUT', { save: collectSave() }, keepalive ? { keepalive: true } : {})
+    .then(d => setAuth({ ...auth, syncT: d.saved }))
+    .catch(e => { if (e.status === 401) authExpired(); });
+}
+// 다른 기기에서 더 최근에 저장했으면 그 기록을 받아 옴 (게임 시작할 때)
+function cloudPull() {
+  if (!isMember() || AUTH_TEST) return;
+  authFetch('/save').then(d => {
+    if (d.save && d.saved > (auth.syncT || 0)) { applySave(d.save); setAuth({ ...auth, syncT: d.saved }); location.reload(); }
+  }).catch(e => { if (e.status === 401) authExpired(); });
+}
+function authExpired() { setAuth({ guest: true }); toast('🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
+document.addEventListener('visibilitychange', () => { if (document.hidden && cloudTimer) cloudPush(true); });   // 앱을 내리거나 닫을 때 바로 저장
 let playerName = lsGet('sgf_name', null) || ('돼지' + (100 + Math.random() * 900 | 0));
 function getRank() { return lsGet('sgf_rank', []); }
 function saveRank(entry) {
@@ -2221,7 +2279,7 @@ function drawPortrait(cx, cy, r, C, face) {
 
 // ================= 타이틀 메뉴 =================
 const MENU = [
-  ['🏆 랭크전', '티어에 맞춰 강해지는 CPU · 랭킹 반영', () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }],
+  ['🏆 랭크전', () => isMember() ? '티어에 맞춰 강해지는 CPU · 랭킹 반영' : '티어에 맞춰 강해지는 CPU · 게스트는 랭킹 미반영', () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }],
   ['🔥 연승 모드', 'CPU와 끝없는 연승 도전 (랭킹 미반영)', () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; }],
   ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; ranked = false; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
@@ -2242,6 +2300,7 @@ function updateTitle() {
     for (const k in keys) keys[k] = false;
     if (n && n.trim()) { playerName = n.trim().slice(0, 8); lsSet('sgf_name', playerName); uploadRank(); }
   }
+  else if (pressed.KeyL) openAuth(isMember() ? 'account' : 'choose');   // L = 로그인·회원가입 / 내 계정
   if (gT % 5 === 0) flame(W / 2 + rand(-230, 230), 100 + rand(-5, 5));
 }
 function drawTitle() {
@@ -2257,6 +2316,12 @@ function drawTitle() {
   txt(`👤 ${playerName} [N]  ·  🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`, W / 2 + tw / 2, 139, 14, '#e0e0e0', '#000', 4);
   if (coins < 10 && gT % 60 < 40) txt("💸 파산 직전! 🏦 은행에서 대출받으세요", W / 2, 464, 15, '#ff8a80', '#000', 4);
   addHot(W / 2 - 300, 128, 600, 24, () => { pressed.KeyN = true; });
+  // 왼쪽 위: 계정 버튼 (게스트 → 로그인·가입 / 회원 → 내 계정)
+  const acc = isMember() ? `👤 ${auth.login} [L]` : '🔑 로그인 · 가입 [L]';
+  ctx.fillStyle = isMember() ? 'rgba(255,255,255,0.15)' : 'rgba(255,128,171,0.45)'; rr(14, 12, 170, 30, 8); ctx.fill();
+  txt(acc, 99, 27, 13, '#fff', null);
+  if (!isMember()) txt('게스트 · 랭킹 미반영', 99, 52, 11, '#ffcdd2', '#000', 3);
+  addHot(14, 12, 170, 30, () => openAuth(isMember() ? 'account' : 'choose'));
   MENU.forEach(([label, sub], i) => {
     const x = W / 2 - 190, y = 152 + i * 37, on = titleSel === i;
     if (on) {
@@ -2377,16 +2442,20 @@ const BANK_ACTS = [
 let resetAsk = -999;
 function resetAll() {
   if (gT - resetAsk > 180) { resetAsk = gT; SFX.block(); toast('⚠️ 한 번 더 누르면 모든 기록이 지워져요!'); return; }
-  // 이 기기(=이 플레이어)의 기록만 지움: 서버의 rank/내ID 하나 + 이 브라우저 저장값. 다른 사람 기록은 그대로.
-  const myId = pid;
+  // 이 플레이어의 기록만 지움: 서버의 rank/내ID 하나 + 이 브라우저 저장값 (+ 회원이면 계정에 저장된 진행 상황). 다른 사람 기록은 그대로.
+  // 로그인 상태(게스트/회원 선택)는 그대로 둠
+  const myId = isMember() ? auth.uid : pid, keepAuth = auth;
   try { Object.keys(localStorage).filter(k => k.startsWith('sgf_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  if (keepAuth) setAuth(keepAuth);
   toast('🗑️ 서버 기록 삭제 중...');
   let done = false; const reload = () => { if (!done) { done = true; location.reload(); } };
-  if (RANK_DBS.length) {   // 연결된 모든 랭킹 서버에서 내 기록 삭제
-    rankAll(`/rank/${myId}.json`, { method: 'DELETE', keepalive: true })
-      .then(rs => { if (rs.some(r => r.status === 'rejected')) alert('일부 서버의 랭킹 기록은 지우지 못했어요 (인터넷/서버 규칙 확인). 기기 기록은 지워졌어요.'); }).finally(reload);
-    setTimeout(reload, 5000);   // 서버가 응답 없으면 5초 뒤 그냥 새로고침
-  } else reload();
+  const jobs = [];
+  if (RANK_DBS.length) jobs.push(rankAll(`/rank/${myId}.json`, { method: 'DELETE', keepalive: true })   // 연결된 모든 랭킹 서버에서 내 기록 삭제
+    .then(rs => { if (rs.some(r => r.status === 'rejected')) alert('일부 서버의 랭킹 기록은 지우지 못했어요 (인터넷/서버 규칙 확인). 기기 기록은 지워졌어요.'); }));
+  if (isMember()) jobs.push(cloudPush());   // 계정에 저장된 진행 상황도 빈 기록으로 덮어씀
+  if (!jobs.length) return reload();
+  Promise.allSettled(jobs).finally(reload);
+  setTimeout(reload, 5000);   // 서버가 응답 없으면 5초 뒤 그냥 새로고침
 }
 function updateBank() {
   const n = BANK_ACTS.length;
@@ -2458,9 +2527,15 @@ function rankSort() {
 }
 function uploadRank() {
   // 티어는 지금 티어(떨어지면 순위도 내려감), 연승은 랭크전 최고 연승(오르기만 함). 랭크전을 안 해 봤으면 올리지 않음
-  if (!RANK_DBS.length || !lsGet('sgf_ranked', false)) return Promise.resolve();
+  // 게스트는 랭킹에 올리지 않음. 회원은 계정 번호(uid)로 올림 → 어느 기기에서 해도 같은 줄
+  if (!RANK_DBS.length || !isMember() || !lsGet('sgf_ranked', false)) return Promise.resolve();
   const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_rbest', 0), t: Date.now() };
-  return rankAll(`/rank/${pid}.json`, { method: 'PUT', body: JSON.stringify(body) });
+  return rankAll(`/rank/${auth.uid}.json`, { method: 'PUT', body: JSON.stringify(body) });
+}
+// 계정 기능 전에 이 기기 번호(pid)로 올라가 있던 옛 랭킹 기록은 한 번 지움 (게스트 선택 또는 로그인 때)
+function dropLegacyRank() {
+  try { if (localStorage.getItem('sgf_pidDropped')) return; localStorage.setItem('sgf_pidDropped', '1'); } catch (e) { return; }
+  if (RANK_DBS.length) rankAll(`/rank/${pid}.json`, { method: 'DELETE' });
 }
 // 랭킹 불러오기는 서버 하나에서만 함(저장은 모든 서버에). 시작 서버를 무작위로 골라 부담을 나누고, 실패하면 다음 서버로.
 // 서버에서는 티어 상위·연승 상위 RANK_TOP명씩만 받음 → 플레이어가 늘어도 내려받는 양이 그대로.
@@ -2515,7 +2590,7 @@ function drawRanking() {
     else if (!list.length) txt('아직 아무도 없어요. 랭크전에서 첫 1등이 되어 보세요!', W / 2, 260, 20, '#fff', null);
     else {
       list.slice(rk.page * 10, rk.page * 10 + 10).forEach((v, r) => {
-        const i = rk.page * 10 + r, y = 140 + r * 32, me = v.id === pid;
+        const i = rk.page * 10 + r, y = 140 + r * 32, me = isMember() && v.id === auth.uid;
         if (me) { ctx.fillStyle = 'rgba(255,213,79,0.25)'; rr(60, y - 14, 840, 28, 8); ctx.fill(); }
         const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
         txt(`${i + 1}`, 120, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 8) + (me ? ' (나)' : ''), 320, y, 17, col, '#000', 3);
@@ -2528,8 +2603,9 @@ function drawRanking() {
       txt(`${rk.page * 10 + 1}~${Math.min(list.length, rk.page * 10 + 10)}위 / ${list.length}명`, W / 2, 481, 14, '#ccc', null);
       pb(W / 2 + 80, '다음 ▶', rk.page < pages - 1, () => { pressed.ArrowRight = true; });
     }
-    const meIdx = list.findIndex(v => v.id === pid);
-    txt(`나: ${playerName} · ${TIERS[tierOf(tp)][0]} ${tp}TP · 최고 ${lsGet('sgf_rbest', 0)}연승 · ${meIdx >= 0 ? `${meIdx + 1}위` : '순위 밖'}`, W / 2, 522, 13, '#ffe082', null);
+    const meIdx = isMember() ? list.findIndex(v => v.id === auth.uid) : -1;
+    if (!isMember()) txt('👤 게스트는 랭킹에 오르지 않아요 · 타이틀의 🔑 로그인·가입에서 회원이 되면 올라가요', W / 2, 522, 13, '#ffe082', null);
+    else txt(`나: ${playerName} · ${TIERS[tierOf(tp)][0]} ${tp}TP · 최고 ${lsGet('sgf_rbest', 0)}연승 · ${meIdx >= 0 ? `${meIdx + 1}위` : '순위 밖'}`, W / 2, 522, 13, '#ffe082', null);
   } else {
     const r = getRank();
     if (!r.length) txt('아직 기록이 없어요. 연승 모드에 도전해 보세요!', W / 2, 260, 20, '#fff', null);
@@ -2612,7 +2688,9 @@ function endStory() {
   if (story.key === 'intro') lsSet('sgf_story_seen', true);
   if (ENDINGS.some(e => e[0] === story.key) && !endSeen.includes(story.key)) { endSeen.push(story.key); lsSet('sgf_end', endSeen); }
   if (story.key === 'bad') restartLife();
-  try { speechSynthesis.cancel(); } catch (e) {} scene = story.back; }
+  try { speechSynthesis.cancel(); } catch (e) {} scene = story.back;
+  if (story.key === 'intro' && !auth && !AUTH_TEST) openAuth('choose');   // 처음 들어온 사람: 컷신 끝나면 로그인/회원가입/게스트 선택
+}
 function updateStory() {
   const pages = STORY[story.key], pg = pages[story.i];
   story.t++;
@@ -3883,6 +3961,84 @@ if (/autotest/.test(location.search)) {
   toTitle();
 }
 
+// ================= 계정 창 (로그인 · 회원가입 · 게스트 선택) =================
+// 글자 입력이 필요해서 캔버스가 아닌 HTML 창으로 띄움. 떠 있는 동안 게임 키 입력은 무시됨.
+const authEl = document.createElement('div'); authEl.id = 'auth'; document.body.appendChild(authEl);
+let authShown = false, authPage = '';
+const escH = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function closeAuth() { authShown = false; authEl.style.display = 'none'; authEl.innerHTML = ''; for (const k in keys) keys[k] = false; }
+function openAuth(page) {
+  authShown = true; authPage = page; authEl.style.display = 'flex';
+  for (const k in keys) keys[k] = false;
+  const idIn = ph => `<input id="a_id" placeholder="${ph}" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="16">`;
+  let h = '';
+  if (page === 'choose') h = `<h2>🐷 삼겹살 파이터</h2><p>어떻게 시작할까요?</p>
+    <button data-go="login">🔑 로그인</button><button data-go="signup">✨ 회원가입</button>
+    ${auth ? '' : '<button class="sub" data-guest>👤 게스트로 하기</button>'}
+    <small>게스트는 랭킹에 오르지 않고, 기록은 이 기기에만 저장돼요.<br>나중에 타이틀 화면 왼쪽 위에서 언제든 로그인·회원가입할 수 있어요.</small>`;
+  else if (page === 'login') h = `<h2>🔑 로그인</h2>${idIn('아이디')}
+    <input id="a_pw" type="password" placeholder="비밀번호" autocomplete="current-password" maxlength="64">
+    <div class="err"></div><button data-ok>로그인</button><button class="sub" data-back>뒤로</button>
+    <small>로그인하면 계정에 저장된 기록을 불러와요.</small>`;
+  else if (page === 'signup') h = `<h2>✨ 회원가입</h2>${idIn('아이디 (영어 소문자·숫자 4~16자)')}
+    <input id="a_pw" type="password" placeholder="비밀번호 (4자 이상)" autocomplete="new-password" maxlength="64">
+    <input id="a_pw2" type="password" placeholder="비밀번호 확인" autocomplete="new-password" maxlength="64">
+    <div class="err"></div><button data-ok>가입하기</button><button class="sub" data-back>뒤로</button>
+    <small>지금까지 하던 기록(코인·티어 등)은 새 계정으로 그대로 옮겨져요.<br>다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</small>`;
+  else if (page === 'account') h = `<h2>👤 ${escH(auth.login)}</h2><p>로그인 중 · 기록이 계정에 자동 저장돼요</p>
+    <button data-logout>🚪 로그아웃</button><button class="sub" data-back>닫기</button>
+    <small>로그아웃하면 이 기기의 기록은 지워지고 게스트로 바뀌어요. (계정 기록은 서버에 남아 있어요)</small>`;
+  // 처음 선택 화면이 아니면 닫을 수 있게
+  if (page === 'choose' && auth) h += '<button class="sub" data-back>닫기</button>';
+  authEl.innerHTML = `<div class="box">${h}</div>`;
+  const f = authEl.querySelector('#a_id'); if (f && !TOUCH) f.focus();
+}
+function authBusy(on, msg) { authEl.querySelectorAll('button').forEach(b => b.disabled = on); const e = authEl.querySelector('.err'); if (e) e.textContent = msg || ''; }
+function authSubmit() {
+  const page = authPage, id = authEl.querySelector('#a_id').value.trim().toLowerCase(), pw = authEl.querySelector('#a_pw').value;
+  if (!/^[a-z0-9_]{4,16}$/.test(id)) return authBusy(false, '아이디는 영어 소문자·숫자·_ 4~16자예요');
+  if (pw.length < 4) return authBusy(false, '비밀번호는 4자 이상이에요');
+  if (page === 'signup' && pw !== authEl.querySelector('#a_pw2').value) return authBusy(false, '비밀번호 확인이 달라요');
+  authBusy(true, '잠시만요...');
+  if (page === 'signup' && !lsGet('sgf_name', null)) { playerName = id.slice(0, 8); lsSet('sgf_name', playerName); }   // 닉네임을 정한 적 없으면 아이디로
+  const req = page === 'signup' ? authFetch('/signup', 'POST', { login: id, pw, save: collectSave() }) : authFetch('/login', 'POST', { login: id, pw });
+  req.then(d => {
+    setAuth({ uid: d.uid, login: d.login, token: d.token, syncT: d.saved || 0 });
+    dropLegacyRank();
+    if (page === 'login' && d.save) {   // 계정에 저장된 기록으로 바꾸고 다시 시작
+      applySave(d.save);
+      try { sessionStorage.setItem('sgf_msg', `🔑 ${d.login}님 로그인! 계정 기록을 불러왔어요`); } catch (e) {}
+      location.reload(); return;
+    }
+    if (page === 'login') cloudPush();   // 계정에 저장된 기록이 없으면 지금 기록을 올림
+    closeAuth(); uploadRank(); SFX.confirm();
+    toast(page === 'signup' ? `✨ 가입 완료! ${d.login}님 환영해요` : `🔑 ${d.login}님 로그인!`);
+  }).catch(e => authBusy(false, e.status ? e.message : '서버에 연결하지 못했어요 (인터넷 확인)'));
+}
+function authLogout() {
+  authBusy(true, '저장하고 로그아웃 중...');
+  const done = () => {
+    applySave({}); localStorage.setItem('sgf_story_seen', 'true');   // 이 기기의 기록 지움 (계정에는 남아 있음), 오프닝은 다시 안 봄
+    setAuth({ guest: true });
+    try { sessionStorage.setItem('sgf_msg', '🚪 로그아웃했어요. 지금은 게스트예요'); } catch (e) {}
+    location.reload();
+  };
+  cloudPush().then(() => authFetch('/logout', 'POST')).catch(() => {}).finally(done);
+}
+authEl.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  if (b.dataset.go) openAuth(b.dataset.go);
+  else if ('guest' in b.dataset) { if (!auth) setAuth({ guest: true }); dropLegacyRank(); closeAuth(); toast('👤 게스트로 시작! 랭킹에는 오르지 않아요'); }
+  else if ('ok' in b.dataset) authSubmit();
+  else if ('logout' in b.dataset) authLogout();
+  else if ('back' in b.dataset) (authPage === 'login' || authPage === 'signup') ? openAuth('choose') : closeAuth();
+});
+authEl.addEventListener('keydown', e => {   // 입력칸에서 친 키는 게임으로 안 넘어가게
+  e.stopPropagation();
+  if (e.key === 'Enter') { const b = authEl.querySelector('[data-ok]'); if (b && !b.disabled) authSubmit(); }
+  else if (e.key === 'Escape') { const b = authEl.querySelector('[data-back]'); if (b) b.click(); }
+});
+
 const VIEW = new URLSearchParams(location.search).get('view');   // 스크린샷 확인용
 if (VIEW === 'fight') { mode = 0; p1.setChar(withCos(CHARS[0], { hat: 'crown', fx: 'fxfire' })); p2.setChar(CHARS[6]); startMatch(); }
 else if (VIEW === 'betpick') openBet();
@@ -3892,6 +4048,10 @@ else if (VIEW === 'bank') { scene = 'bank'; }
 else if (VIEW && VIEW.startsWith('story')) { startStory('intro'); story.i = +(VIEW.slice(5) || 0); story.t = 400; }
 if (NETTEST) { sel.c1 = NETTEST === 'host' ? 3 : 7; playerName = NETTEST; NET.code = new URLSearchParams(location.search).get('code') || '4321'; scene = 'online'; if (NETTEST === 'host') netHost(); else setTimeout(netJoin, 6000); setInterval(() => console.log('NETSTATUS ' + NET.status + ' | ' + NET.err + ' | f=' + NET.f), 5000); }
 if (!location.search && !lsGet('sgf_story_seen', false)) startStory('intro');
+else if (!auth && !AUTH_TEST) openAuth('choose');   // 오프닝은 봤지만 아직 게스트/회원을 고르지 않은 사람 (기존 플레이어)
+if (isMember() && !lsGet('sgf_name', null)) { playerName = auth.login.slice(0, 8); lsSet('sgf_name', playerName); }   // 회원 닉네임 기본값 = 아이디 (접속마다 이름이 바뀌지 않게)
+cloudPull();   // 회원: 다른 기기에서 더 최근에 한 기록이 있으면 받아 옴
+try { const m = sessionStorage.getItem('sgf_msg'); if (m) { sessionStorage.removeItem('sgf_msg'); toast(m); } } catch (e) {}
 if (!/autotest|view=|shot=|nettest/i.test(location.search)) rankedForfeit();   // 지난번 랭크전 판을 끝내지 않고 창을 닫았으면 패배 처리
 let last = performance.now(), acc = 0;
 function frame(now) {
