@@ -1081,7 +1081,7 @@ function dealHit(a, d, h) {
       popText(a.x, a.y - 210, `${WEAPON[part]} 획득! (J 던지기)`, '#ffd54f', 20); SFX.partBreak();
     }
   }
-  a.meter = Math.min(100, a.meter + dmg * 1.6); d.meter = Math.min(100, d.meter + dmg);
+  a.meter = Math.min(100, a.meter + dmg * 1.6);   // 필살 게이지는 때린 쪽만 참 (맞은 쪽은 안 참)
   if (!a.tfOn) a.tfG = Math.min(100, a.tfG + dmg * 1.3);
   if (!d.tfOn) d.tfG = Math.min(100, d.tfG + dmg * 0.8);
   d.stamina = Math.max(0, d.stamina - dmg * 0.6);
