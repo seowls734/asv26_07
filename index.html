@@ -2268,7 +2268,8 @@ function afterMatchEconomy(w) {
   cut.tp = null; cut.interest = 0;
   if (mode !== 1 && mode !== 3) return;
   const me = mode === 1 ? p1 : NET.me, win = w === me, before = tp;
-  const d = mode === 1 ? (win ? 15 + Math.min(15, streak) : cut.revived ? 0 : -10) : (win ? 25 : -15);
+  // 티어 점수: 이기면 조금, 지면 많이 깎임 (티어 올리기 어렵게)
+  const d = mode === 1 ? (win ? 8 + Math.min(7, Math.floor(streak / 2)) : cut.revived ? -5 : -15) : (win ? 15 : -20);
   tp = Math.max(0, tp + d); lsSet('sgf_tp', tp);
   cut.tp = { before, after: tp, d };
   if (mode === 1 && win) lsSet('sgf_best', Math.max(lsGet('sgf_best', 0), streak));
