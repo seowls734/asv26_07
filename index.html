@@ -2162,7 +2162,7 @@ const MENU = [
   ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
   ['🏮 포장마차 시장', '요리 팔기 · 꾸미기 상점', () => openMarket()],
-  ['🏦 은행 · 빚 갚기', () => debt > 0 ? `사채 ${fmtN(debt)} 남음` : '빚 청산 완료! 👑', () => { bk.sel = 0; scene = 'bank'; }],
+  ['🏦 은행 · 빚 갚기', () => totalDebt() > 0 ? `빚 ${fmtN(totalDebt())} 남음` : '빚 청산 완료! 👑', () => { bk.sel = 0; scene = 'bank'; }],
   ['✏️ 커스텀 캐릭터', '나만의 돼지 만들기', () => { selFor = 'run'; openEditor(); }],
   ['🏆 랭킹', '전체 티어 랭킹 · 연승 기록', () => openRanking(false)]
 ];
@@ -2236,7 +2236,11 @@ function drawTierBadge(x, y, v, size = 14, align = 'center') {
 // ================= 빚 · 은행 =================
 const DEBT_START = 10000;
 let debt = lsGet('sgf_debt', DEBT_START), bankDebt = lsGet('sgf_bank', 0);
-const saveDebt = () => { lsSet('sgf_debt', debt); lsSet('sgf_bank', bankDebt); };
+// 상환 목표: 처음엔 사채 10,000. 빚을 다 갚은 뒤 다시 빌리면 그 금액이 새 목표가 됨
+let debtBase = lsGet('sgf_debtbase', DEBT_START);
+const totalDebt = () => Math.max(0, debt) + Math.max(0, bankDebt);
+const repaidRatio = () => clamp(1 - totalDebt() / Math.max(1, debtBase));
+const saveDebt = () => { lsSet('sgf_debt', debt); lsSet('sgf_bank', bankDebt); lsSet('sgf_debtbase', debtBase); };
 const netWorth = () => coins - debt - bankDebt;
 const loanLimit = () => Math.max(0, 200 * (tierOf(tp) + 1) - bankDebt);   // 티어가 오를수록 한도↑
 function repay(which, amt) {
@@ -2251,8 +2255,12 @@ function repay(which, amt) {
 function borrow(amt) {
   amt = Math.floor(Math.min(amt, loanLimit()));
   if (amt <= 0) { SFX.block(); toast('대출 한도 초과! 티어를 올리면 한도가 늘어요'); return; }
-  const owe = Math.round(amt * 1.1);
-  addCoins(amt); bankDebt += owe; saveDebt(); SFX.coin();
+  const owe = Math.round(amt * 1.1), fresh = totalDebt() <= 0;
+  addCoins(amt); bankDebt += owe;
+  if (fresh) {   // 빚 0에서 새로 빌림 → 이 대출이 새 상환 목표, 다 갚으면 빚 청산 엔딩을 다시 볼 수 있음
+    debtBase = owe; chapSeen = chapSeen.filter(k => k !== 'ending'); lsSet('sgf_chap', chapSeen);
+  } else debtBase += owe;   // 갚는 중에 더 빌리면 목표에 더함
+  saveDebt(); SFX.coin();
   toast(`${fmtN(amt)}코인 대출! 갚을 돈 ${fmtN(owe)} (수수료 10%)`); uploadRank();
 }
 // 매 판 끝: 티어 점수 · 사채 이자 · 랭킹 업로드
@@ -2292,8 +2300,8 @@ function resetAll() {
 }
 function updateBank() {
   const n = BANK_ACTS.length;
-  if (pressed.KeyW || pressed.ArrowUp) { bk.sel = (bk.sel + n - 2) % n; SFX.select(); }
-  if (pressed.KeyS || pressed.ArrowDown) { bk.sel = (bk.sel + 2) % n; SFX.select(); }
+  if ((pressed.KeyW || pressed.ArrowUp) && bk.sel - 2 >= 0) { bk.sel -= 2; SFX.select(); }
+  if ((pressed.KeyS || pressed.ArrowDown) && bk.sel + 2 < n) { bk.sel += 2; SFX.select(); }
   if (pressed.KeyA || pressed.ArrowLeft || pressed.KeyD || pressed.ArrowRight) { if ((bk.sel ^ 1) < n) bk.sel ^= 1; SFX.select(); }
   if (pressed.Enter || pressed.Space || pressed.KeyI) BANK_ACTS[bk.sel][1]();
   if (pressed.Escape) toTitle();
@@ -2304,12 +2312,12 @@ function drawBank() {
   txt('🏦 꿀꿀 은행 · 빚 상환 창구', W / 2, 34, 30, '#e3f2fd', '#000', 6);
   // 왼쪽: 내 재무 상태
   ctx.fillStyle = 'rgba(255,255,255,0.07)'; rr(30, 64, 420, 436, 16); ctx.fill();
-  const repaid = clamp((DEBT_START - debt) / DEBT_START);
+  const repaid = repaidRatio(), cleared = totalDebt() <= 0;
   const rows = [['🪙 보유 코인', fmtN(coins), '#ffd740'], ['💸 사채 (멧돼지 실장)', debt > 0 ? fmtN(debt) : '청산 완료!', debt > 0 ? '#ff8a80' : '#69f0ae'],
     ['🏦 은행 대출', fmtN(bankDebt), bankDebt > 0 ? '#ffab91' : '#fff'], ['📊 순자산', fmtN(netWorth()), netWorth() >= 0 ? '#69f0ae' : '#ff8a80'],
     ['💰 대출 가능', fmtN(loanLimit()), '#80d8ff']];
   rows.forEach(([a, b, c], i) => { txt(a, 54, 98 + i * 40, 17, '#ddd', null, 0, 'left'); txt(b, 428, 98 + i * 40, 20, c, null, 0, 'right'); });
-  txt('사채 상환률', 54, 306, 15, '#bbb', null, 0, 'left'); txt(`${Math.round(repaid * 100)}%`, 428, 306, 15, '#fff', null, 0, 'right');
+  txt(cleared ? '빚 상환률' : `빚 상환률 (목표 ${fmtN(debtBase)})`, 54, 306, 15, '#bbb', null, 0, 'left'); txt(`${Math.round(repaid * 100)}%`, 428, 306, 15, '#fff', null, 0, 'right');
   ctx.fillStyle = '#333'; rr(54, 320, 374, 16, 8); ctx.fill();
   ctx.fillStyle = '#66bb6a'; rr(54, 320, Math.max(16, 374 * repaid), 16, 8); ctx.fill();
   drawTierBadge(54, 362, tp, 15, 'left'); txt(`${tp} TP`, 428, 362, 16, '#fff', null, 0, 'right');
@@ -2321,7 +2329,7 @@ function drawBank() {
   // 멧돼지 실장 한마디
   const boss = { ...CHARS[2].look, body: '#6d4c41', dark: '#2b1a14', hat: 'sunglass' };
   drawPig(110, 494, 1, boss, { scale: 0.7, t: gT });
-  const say = debt <= 0 ? '"...다 갚았군. 인정한다."' : repaid >= 0.75 ? '"거의 다 왔군. 도망칠 생각 마라."' : repaid >= 0.5 ? '"절반이라... 이자는 계속 붙는다."' : repaid >= 0.25 ? '"오호, 제법인데?"' : '"갚을 돈은 언제 가져오나? 삼겹살이 되고 싶나?"';
+  const say = cleared ? '"...다 갚았군. 인정한다."' : repaid >= 0.75 ? '"거의 다 왔군. 도망칠 생각 마라."' : repaid >= 0.5 ? '"절반이라... 이자는 계속 붙는다."' : repaid >= 0.25 ? '"오호, 제법인데?"' : '"갚을 돈은 언제 가져오나? 삼겹살이 되고 싶나?"';
   txt('멧돼지 실장', 168, 430, 13, '#ffab91', null, 0, 'left'); txt(say, 168, 456, 14, '#fff', null, 0, 'left');
   // 오른쪽: 행동
   BANK_ACTS.forEach(([label], i) => {
@@ -2342,14 +2350,14 @@ if (!pid) { pid = Math.random().toString(36).slice(2, 10) + Date.now().toString(
 const rk = { tab: 0, list: null, err: '', loading: false };
 function uploadRank() {
   if (!RANK_DB) return;
-  const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_best', 0), net: Math.round(netWorth()), debt: Math.max(0, Math.round(debt)), t: Date.now() };
+  const body = { name: playerName.slice(0, 8), tier: tierOf(tp), tp, streak: lsGet('sgf_best', 0), net: Math.round(netWorth()), debt: Math.round(totalDebt()), t: Date.now() };
   fetch(`${RANK_DB}/rank/${pid}.json`, { method: 'PUT', body: JSON.stringify(body) }).catch(() => {});
 }
 function fetchRank() {
   if (!RANK_DB) { rk.err = '온라인 랭킹 서버가 아직 연결되지 않았어요'; return; }
   rk.loading = true; rk.err = '';
   fetch(`${RANK_DB}/rank.json`).then(r => r.json()).then(d => {
-    rk.list = Object.entries(d || {}).map(([id, v]) => ({ ...v, id })).filter(v => typeof v.tp === 'number')
+    rk.list = Object.entries(d || {}).map(([id, v]) => ({ ...v, id })).filter(v => typeof v.tp === "number" && (v.tp > 0 || v.streak > 0))   // 판 기록이 없는(새로 시작·초기화한) 돼지는 숨김
       .sort((a, b) => b.tp - a.tp || b.net - a.net);
     rk.loading = false;
   }).catch(() => { rk.loading = false; rk.err = '랭킹을 불러오지 못했어요 (인터넷 확인)'; });
@@ -2425,7 +2433,7 @@ const STORY = {
   ],
   ch3: [{ sp: '포차 단골들', tx: '"사장님 힘내세요!! 빚 청산까지 얼마 안 남았어요!" 단골들이 응원 현수막을 걸었다.', art: 'fans' }],
   ending: [
-    { sp: '사채업자 멧돼지 실장', tx: '"...다 갚았군. 10,000코인, 이자까지 전부. 인정하지."', art: 'boss' },
+    { sp: '사채업자 멧돼지 실장', tx: '"...다 갚았군. 이자까지 전부. 인정하지."', art: 'boss' },
     { sp: '{name}', tx: '"다시는... 레버리지 100배는 안 해..."', art: 'stall' },
     { sp: '내레이션', tx: '꿀꿀 포차가 다시 문을 열었습니다! 오늘의 메뉴는 대난투 우승 기념 삼겹살. 🎉 THE END', art: 'ending' }
   ],
@@ -2437,9 +2445,9 @@ const STORY = {
   ],
   // 최고 티어 달성
   master: [
-    { sp: '내레이션', tx: '🏆 최고 티어 그렌드피아노 달성! {name}님은 철판 대난투 역사상 최고의 돼지가 되었습니다.', art: 'master' },
+    { sp: '내레이션', tx: '🏆 마블링 마스터 달성! 최고 티어 그렌드피아노! {name}님은 철판 대난투 역사상 최고의 돼지가 되었습니다.', art: 'master' },
     { sp: '사채업자 멧돼지 실장', tx: '"...전설의 돼지라니. 사인 한 장만 해 주겠나? 우리 애가 팬이라서."', art: 'boss' },
-    { sp: '내레이션', tx: '이제 골목의 아기 돼지들은 모두 {name}님처럼 되고 싶어 합니다. 🏆 그렌드피아노 엔딩', art: 'master' }
+    { sp: '내레이션', tx: '이제 골목의 아기 돼지들은 모두 {name}님처럼 되고 싶어 합니다. 🏆 마블링 마스터 엔딩', art: 'master' }
   ],
   // 빚 다 갚고 큰돈 모으기
   rich: [
@@ -2448,15 +2456,15 @@ const STORY = {
     { sp: '내레이션', tx: '꿀꿀 포차는 전국 100호점을 돌파했습니다. 레버리지 없이, 삼겹살 한 점 한 점으로. 💰 재벌 엔딩', art: 'rich' }
   ]
 };
-const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '그렌드피아노'], ['bad', '삼겹살']];
+const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '마블링 마스터'], ['bad', '삼겹살']];
 const RICH_GOAL = 30000;
 let endSeen = lsGet('sgf_end', []);
 const isBroke = () => coins <= 0 && debt + bankDebt > 0;   // 코인이 0이 되면 배드 엔딩
 let chapSeen = lsGet('sgf_chap', []);
 function checkChapters() {
-  const r = debt / DEBT_START;
+  const r = totalDebt() / Math.max(1, debtBase);
   for (const [k, th] of [['ch1', 0.75], ['ch2', 0.5], ['ch3', 0.25], ['ending', 0]]) {
-    if (!chapSeen.includes(k) && (k === 'ending' ? debt <= 0 : r <= th)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; }
+    if (!chapSeen.includes(k) && (k === 'ending' ? totalDebt() <= 0 : r <= th)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; }
   }
   const once = (k, ok) => { if (ok && !chapSeen.includes(k)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; } return false; };
   if (once('master', tierOf(tp) === TIERS.length - 1)) return true;
@@ -2466,7 +2474,7 @@ function checkChapters() {
 }
 // 배드 엔딩 뒤: 돈·빚·티어·스토리 진행만 처음으로 (닉네임·캐릭터·엔딩 수집 기록은 유지)
 function restartLife() {
-  coins = 100; lsSet('sgf_coin', coins); debt = DEBT_START; bankDebt = 0; saveDebt();
+  coins = 100; lsSet('sgf_coin', coins); debt = DEBT_START; bankDebt = 0; debtBase = DEBT_START; saveDebt();
   tp = 0; lsSet('sgf_tp', tp); chapSeen = ['intro']; lsSet('sgf_chap', chapSeen); uploadRank();
 }
 const story = { key: 'intro', i: 0, t: 0, back: 'title' };
@@ -2605,7 +2613,7 @@ function drawStoryArt(art, t) {
       drawPig(480, 332, 1, { ...me, hat: 'crown' }, { scale: 1.2, t, victory: true });
       const ty = 120 + Math.sin(t * 0.08) * 8;   // 트로피
       ctx.fillStyle = '#ffd700'; poly([[440, ty - 40], [520, ty - 40], [505, ty + 10], [455, ty + 10]]); ctx.fill(); ctx.fillRect(472, ty + 10, 16, 20); ctx.fillRect(455, ty + 30, 50, 10);
-      txt('🏆 그렌드피아노 엔딩', 480, 50, 36, '#ffd740', '#000', 7);
+      txt('🏆 마블링 마스터 엔딩', 480, 50, 36, '#ffd740', '#000', 7);
       break;
     }
     case 'rich': {   // 포차 체인 + 코인 비
