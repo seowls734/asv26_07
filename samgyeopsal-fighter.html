@@ -3329,7 +3329,7 @@ function step() {
     else {
       updateFighters(false);
       if (scene === 'fight') {
-        updateObjs(); updateFloor(); updateEvents();
+        updateObjs();   // (바닥 달아오름·불길 이동, 소금 우박·정전·아이템 같은 돌발 이벤트는 뺐음)
         if (scene === 'fight') {
           timer--;
           if (timer % 60 === 0 && timer <= 600 && timer > 0) SFX.tick();
