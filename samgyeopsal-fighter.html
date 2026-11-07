@@ -2413,9 +2413,9 @@ const STORY = {
     { sp: '{name}', tx: '"다시는... 레버리지 100배는 안 해..."', art: 'stall' },
     { sp: '내레이션', tx: '꿀꿀 포차가 다시 문을 열었습니다! 오늘의 메뉴는 대난투 우승 기념 삼겹살. 🎉 THE END', art: 'ending' }
   ],
-  // 배드 엔딩: 코인·팔 요리·대출 한도가 모두 바닥
+  // 배드 엔딩: 코인 0
   bad: [
-    { sp: '사채업자 멧돼지 실장', tx: '"코인도 없고, 팔 요리도 없고, 은행도 더는 안 빌려준다고? ...약속대로다."', art: 'boss' },
+    { sp: '사채업자 멧돼지 실장', tx: '"코인이 한 푼도 없다고? ...약속대로다."', art: 'boss' },
     { sp: '{name}', tx: '"자, 잠깐만요! 한 판만... 딱 한 판만 더...!"', art: 'bankrupt' },
     { sp: '내레이션', tx: '그날 밤, 멧돼지 실장의 철판 위에서 아주 맛있는 냄새가 났다고 합니다... 💀 삼겹살 엔딩 (처음부터 다시 시작)', art: 'bankrupt' }
   ],
@@ -2435,7 +2435,7 @@ const STORY = {
 const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '마블링 마스터'], ['bad', '삼겹살']];
 const RICH_GOAL = 30000;
 let endSeen = lsGet('sgf_end', []);
-const isBroke = () => coins < 10 && fridge.length === 0 && loanLimit() < 10 && debt + bankDebt > 0;
+const isBroke = () => coins <= 0 && debt + bankDebt > 0;   // 코인이 0이 되면 배드 엔딩
 let chapSeen = lsGet('sgf_chap', []);
 function checkChapters() {
   const r = debt / DEBT_START;
