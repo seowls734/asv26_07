@@ -2298,6 +2298,10 @@ function drawBank() {
   ctx.fillStyle = '#66bb6a'; rr(54, 320, Math.max(16, 374 * repaid), 16, 8); ctx.fill();
   drawTierBadge(54, 362, tp, 15, 'left'); txt(`${tp} TP`, 428, 362, 16, '#fff', null, 0, 'right');
   const nt = TIERS[tierOf(tp) + 1]; txt(nt ? `다음 티어 ${nt[0]}까지 ${nt[1] - tp} TP` : '최고 티어!', 54, 390, 13, '#aaa', null, 0, 'left');
+  // 엔딩 수집 (오른쪽 아래 빈 칸)
+  ctx.fillStyle = 'rgba(255,224,130,0.08)'; rr(704, 368, 218, 66, 14); ctx.fill();
+  txt(`🎬 엔딩 수집 ${endSeen.length}/${ENDINGS.length}`, 813, 386, 14, '#ffe082', null);
+  ENDINGS.forEach(([k, nm], i) => txt(endSeen.includes(k) ? nm : '???', 704 + 109 + ((i % 2) - 0.5) * 104, 406 + (i >> 1) * 18, 12, endSeen.includes(k) ? '#fff' : '#777', null));
   // 멧돼지 실장 한마디
   const boss = { ...CHARS[2].look, body: '#6d4c41', dark: '#2b1a14', hat: 'sunglass' };
   drawPig(110, 494, 1, boss, { scale: 0.7, t: gT });
@@ -2408,25 +2412,61 @@ const STORY = {
     { sp: '사채업자 멧돼지 실장', tx: '"...다 갚았군. 10,000코인, 이자까지 전부. 인정하지."', art: 'boss' },
     { sp: '{name}', tx: '"다시는... 레버리지 100배는 안 해..."', art: 'stall' },
     { sp: '내레이션', tx: '꿀꿀 포차가 다시 문을 열었습니다! 오늘의 메뉴는 대난투 우승 기념 삼겹살. 🎉 THE END', art: 'ending' }
+  ],
+  // 배드 엔딩: 코인·팔 요리·대출 한도가 모두 바닥
+  bad: [
+    { sp: '사채업자 멧돼지 실장', tx: '"코인도 없고, 팔 요리도 없고, 은행도 더는 안 빌려준다고? ...약속대로다."', art: 'boss' },
+    { sp: '{name}', tx: '"자, 잠깐만요! 한 판만... 딱 한 판만 더...!"', art: 'bankrupt' },
+    { sp: '내레이션', tx: '그날 밤, 멧돼지 실장의 철판 위에서 아주 맛있는 냄새가 났다고 합니다... 💀 삼겹살 엔딩 (처음부터 다시 시작)', art: 'bankrupt' }
+  ],
+  // 최고 티어 달성
+  master: [
+    { sp: '내레이션', tx: '🏆 마블링 마스터 달성! {name}님은 철판 대난투 역사상 최고의 돼지가 되었습니다.', art: 'master' },
+    { sp: '사채업자 멧돼지 실장', tx: '"...전설의 돼지라니. 사인 한 장만 해 주겠나? 우리 애가 팬이라서."', art: 'boss' },
+    { sp: '내레이션', tx: '이제 골목의 아기 돼지들은 모두 {name}님처럼 되고 싶어 합니다. 🏆 마블링 마스터 엔딩', art: 'master' }
+  ],
+  // 빚 다 갚고 큰돈 모으기
+  rich: [
+    { sp: '내레이션', tx: '빚을 다 갚고도 코인이 계속 쌓였다. 통장에 찍힌 숫자를 몇 번이고 다시 세어 보았다.', art: 'rich' },
+    { sp: '친구 멧돌이', tx: '"야, 이번엔 진짜야. 돼지코인 2탄 나왔는데—" "꺼져."', art: 'whisper' },
+    { sp: '내레이션', tx: '꿀꿀 포차는 전국 100호점을 돌파했습니다. 레버리지 없이, 삼겹살 한 점 한 점으로. 💰 재벌 엔딩', art: 'rich' }
   ]
 };
+const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '마블링 마스터'], ['bad', '삼겹살']];
+const RICH_GOAL = 30000;
+let endSeen = lsGet('sgf_end', []);
+const isBroke = () => coins < 10 && fridge.length === 0 && loanLimit() < 10 && debt + bankDebt > 0;
 let chapSeen = lsGet('sgf_chap', []);
 function checkChapters() {
   const r = debt / DEBT_START;
   for (const [k, th] of [['ch1', 0.75], ['ch2', 0.5], ['ch3', 0.25], ['ending', 0]]) {
     if (!chapSeen.includes(k) && (k === 'ending' ? debt <= 0 : r <= th)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; }
   }
+  const once = (k, ok) => { if (ok && !chapSeen.includes(k)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; } return false; };
+  if (once('master', tierOf(tp) === TIERS.length - 1)) return true;
+  if (once('rich', debt <= 0 && bankDebt <= 0 && coins >= RICH_GOAL)) return true;
+  if (isBroke()) { startStory('bad', 'title'); return true; }   // 배드 엔딩은 다시 시작하면 또 볼 수 있음
   return false;
+}
+// 배드 엔딩 뒤: 돈·빚·티어·스토리 진행만 처음으로 (닉네임·캐릭터·엔딩 수집 기록은 유지)
+function restartLife() {
+  coins = 100; lsSet('sgf_coin', coins); debt = DEBT_START; bankDebt = 0; saveDebt();
+  tp = 0; lsSet('sgf_tp', tp); chapSeen = ['intro']; lsSet('sgf_chap', chapSeen); uploadRank();
 }
 const story = { key: 'intro', i: 0, t: 0, back: 'title' };
 const storyText = pg => pg.tx.replace(/\{name\}/g, playerName);
 function startStory(key, back = 'title') { Object.assign(story, { key, i: 0, t: 0, back }); scene = 'story'; parts = []; texts = []; }
-function endStory() { if (story.key === 'intro') lsSet('sgf_story_seen', true); try { speechSynthesis.cancel(); } catch (e) {} scene = story.back; }
+function endStory() {
+  if (story.key === 'intro') lsSet('sgf_story_seen', true);
+  if (ENDINGS.some(e => e[0] === story.key) && !endSeen.includes(story.key)) { endSeen.push(story.key); lsSet('sgf_end', endSeen); }
+  if (story.key === 'bad') restartLife();
+  try { speechSynthesis.cancel(); } catch (e) {} scene = story.back; }
 function updateStory() {
   const pages = STORY[story.key], pg = pages[story.i];
   story.t++;
   if (story.t === 2) speak(storyText(pg).replace(/["…]/g, ''), pg.sp.includes('실장') ? 0.7 : pg.sp.includes('멧돌이') ? 0.9 : 1.2, 1.05);
-  if (pg.art === 'ending' && story.t % 14 === 0) burst(rand(100, W - 100), rand(40, 240), 26, [pick(['#ff5252', '#ffd740', '#69f0ae', '#40c4ff']), '#fff'], 8);
+  if (pg.art === 'bankrupt' && story.t % 6 === 0) { smoke(rand(380, 580), 300); flame(rand(380, 580), 330); }
+  if (['ending', 'master', 'rich'].includes(pg.art) && story.t % 14 === 0) burst(rand(100, W - 100), rand(40, 240), 26, [pick(['#ff5252', '#ffd740', '#69f0ae', '#40c4ff']), '#fff'], 8);
   if (pg.art === 'crash' && story.t % 10 === 0) parts.push({ x: rand(0, W), y: -10, vx: rand(-1, 1), vy: rand(2, 4), life: 120, max: 120, c: '#ffd740', s: rand(4, 8), g: 0.05, type: 'dot' });
   if (pressed.Enter || pressed.Space || pressed.KeyI) {
     if (story.t * 0.8 < storyText(pg).length) story.t = 1000;
@@ -2528,6 +2568,44 @@ function drawStoryArt(art, t) {
       drawPig(480, 400, 1, { ...me, hat: 'crown' }, { scale: 1.5, t, victory: true });
       txt('🎉 빚 청산 엔딩 🎉', 480, 260, 30, '#ffd740', '#000', 6);
       break;
+    case 'bankrupt': {   // 철판 위의 나
+      sky('#3a0d0d', '#0a0000');
+      ctx.fillStyle = 'rgba(255,120,40,0.15)'; ell(480, 340, 300, 60); ctx.fill();
+      drawPig(480, 330, 1, me, { scale: 1.1, t, scared: true, hurt: t % 40 < 20 });
+      ctx.fillStyle = '#212121'; rr(250, 330, 460, 26, 8); ctx.fill();   // 철판
+      ctx.strokeStyle = '#616161'; ctx.lineWidth = 3; for (let x = 270; x < 700; x += 30) line(x, 334, x, 352);
+      ctx.fillStyle = '#4e342e'; ctx.fillRect(290, 356, 20, 40); ctx.fillRect(650, 356, 20, 40);
+      drawPig(820, 390, -1, boss, { scale: 1.2, t });
+      ctx.save(); ctx.translate(700, 330); ctx.scale(0.5, 0.5); drawCleaver(0, 0, t % 50 < 8); ctx.restore();
+      txt('💀 삼겹살 엔딩', 480, 80, 44, '#ff5252', '#000', 8);
+      break;
+    }
+    case 'master': {   // 시상대 위 챔피언
+      sky('#1a0033', '#000');
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(255,240,180,${0.08 + 0.04 * Math.sin(t * 0.05 + i)})`; poly([[300 + i * 180, 0], [340 + i * 180, 0], [560, 400], [400, 400]]); ctx.fill(); }
+      ctx.fillStyle = '#ffd54f'; ctx.fillRect(380, 330, 200, 70); ctx.fillStyle = '#b0bec5'; ctx.fillRect(220, 360, 160, 40); ctx.fillStyle = '#a1887f'; ctx.fillRect(580, 370, 160, 30);
+      txt('1', 480, 365, 34, '#7f6000', null);
+      drawPig(300, 362, 1, CHARS[3].look, { scale: 0.75, t: t + 20 }); drawPig(660, 372, -1, CHARS[6].look, { scale: 0.75, t: t + 40 });
+      drawPig(480, 332, 1, { ...me, hat: 'crown' }, { scale: 1.2, t, victory: true });
+      const ty = 120 + Math.sin(t * 0.08) * 8;   // 트로피
+      ctx.fillStyle = '#ffd700'; poly([[440, ty - 40], [520, ty - 40], [505, ty + 10], [455, ty + 10]]); ctx.fill(); ctx.fillRect(472, ty + 10, 16, 20); ctx.fillRect(455, ty + 30, 50, 10);
+      txt('🏆 마블링 마스터 엔딩', 480, 50, 36, '#ffd740', '#000', 7);
+      break;
+    }
+    case 'rich': {   // 포차 체인 + 코인 비
+      sky('#0d1b2a', '#1b3a4b');
+      for (let i = 0; i < 7; i++) {
+        const x = 40 + i * 132, h = 120 + (i * 37) % 90;
+        ctx.fillStyle = '#263238'; ctx.fillRect(x, 330 - h, 110, h);
+        ctx.fillStyle = i % 2 ? '#c62828' : '#ef6c00'; ctx.fillRect(x, 330 - h, 110, 24);
+        txt(`꿀꿀 포차 ${i * 15 + 1}호`, x + 55, 342 - h, 12, '#fff', null);
+        for (let r = 0; r < 3; r++) { ctx.fillStyle = (t + i + r) % 40 < 30 ? '#ffe082' : '#795548'; ctx.fillRect(x + 12 + r * 32, 350 - h + 26, 20, 18); }
+      }
+      for (let i = 0; i < 14; i++) { const y = (t * 3 + i * 53) % 420 - 20, x = (i * 71) % W; ctx.fillStyle = '#ffd740'; ell(x, y, 10, 10); ctx.fill(); txt('₩', x, y + 1, 11, '#8d6e00', null); }
+      drawPig(480, 400, 1, { ...me, hat: 'sunglass' }, { scale: 1.3, t, victory: true });
+      txt('💰 재벌 엔딩 · 100호점 돌파!', 480, 50, 34, '#ffd740', '#000', 7);
+      break;
+    }
   }
 }
 function drawStory() {
@@ -2588,7 +2666,10 @@ function startRound() {
   temps.fill(0); flareI = -1; flareT = 0; flareNext = 0;
   evT = 60 * 8; blackoutT = 0; saltT = 0; evBannerT = 0; firstHit = false;
 }
-function toTitle() { scene = 'title'; sizzleOff(); parts = []; texts = []; objs = []; }
+function toTitle() {
+  scene = 'title'; sizzleOff(); parts = []; texts = []; objs = [];
+  if (!/autotest/.test(location.search)) checkChapters();   // 엔딩 조건(재벌·마스터·파산) 확인
+}
 let firstHit = false;
 function endRound(winner, msg) {
   if (winner && msg === 'K.O.!!' && winner.hp >= winner.maxHp - 0.01) msg = 'PERFECT!!';
