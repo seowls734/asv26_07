@@ -18,7 +18,9 @@ canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-sha
 #pad .b{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.45);color:#fff;
   display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;text-align:center;line-height:1.1;text-shadow:0 1px 2px #000}
 #pad .b.on{background:rgba(255,200,80,.55)}
-#pad .c{border-radius:14px;background:rgba(255,120,80,.28)}
+#pad .c{border-radius:14px;background:rgba(255,120,80,.28);font-size:12px}
+#pad .c.off{opacity:.38}
+#pad .c.rdy{background:rgba(255,193,7,.6);border-color:#fff59d;box-shadow:0 0 14px #ffd54f}
 #joyz{position:absolute;pointer-events:auto;touch-action:none}
 #joyb{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:rgba(255,255,255,.07);pointer-events:none}
 #auth{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,5,20,.72);z-index:50;font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;-webkit-user-select:text;user-select:text;touch-action:auto}
@@ -168,12 +170,15 @@ cv.addEventListener('pointerdown', e => {
 // ---- 모바일 터치 패드 ----
 // 왼쪽: 아무 데나 누르고 끌면 움직이는 조이스틱 (↖↗ 대각선 점프 · 아래로 끌면 앉기 · 뒤로 끌면 막기)
 // 오른쪽: 공격 버튼. 손가락을 떼지 않고 옆 버튼으로 미끄러져도 바로 눌림
-const PAD = [   // 모바일은 공격 버튼 4개만. 스킬·업어치기·필살기·변신은 조이스틱 커맨드(↓→ · ↓← · →→ · ↓↓ + 공격)
-  { t: 'I<br>오른손', codes: ['KeyI'] }, { t: 'O<br>왼손', codes: ['KeyO'] },
-  { t: 'K<br>오른발', codes: ['KeyK'] }, { t: 'L<br>왼발', codes: ['KeyL'] },
+const PAD = [   // 공격 버튼 4개 + 업어치기·스킬·필살기·변신 버튼 (조이스틱 커맨드 ↓→ · ↓← · →→ · ↓↓ + 공격도 그대로 됨)
+  { t: '오른손', codes: ['KeyI'] }, { t: '왼손', codes: ['KeyO'] },
+  { t: '오른발', codes: ['KeyK'] }, { t: '왼발', codes: ['KeyL'] },
+  { t: '업어<br>치기', codes: ['KeyJ'], c: 'grab' }, { t: '스킬', codes: ['KeyU'], c: 'skill' },
+  { t: '필살기', codes: ['KeyY'], c: 'ult' }, { t: '변신', codes: ['KeyT'], c: 'tf' }
 ];
 // 버튼 위치: 오른쪽 아래 모서리 기준 [가로, 세로, 크기] (단위 u)
-const PAD_POS = [[-2.15, -1.75, 1.08], [-1.0, -2.05, 1.08], [-2.15, -0.62, 1.08], [-1.0, -0.92, 1.08]];   // 공격 버튼 4개 (조금 크게)
+const PAD_POS = [[-2.15, -1.75, 1.08], [-1.0, -2.05, 1.08], [-2.15, -0.62, 1.08], [-1.0, -0.92, 1.08],   // 공격 버튼 4개
+  [-3.3, -0.6, 0.9], [-3.3, -1.6, 0.9], [-1.0, -3.1, 0.92], [-2.15, -2.85, 0.84]];   // 업어치기·스킬 (왼쪽 줄) · 필살기·변신 (위쪽 줄)
 const padEl = document.getElementById('pad');
 const joyZ = document.createElement('div'), joyB = document.createElement('div'), joyK = document.createElement('div');
 joyZ.id = 'joyz'; joyB.id = 'joyb'; joyK.id = 'joyk'; joyZ.append(joyB, joyK); padEl.appendChild(joyZ);
@@ -189,7 +194,7 @@ function layoutPad(canvasH) {
     Object.assign(p.el.style, { width: s + 'px', height: s + 'px', left: right + qx * u - s / 2 + 'px', top: bottom + qy * u - s / 2 + 'px', right: '', bottom: '' });
   });
   // 조이스틱 영역: 버튼 왼쪽의 남는 곳 (가로 화면은 위쪽 HUD는 비워 둠)
-  const zr = right - 2.8 * u, zt = PORTRAIT ? 0 : h * 0.3;
+  const zr = right - 3.9 * u, zt = PORTRAIT ? 0 : h * 0.3;
   Object.assign(joyZ.style, { left: '0', top: zt + 'px', width: Math.max(120, Math.min(zr, PORTRAIT ? zr : w * 0.45)) + 'px', height: h - zt + 'px' });
   joyHome = [Math.min(zr / 2, 1.6 * u + 20), (h - zt) - 1.6 * u];
   joyShow(joyHome[0], joyHome[1], 0, 0, false);
@@ -210,7 +215,7 @@ function joyMove(x, y) {
   const d = Math.hypot(dx, dy);
   // 조이스틱 중심은 항상 같은 자리(joyHome)에 고정 → 손가락이 따라 움직여도 중심이 안 옮겨감
   // 위·아래는 확실히 위/아래로 끌었을 때만(각도 기준) → 옆으로 걷다가 손가락이 살짝 내려가도 앉아 멈추거나 점프하지 않게
-  const ax = Math.abs(dx), want = { KeyA: dx < -14, KeyD: dx > 14, KeyW: dy < -44 && -dy > ax * 0.8, KeyS: dy > 40 && dy > ax * 0.8 };
+  const ax = Math.abs(dx), want = { KeyA: dx < -14, KeyD: dx > 14, KeyW: dy < -36 && -dy > ax * 0.7, KeyS: dy > 34 && dy > ax * 0.7 };
   for (const c in want) { if (want[c] && !joy.held[c]) { joy.held[c] = true; padDown(c); } else if (!want[c] && joy.held[c]) { joy.held[c] = false; padUp(c); } }
   const m = Math.min(R, Math.hypot(dx, dy)) / (Math.hypot(dx, dy) || 1);
   joyShow(joy.x0, joy.y0, dx * m, dy * m, true);
@@ -243,6 +248,11 @@ let padShown = false;
 function syncPad() {
   const want = TOUCH && ['intro', 'fight', 'roundEnd'].includes(scene);
   if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; if (!want) { joyEnd(); padReleaseAll(); } }   // 숨길 때 눌린 키가 남지 않게
+  if (!padShown) return;
+  // 특수 버튼 상태: 쓸 수 있으면 빛나고(필살기·변신), 못 쓰면 흐리게
+  const me = mode === 3 && NET.me ? NET.me : p1;
+  const st = { grab: 1, skill: me.skillCD <= 0 ? 1 : 0, ult: me.meter >= 100 ? 2 : 0, tf: me.tfG >= 100 && !me.tfOn ? 2 : 0 };
+  for (const p of PAD) if (p.c) { const v = st[p.c]; if (p.st !== v) { p.st = v; p.el.classList.toggle('off', v === 0); p.el.classList.toggle('rdy', v === 2); } }
 }
 
 // ================= audio =================
@@ -504,10 +514,15 @@ const CHARS = [
     look: look('#fbe0dc', '#c98f8c', '#fff4f2', '#f4b8b4', '#7a4a4a', '#4a2a2a', '#4fc3f7', ['band', 'spots'], 0.96),
     skill: { name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' },
     tf: { name: '급속 해동', type: 'thaw', color: '#80deea', desc: '체력 서서히 회복 · 이동 속도↑' },
-    ult: { name: '냉삼 폭탄 투하', type: 'sliceRain', desc: '하늘에서 얼린 냉삼이 우수수' } }
+    ult: { name: '냉삼 폭탄 투하', type: 'sliceRain', desc: '하늘에서 얼린 냉삼이 우수수' } },
+  { name: '금한돈', title: '황금 돼지 부자', type: '부자', hp: 100, power: 1.0, speed: 0.96, ultRate: 0.9, scale: 1.12, perk: '이기면 승리 코인 3배',
+    look: look('#ffd54f', '#b8860b', '#fff3c4', '#ffca28', '#6d4c00', '#4a3300', '#2e7d32', ['band', 'belt'], 1.04),
+    skill: { name: '돈뿌리기', type: 'coinToss', cd: 120, desc: '동전 5개를 부채꼴로 흩뿌림' },
+    tf: { name: '황금 각성', type: 'gilded', color: '#ffd700', desc: '공격력↑ · 필살 게이지 빨리 참' },
+    ult: { name: '황금 금고 떨구기', type: 'goldSafe', desc: '머리 위로 금고 쿵! 그림자 보고 피하기' } }
 ];
 const GHOST = look('#f4f8ff', '#aab8d6', '#ffffff', '#dde6f7', '#aab8d6', '#7a88a6', '#0000', []);
-const ULT_RANGE = { sliceRain: 900, rush: 280, thousandKicks: 280, charge: 900, eruption: 700, stampede: 900, absoluteZero: 700, bodySlam: 500, beam: 900, thousandCuts: 480, megaton: 230 };
+const ULT_RANGE = { goldSafe: 900, sliceRain: 900, rush: 280, thousandKicks: 280, charge: 900, eruption: 700, stampede: 900, absoluteZero: 700, bodySlam: 500, beam: 900, thousandCuts: 480, megaton: 230 };
 const PARTNAME = { head: '목살', belly: '삼겹', legs: '족발' };
 const WEAPON = { head: '목살 몽둥이', belly: '삼겹 채찍', legs: '족발 망치' };
 
@@ -624,6 +639,7 @@ const SKILLDEF = {
   teleport:      { startup: 16, active: 5,  recovery: 14, dmg: 12, range: 150, height: 'mid', kb: 8, stun: 24, teleport: true, invuln: true, invulnF: 13, pose: 'punch', txt: ['슉!'] },
   boneSwing:     { startup: 12, active: 8,  recovery: 22, dmg: 11, range: 220, height: 'low', kb: 5, stun: 28, knockdown: true, dash: 3, pose: 'punch', hitstop: 9, shake: 8, txt: ['갈비!!', '다리 걸기!'] },   // 긴 갈빗대로 다리를 후려 넘어뜨림 (앉아서 막아야 함)
   stewSplash:    { startup: 14, active: 1,  recovery: 22, proj: { kind: 'stew', speed: 4.5, dmg: 4, burn: 160, height: 'low', y: 18, multi: 14, maxHits: 3, life: 200, w: 70, h: 26 }, pose: 'throw' },   // 바닥을 천천히 흐르는 국물: 밟으면 여러 번 데임 (발사체끼리 부딪혀도 안 사라짐)
+  coinToss:      { startup: 10, active: 1, recovery: 20, proj: { kind: 'coin', spread: 5, speed: 9, dmg: 3.2, height: 'mid', g: 0.32, life: 80, w: 26, h: 26 }, pose: 'throw' },   // 돈뿌리기: 동전 5개 부채꼴
   boomerang:     { startup: 12, active: 1, recovery: 20, proj: { kind: 'slice', speed: 11, back: 0.4, dmg: 7, height: 'mid', multi: 16, maxHits: 2, life: 95, w: 52, h: 36 }, pose: 'throw' },   // 냉삼 부메랑: 날아갔다 돌아오며 두 번 맞힘
   uppercut:      { startup: 3,  active: 10, recovery: 20, dmg: 18, range: 150, dash: 4, height: 'mid', kb: 4, stun: 40, launch: -17, rise: -13, invuln: true, invulnF: 8, pose: 'uppercut', kind: 'punch', txt: ['어퍼!!'] }
 };
@@ -1041,7 +1057,7 @@ class Fighter {
   newMatch() { this.wins = 0; this.meter = 0; this.tfG = 0; this.stats = { maxCombo: 0, parries: 0, parts: 0, minHpRatio: 1, ultFinish: false, hits: 0 }; }
   reset() {
     this.x = this.id === 0 ? 240 : 720; this.y = GROUND; this.vx = 0; this.vy = 0; this.facing = this.id === 0 ? 1 : -1;
-    this.maxHp = Math.round(this.ch.hp * (1 + Math.min(0.6, 0.04 * this.cpuLv)) * (this.hpMul || 1)); this.hp = this.maxHp; this.dispHp = this.maxHp;
+    this.maxHp = Math.round(this.ch.hp * (1 + Math.min(0.35, 0.025 * this.cpuLv)) * (this.hpMul || 1)); this.hp = this.maxHp; this.dispHp = this.maxHp;
     this.state = 'idle'; this.stun = 0; this.atk = null; this.af = 0; this.atkHit = false; this.hitsDone = 0; this.lastHitF = 0; this.chain = 0; this.cbuf = null; this.mot = null;
     this.flash = 0; this.t = 0; this.koT = 0; this.combo = 0; this.comboT = 0; this.skillCD = 0;
     this.tfOn = false; this.tfT = 0; this.stamina = 100;
@@ -1062,11 +1078,11 @@ class Fighter {
   atkSpeedMul(isPunch) { let m = 1; if (this.tfIs('wild')) m *= 0.7; if (this.tfIs('champion') && isPunch) m *= 0.7; if (this.slowT > 0) m *= 1.25; if (this.stamina < 35) m *= 1.25; return m; }
   dmgMul(kind) {
     let m = this.ch.power;
-    if (this.tfIs('fire')) m *= 1.25; if (this.tfIs('giant')) m *= 1.15; if (this.tfIs('spicy')) m *= 1.1;
+    if (this.tfIs('fire')) m *= 1.25; if (this.tfIs('giant')) m *= 1.15; if (this.tfIs('spicy')) m *= 1.1; if (this.tfIs('gilded')) m *= 1.2;
     if (this.tfIs('champion') && kind === 'punch') m *= 1.4; if (this.tfIs('ironHoof') && kind === 'kick') m *= 1.5;
     if (this.weapon && (kind === 'punch' || kind === 'kick')) m *= 1.25;
     if (this.drunkT > 0) m *= 1.25;
-    return m * (1 + Math.min(0.5, 0.03 * this.cpuLv));
+    return m * (1 + Math.min(0.25, 0.02 * this.cpuLv));
   }
   defMul() { let m = 1; if (this.tfIs('stone')) m *= 0.6; if (this.tfIs('giant')) m *= 0.85; return m; }
   armored(dmg) {
@@ -1132,7 +1148,7 @@ p1.setChar(CHARS[0]); p2.setChar(CHARS[1]);
 
 // ---- 커맨드 입력 (모바일은 공격 버튼 4개뿐이라 이걸로, PC에서도 됨) ----
 //   ↓→ + 공격 = 스킬 · ↓← + 공격 = 업어치기 · →→ + 공격 = 필살기 · ↓↓ + 공격 = 변신   (→ = 상대 쪽)
-// 방향을 새로 누른 순간만 기록 → 두 방향 사이 18프레임, 마지막 방향 뒤 12프레임 안에 공격 버튼
+// 방향을 새로 누른 순간만 기록 → 두 방향 사이 24프레임, 마지막 방향 뒤 16프레임 안에 공격 버튼
 // 게임 입력(inp)과 프레임 번호만 써서 계산 → 온라인 두 화면에서도 똑같이 판정됨
 function readMotion(f, inp) {
   const m = f.mot || (f.mot = { d: false, fw: false, bk: false, toks: [] });
@@ -1142,7 +1158,7 @@ function readMotion(f, inp) {
   m.d = d; m.fw = fw; m.bk = bk;
   if (!(inp.lp || inp.rp || inp.lk || inp.rk) || m.toks.length < 2) return inp;
   const [a, b] = m.toks.slice(-2);
-  if (f.t - b[1] > 12 || b[1] - a[1] > 18) return inp;
+  if (f.t - b[1] > 16 || b[1] - a[1] > 24) return inp;
   const cmd = { DF: 'skill', DB: 'grab', FF: 'ult', DD: 'tf' }[a[0] + b[0]];
   if (!cmd || (cmd === 'ult' && f.meter < 100) || (cmd === 'tf' && (f.tfG < 100 || f.tfOn)) || (cmd === 'skill' && f.skillCD > 0)) return inp;   // 못 쓰는 상황이면 그냥 공격
   m.toks = [];
@@ -1242,6 +1258,14 @@ function addObj(o) {
 }
 function spawnProj(f, p) {
   const s = f.sc / 1.15;
+  if (p.spread) {   // 돈뿌리기: 동전 여러 개를 부채꼴로 (각도는 고정 → 온라인에서도 같음)
+    for (let i = 0; i < p.spread; i++) {
+      const k = i / Math.max(1, p.spread - 1);
+      addObj({ owner: f, kind: p.kind, x: f.x + f.facing * 60 * s, y: f.y - 100 * s, vx: f.facing * p.speed * (0.7 + 0.45 * k), vy: -7.5 + k * 5.5, g: p.g,
+        w: p.w, h: p.h, dmg: p.dmg, height: p.height, life: p.life, clash: false, kb: 3, stun: 14 });
+    }
+    return;
+  }
   addObj({ owner: f, kind: p.kind, sub: f.throwKind, x: f.x + f.facing * 70 * s, y: f.y - (p.y || 95) * s, vx: f.facing * p.speed, w: p.w || 40, h: p.h || 32,
     vy: p.vy || 0, g: p.g || 0, boom: p.boom || 0, multi: p.multi || 0, maxHits: p.maxHits || 1, back: p.back || 0, dir: f.facing,
     dmg: p.dmg, height: p.height || 'mid', life: p.life || 140, burn: p.burn, slow: p.slow, clash: p.kind !== 'stew' });   // 국물은 바닥을 흘러서 다른 발사체와 부딪혀도 안 사라짐
@@ -1268,6 +1292,11 @@ function updateObjs() {
     if (o.back) {   // 냉삼 부메랑: 점점 느려지다 되돌아와서, 던진 돼지가 받으면 사라짐
       o.vx -= o.dir * o.back;
       if (o.t > 12 && Math.sign(o.vx) === -o.dir && Math.abs(o.x - o.owner.x) < 50) o.life = 0;
+    }
+    if (o.kind === 'coin' && o.y > GROUND - 10) { o.life = 0; burst(o.x, GROUND - 8, 5, ['#ffd700', '#fff8e1'], 4); }   // 바닥에 떨어진 동전은 반짝 사라짐
+    if (o.kind === 'safe' && o.y >= GROUND - 62) {   // 금고가 바닥에 쿵
+      o.y = GROUND - 62; o.vy = 0; o.g = 0; o.dmg = 0;
+      if (!o.landed) { o.landed = true; o.life = 45; shake = Math.max(shake, 16); SFX.slam(); burst(o.x, GROUND - 10, 26, ['#ffd700', '#ffecb3', '#a1887f'], 10); }
     }
     if (o.kind === 'slice' && o.g && o.y > GROUND - 14) { o.life = 0; burst(o.x, GROUND - 8, 8, ['#e1f5fe', '#f6c9c4', '#ffffff'], 5); }   // 떨어진 냉삼이 바닥에서 깨짐
     const f = o.owner, d = f.opp;
@@ -1304,11 +1333,32 @@ function drawObjs() {
     if (!o.owner) { drawEnv(o); continue; }
     if (o.delay > 0) {
       if (o.kind === 'pillar') { ctx.fillStyle = `rgba(255,120,0,${0.3 + 0.3 * Math.sin(gT * 0.5)})`; ell(o.x, GROUND - 10, 40, 8); ctx.fill(); }
+      if (o.kind === 'safe') {   // 금고가 떨어질 자리: 점점 커지는 그림자 + 경고 (보고 피하기)
+        const k = 1 - o.delay / 40;
+        ctx.fillStyle = `rgba(0,0,0,${0.25 + 0.25 * k})`; ell(o.x, GROUND - 6, 30 + 55 * k, 8 + 8 * k); ctx.fill();
+        ctx.strokeStyle = `rgba(255,82,82,${0.5 + 0.5 * Math.sin(gT * 0.6)})`; ctx.lineWidth = 3; ell(o.x, GROUND - 6, 85, 16); ctx.stroke();
+      }
       continue;
     }
     const dir = Math.sign(o.vx) || o.owner.facing;
     ctx.save(); ctx.translate(o.x, o.y);
     switch (o.kind) {
+      case 'coin': {   // 빙글빙글 도는 금화
+        const sx = Math.abs(Math.cos(o.t * 0.4)) * 0.85 + 0.15;
+        ctx.scale(sx, 1); ctx.fillStyle = '#ffb300'; ell(0, 0, 13, 13); ctx.fill();
+        ctx.fillStyle = '#ffd54f'; ell(0, 0, 10, 10); ctx.fill(); ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 2; ell(0, 0, 6, 6); ctx.stroke();
+        break;
+      }
+      case 'safe': {   // 황금 금고
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'; rr(-72, -56, 150, 122, 12); ctx.fill();
+        const gg = ctx.createLinearGradient(0, -60, 0, 60); gg.addColorStop(0, '#ffe082'); gg.addColorStop(1, '#c79100');
+        ctx.fillStyle = gg; rr(-75, -60, 150, 120, 12); ctx.fill(); ctx.strokeStyle = '#8d6e00'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.strokeStyle = '#a07800'; ctx.lineWidth = 3; rr(-60, -46, 120, 92, 8); ctx.stroke();
+        ctx.fillStyle = '#5d4300'; ell(0, 0, 22, 22); ctx.fill(); ctx.fillStyle = '#ffd54f'; ell(0, 0, 14, 14); ctx.fill();
+        ctx.strokeStyle = '#5d4300'; ctx.lineWidth = 3; for (let a = 0; a < 6; a++) line(Math.cos(a) * 8, Math.sin(a) * 8, Math.cos(a) * 14, Math.sin(a) * 14);
+        ctx.fillStyle = '#5d4300'; ctx.fillRect(42, -10, 8, 20); txt('₩', -45, -32, 18, '#5d4300', null);
+        break;
+      }
       case 'slice': {   // 얇게 얼린 냉삼 한 장 (빙글빙글)
         ctx.rotate(o.t * 0.45);
         ctx.fillStyle = '#f6c9c4'; rr(-27, -10, 54, 20, 8); ctx.fill();
@@ -1429,7 +1479,7 @@ function dealHit(a, d, h) {
   // (싸우는 중 부위 자르기·부위 무기 줍기는 뺐음)
   // 필살 게이지는 때린 쪽만 참. 한 방이 센 공격(8 넘는 피해)은 넘는 만큼 절반만 쳐줌 → 딜 센 캐릭은 궁이 천천히 참.
   // 캐릭터마다 충전 속도(ultRate)가 다름: 빠르고 약한 캐릭은 빨리, 묵직한 캐릭은 천천히
-  a.meter = Math.min(100, a.meter + (dmg <= 8 ? dmg : 8 + (dmg - 8) * 0.5) * 1.6 * (a.ch.ultRate ?? 1));
+  a.meter = Math.min(100, a.meter + (dmg <= 8 ? dmg : 8 + (dmg - 8) * 0.5) * 1.6 * (a.ch.ultRate ?? 1) * (a.tfIs('gilded') ? 1.5 : 1));   // 황금 각성: 1.5배
   if (!a.tfOn) a.tfG = Math.min(100, a.tfG + dmg * 1.3);
   if (!d.tfOn) d.tfG = Math.min(100, d.tfG + dmg * 0.8);
   d.stamina = Math.max(0, d.stamina - dmg * 0.6);
@@ -1671,6 +1721,13 @@ function ultUpdate(f, o) {
       }
       break;
     }
+    case 'goldSafe': {   // 황금 금고 떨구기: 상대 자리에 그림자 → 0.67초 뒤 금고 낙하 (막을 수 없음, 피할 수는 있음)
+      f.vx = 0;
+      if (T === 8) addObj({ owner: f, kind: 'safe', x: clamp(o.x, 90, W - 90), y: -150, vx: 0, vy: 2, g: 1.3, delay: 40, w: 150, h: 120,
+        dmg: 30, kb: 6, stun: 50, launch: -11, height: 'mid', unblockable: true, life: 220, ult: false, clash: false });
+      if (T >= 100) ultEnd(f, o);
+      break;
+    }
     case 'sliceRain': {   // 냉삼 폭탄 투하: 상대 머리 위로 얼린 냉삼이 우수수 (위치는 시드 난수 → 온라인에서도 같음)
       f.vx = 0;
       if (T >= 12 && T <= 78 && T % 6 === 0) {
@@ -1706,6 +1763,7 @@ function skillGood(t, dist, op) {
   if (t === 'boneSwing') return dist > 120 && dist < 230;
   if (t === 'teleport') return true;
   if (t === 'boomerang') return dist > 150 && dist < 460;   // 냉삼 부메랑: 떨어진 상대에게
+  if (t === 'coinToss') return dist < 340;   // 돈뿌리기: 가까이서
   if (t === 'uppercut') return dist < 170;
   if (t === 'launcher') return dist > 90 && dist < 180;   // 엄니 걸기: 조금 떨어진 상대를 끌어당김
   if (t === 'counter') return op.state === 'attack' || dist < 170;
@@ -1716,7 +1774,7 @@ const CPU_COMBOS = [['rp', 'rk'], ['lp', 'rp', 'rk'], ['lp', 'lk', 'skill'], ['l
 function cpuInput(me, op) {
   const inp = { ...EMPTY }, ai = me.ai, L = me.cpuLv;
   // 연승이 쌓일수록(레벨↑) 반응·패링·콤보 확률이 올라간다
-  const pGuard = Math.min(0.8, 0.3 + 0.04 * L), pParry = Math.min(0.35, 0.05 + 0.02 * L), pChain = Math.min(0.75, 0.3 + 0.03 * L);
+  const pGuard = Math.min(0.6, 0.2 + 0.03 * L), pParry = Math.min(0.2, 0.03 + 0.012 * L), pChain = Math.min(0.6, 0.2 + 0.025 * L);   // 밸런스 패치: 너무 잘 막고 콤보가 길어서 낮춤
   if (me.state === 'grabbing') { inp.mash = Math.random() < Math.min(0.6, 0.25 + 0.02 * L); return inp; }
   const dx = op.x - me.x, dist = Math.abs(dx), dir = Math.sign(dx) || 1;
   const bk = dir > 0 ? 'left' : 'right';
@@ -1740,13 +1798,13 @@ function cpuInput(me, op) {
   if (op.state === 'attack' && op.atk && !op.atk.proj && op.af === op.atk.startup - 3 && dist < 220 && Math.random() < pParry) { inp[bk] = true; inp[bk + 'P'] = true; return inp; }
   if (ai.guard > 0) { ai.guard--; inp[bk] = true; inp.down = ai.low; return inp; }
   if (op.state === 'attack' && op.atk && op.af <= 2 && dist < 240 && Math.random() < pGuard) { ai.guard = op.atk.startup + (op.atk.active || 1) + 4; ai.low = op.atk.height === 'low'; }
-  if (op.state === 'ult' && op.uT < 3 && Math.random() < 0.5) { ai.guard = 40; ai.low = op.ch.ult.type === 'stampede'; }
-  for (const o of objs) if (o.owner === op && o.dmg && !o.delay && Math.abs(o.x - me.x) < 180 && Math.random() < 0.1) {
+  if (op.state === 'ult' && op.uT < 3 && Math.random() < 0.35) { ai.guard = 40; ai.low = op.ch.ult.type === 'stampede'; }
+  for (const o of objs) if (o.owner === op && o.dmg && !o.delay && Math.abs(o.x - me.x) < 180 && Math.random() < 0.06) {
     if (o.height === 'low') inp.up = true; else { ai.guard = 12; ai.low = false; }
   }
   if (temps[tileOf(me.x)] >= 70 && ai.move === 0) { ai.move = (me.x < W / 2 ? 1 : -1) * 30; if (Math.random() < 0.3) inp.up = true; }
   if (--ai.think <= 0) {
-    ai.think = Math.max(2, 6 - L * 0.3) + (Math.random() * Math.max(4, 14 - L * 0.6) | 0);
+    ai.think = Math.max(5, 10 - L * 0.3) + (Math.random() * Math.max(8, 18 - L * 0.6) | 0);   // 밸런스 패치: 생각 간격을 늘려 덜 몰아붙이게
     const r = Math.random();
     if (me.tfG >= 100 && !me.tfOn && r < 0.6) inp.tf = true;   // 변신 게이지가 차면 변신
     else if (me.meter >= 100 && dist < ULT_RANGE[me.ch.ult.type] && r < 0.5) { inp.ult = true; inp.cpu = true; }
@@ -2264,6 +2322,7 @@ const SKILL_SFX = {
   counter() { const b = bus(0, 0.4); whoosh(0.2, 0.3, 2500, 8000); nz(0.03, { v: 0.35, freq: 5000, type: 'highpass', at: 0.18, out: b }); },   // 스르릉 → 착
   teleport() { nz(0.15, { v: 0.3, freq: 6000, f2: 500, type: 'bandpass', q: 1, out: bus(-0.6, 0.4) }); nz(0.15, { v: 0.3, freq: 500, f2: 6000, type: 'bandpass', q: 1, at: 0.2, out: bus(0.6, 0.4) }); },   // 슉 … 슉
   uppercut() { whoosh(0.25, 0.35, 300, 5000); },   // 아래에서 위로 슈웅
+  coinToss() { whipS(1.2, 0.4); for (let i = 0; i < 6; i++) nz(0.03, { v: 0.18, freq: rnd(5000, 7500), type: 'bandpass', q: 2, at: 0.05 + i * 0.035 }); },   // 휙 + 짤랑짤랑
   boomerang() { whipS(1.35, 0.5); whoosh(0.35, 0.18, 1500, 4500, 0.05); },   // 휙 던지고 슈우웅
   boneSwing() { whipS(0.75, 0.75); thump(1.2, 0.35, 0.25, { hp: 800 }); },   // 무거운 갈빗대: 낮은 채찍 '부웅~착' + 딱
 };
@@ -2666,7 +2725,7 @@ function drawTitle() {
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
   drawPig(810, 470, -1, CHARS[(i + 5) % CHARS.length].look, { t: gT + 30, scale: CHARS[(i + 5) % CHARS.length].scale * 1.1 });
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(60, 482, 840, 50, 10); ctx.fill();
-  const hl = TOUCH ? '커맨드(→=상대 쪽): 스킬 ↓→ · 업어치기 ↓← · 필살 →→ · 변신 ↓↓ + 아무 공격 버튼' : '이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y · 변신 T (↓→ 같은 커맨드도 됨)'; txt(hl, W / 2, 497, fitSize(hl, 13, 900), '#ffd6df', null);   // 길면 글자를 줄여서 한 줄에
+  const hl = TOUCH ? '왼쪽 조이스틱: 이동·점프·앉기 (뒤로 끌면 막기) · 오른쪽 버튼: 공격·스킬·업어치기·필살기·변신' : '이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y · 변신 T (↓→ 같은 커맨드도 됨)'; txt(hl, W / 2, 497, fitSize(hl, 13, 900), '#ffd6df', null);   // 길면 글자를 줄여서 한 줄에
   txt(TOUCH ? '📱 버튼으로 조작 · 메뉴는 탭!' : 'W/S 메뉴 이동 · Enter 선택 · 숫자키 바로가기 · M 배경음', W / 2, 518, 12, '#80d8ff', null);
   txt(`🔊 ${musicMuted ? '꺼짐' : '켜짐'}`, W - 16, 20, 13, '#ccc', '#000', 3, 'right');
   addHot(W - 90, 6, 84, 28, () => { toggleMute(); });
@@ -3217,7 +3276,7 @@ function startMatch() {
   if (mode === 1 && ranked) lsSet('sgf_rkpending', true);   // 랭크전 판 시작 표시 (끝나기 전에 창을 닫으면 다음 접속 때 패배 처리)
   p1.name = mode === 0 ? p1.base + ' (CPU)' : playerName;
   p2.name = mode === 0 ? p2.base + ' (CPU)' : `${p2.base} Lv.${oppLv() + 1}`;
-  if (mode === 1) p2.meter = Math.min(60, (ranked ? tierOf(tp) : streak) * 6);
+  if (mode === 1) p2.meter = Math.min(40, (ranked ? tierOf(tp) : streak) * 4);
   if (mode === 3) { p1.cpuLv = p2.cpuLv = 0; p1.name = NET.names[0]; p2.name = NET.names[1]; }
   p1.hpMul = p2.hpMul = 1;
   if (mode === 4) { p1.cpuLv = COND_LV[bet4.ca]; p2.cpuLv = COND_LV[bet4.cb]; p1.name = `${p1.base} ×${bet4.oa.toFixed(2)}`; p2.name = `${p2.base} ×${bet4.ob.toFixed(2)}`; }
@@ -3413,7 +3472,7 @@ function startCutscene(w, l) {
   if (mode === 1) {
     if (w === p1) {
       streak++;
-      cut.earn.win = 50 + streak * 10;
+      cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1);   // 금한돈: 승리 코인 3배
       if (bet > 0) cut.earn.bet = bet * (betSel === 2 ? 3 : 2);
       addCoins(cut.earn.win + cut.earn.bet);
     } else {
@@ -3429,7 +3488,7 @@ function startCutscene(w, l) {
   }
   if (mode === 3) {
     const meWin = w === NET.me;
- cut.earn.win = meWin ? 80 : 0; if (meWin) addCoins(80);
+    cut.earn.win = meWin ? 80 * (NET.me.ch.name === '금한돈' ? 3 : 1) : 0; if (meWin) addCoins(cut.earn.win);   // 금한돈: 3배
     const r = lsGet('sgf_online', { w: 0, l: 0 }); r[meWin ? 'w' : 'l']++; lsSet('sgf_online', r);
   }
   afterMatchEconomy(w);
@@ -4052,6 +4111,7 @@ function poseOf(f) {
       case 'absoluteZero': case 'beam': p.move = 'throw'; p.k = 1; break;
       case 'bodySlam': if (!f.landed) { p.victory = true; p.air = true; } else p.crouch = true; break;
       case 'sliceRain': p.victory = T < 90; break;   // 두 팔 들고 냉삼을 부름
+      case 'goldSafe': p.victory = T < 60; break;   // 금고 부르기
       case 'thousandCuts': p.move = 'punch'; p.k = 1; if (f.ultHit && T < 62) p.alpha = 0.15; break;
       case 'megaton': p.move = 'punch'; p.k = T < 36 ? 0 : 1; if (T < 36) p.aura = '#ffd600'; break;
     }
@@ -4112,7 +4172,7 @@ function drawFighter(f) {
 }
 function keyHint(f, which) {
   if (mode === 0 || (mode === 3 ? f !== NET.me : f === p2)) return '';
-  if (TOUCH) return { ult: '[→→+공격]', skill: '[↓→+공격]', tf: '[↓↓+공격]' }[which] || '';   // 모바일은 커맨드로 안내
+  if (TOUCH) return { ult: '[필살기 버튼]', skill: '[스킬 버튼]', tf: '[변신 버튼]' }[which] || '';   // 모바일은 버튼으로 안내
   const m = { ult: 'Y', skill: 'U', tf: 'T' };   // 한 번에 누르는 단축키로 안내
   return `[${m[which]}]`;
 }
@@ -4263,7 +4323,7 @@ function drawSelect() {
   ctx.strokeStyle = '#ff5252'; ctx.lineWidth = 2; rr(x, 312, 640, 216, 12); ctx.stroke();
   drawPig(x + 540, 480, -1, c.look, { scale: c.scale * 0.95, t: gT });
   txt(c.name, x + 20, 336, 26, '#ff5252', '#000', 5, 'left');
-  txt(`${c.title} · ${c.type}`, x + 20, 366, 14, '#ddd', null, 0, 'left');
+  txt(`${c.title} · ${c.type}${c.perk ? ' · 💰 ' + c.perk : ''}`, x + 20, 366, 14, '#ddd', null, 0, 'left');
   [['체력', c.hp / 130], ['파워', c.power / 1.2], ['스피드', c.speed / 1.3]].forEach(([n, v], i) => {
     const by = 390 + i * 18;
     txt(n, x + 20, by, 12, '#bbb', null, 0, 'left');
@@ -4276,15 +4336,15 @@ function drawSelect() {
   ctx.fillStyle = '#333'; ctx.fillRect(x + 312, 385, 110, 10);
   ctx.fillStyle = '#ffb300'; ctx.fillRect(x + 312, 385, 110 * clamp((ur - 0.6) / 0.7), 10);
   txt(ur >= 1.15 ? '빠름' : ur <= 0.85 ? '느림' : '보통', x + 312, 408, 12, '#ffcc80', null, 0, 'left');
-  const tfInfo = `변신 [${TOUCH ? '↓↓+공격' : 'T'}]: ${c.tf.name} — ${c.tf.desc}`;   // 변신 게이지가 꽉 차면 T
+  const tfInfo = `변신 [${TOUCH ? '변신 버튼' : 'T'}]: ${c.tf.name} — ${c.tf.desc}`;   // 변신 게이지가 꽉 차면 T
   txt(tfInfo, x + 250, 428, fitSize(tfInfo, 12, 200), '#80deea', null, 0, 'left');
   ctx.fillStyle = '#ff5252'; rr(x + 470, 324, 150, 40, 10); ctx.fill(); txt(selFor === 'online' ? '이 돼지로 온라인!' : '이 돼지로 시작!', x + 545, 344, 16, '#fff', null);
   addHot(x + 470, 324, 150, 40, () => { pressed.Enter = true; });
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 70, 30, 8); ctx.fill(); txt('← 뒤로', 49, 29, 13, '#fff', null);
   addHot(14, 14, 70, 30, () => { pressed.Escape = true; });
-  txt(`스킬 [${TOUCH ? '↓→+공격' : 'U · K+L'}]: ${c.skill.name} — ${c.skill.desc}`, x + 20, 452, 14, '#ffdd33', null, 0, 'left');
-  txt(`업어치기 [${TOUCH ? '↓←+공격' : 'J · I+K'}]: 메치고 연타로 다지기`, x + 20, 476, 14, '#e1bee7', null, 0, 'left');
-  txt(`필살기 [${TOUCH ? '→→+공격' : 'Y · A+D→K+O'}]: ${c.ult.name} — ${c.ult.desc}`, x + 20, 500, 14, '#ffab91', null, 0, 'left');
+  txt(`스킬 [${TOUCH ? '스킬 버튼 · ↓→+공격' : 'U · K+L'}]: ${c.skill.name} — ${c.skill.desc}`, x + 20, 452, 14, '#ffdd33', null, 0, 'left');
+  txt(`업어치기 [${TOUCH ? '업어치기 버튼 · ↓←+공격' : 'J · I+K'}]: 메치고 연타로 다지기`, x + 20, 476, 14, '#e1bee7', null, 0, 'left');
+  txt(`필살기 [${TOUCH ? '필살기 버튼 · →→+공격' : 'Y · A+D→K+O'}]: ${c.ult.name} — ${c.ult.desc}`, x + 20, 500, 14, '#ffab91', null, 0, 'left');
 }
 function drawVs() {
   const k = ease(sceneT / 20);
