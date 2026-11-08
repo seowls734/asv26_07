@@ -515,7 +515,7 @@ const CHARS = [
     skill: { name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' },
     tf: { name: '급속 해동', type: 'thaw', color: '#80deea', desc: '체력 서서히 회복 · 이동 속도↑' },
     ult: { name: '냉삼 폭탄 투하', type: 'sliceRain', desc: '하늘에서 얼린 냉삼이 우수수' } },
-  { name: '금한돈', title: '황금 돼지 부자', type: '부자', hp: 100, power: 1.0, speed: 0.96, ultRate: 0.9, scale: 1.12, perk: '이기면 승리 코인 3배',
+  { name: '금한돈', title: '황금 돼지 부자', type: '부자', hp: 100, power: 1.0, speed: 0.96, ultRate: 0.9, scale: 1.12, unlock: 3, perk: '이기면 승리 코인 3배',   // unlock: 이 티어(3 = 골드)에 처음 오르면 영구 해금
     look: look('#ffd54f', '#b8860b', '#fff3c4', '#ffca28', '#6d4c00', '#4a3300', '#2e7d32', ['band', 'belt'], 1.04),
     skill: { name: '돈뿌리기', type: 'coinToss', cd: 120, desc: '동전 5개를 부채꼴로 흩뿌림' },
     tf: { name: '황금 각성', type: 'gilded', color: '#ffd700', desc: '공격력↑ · 필살 게이지 빨리 참' },
@@ -2775,6 +2775,19 @@ const TIERS = [['아이언', 0, '#9e9e9e'], ['브론즈', 100, '#cd7f32'], ['실
   ['플레티넘', 700, '#80cbc4'], ['에메랄드스플레시', 1000, '#2ecc71'], ['다이아', 1400, '#81d4fa'], ['울트라', 1850, '#ff8a65'],
   ['마스터', 2350, '#ce93d8'], ['스타플래티나', 2900, '#b388ff'], ['그렌드마더', 3500, '#ff5252'], ['그렌드피아노', 4200, '#ffd700']];
 let tp = lsGet('sgf_tp', 0);
+// ---- 티어 해금 캐릭터 (금한돈 = 골드). 한 번 오르면 티어가 떨어지거나 파산해도 계속 쓸 수 있음 ----
+const isUnlocked = c => {
+  if (!c || c.unlock == null) return true;
+  const k = 'sgf_unlock_' + c.name;
+  if (lsGet(k, false)) return true;
+  if (tierOf(tp) >= c.unlock) { lsSet(k, true); return true; }
+  return false;
+};
+// 티어가 올라 새로 해금된 캐릭터 안내
+function checkUnlocks() {
+  const got = CHARS.filter(c => c.unlock != null && !lsGet('sgf_unlock_' + c.name, false) && isUnlocked(c));
+  return got.length ? ` · 🔓 ${got.map(c => c.name).join(', ')} 해금!` : '';
+}
 const tierOf = v => { let i = 0; TIERS.forEach((t, k) => { if (v >= t[1]) i = k; }); return i; };
 const fmtN = n => Math.round(n).toLocaleString('ko-KR');
 function drawTierBadge(x, y, v, size = 14, align = 'center') {
@@ -2827,7 +2840,7 @@ function rankedResult(win, online, revived = false) {
   if (promo && next) {   // 승급전 진행 중
     if (win) promo.w++; else promo.l++;
     let msg;
-    if (promo.w >= 2) { tp = next[1]; promo = null; msg = `🎉 승급전 통과! ${next[0]} 승급`; }
+    if (promo.w >= 2) { tp = next[1]; promo = null; msg = `🎉 승급전 통과! ${next[0]} 승급` + checkUnlocks(); }
     else if (promo.l >= 2) { tp = Math.max(0, next[1] - 40); promo = null; msg = '💥 승급전 실패... 다시 도전하세요'; }
     else msg = `승급전 ${promo.w}승 ${promo.l}패 (3판 2선승)`;
     lsSet('sgf_promo', promo); lsSet('sgf_tp', tp); return msg;
@@ -3378,6 +3391,8 @@ function updateSelect() {
   if (pressed.KeyW || pressed.KeyS || pressed.ArrowUp || pressed.ArrowDown) i = (i + SEL_COLS) % SEL_SLOTS;
   if (i !== sel.c1) { sel.c1 = i; SFX.select(); }
   if (pressed.KeyI || pressed.KeyJ || pressed.Space || pressed.Enter) {
+    const lc = getChar(sel.c1);
+    if (!isUnlocked(lc)) { SFX.block(); toast(`🔒 ${lc.name}: 랭크전 ${TIERS[lc.unlock][0]} 티어를 달성하면 해금돼요`); return; }
     SFX.confirm();
     if (selFor === 'online') { scene = 'online'; NET.err = ''; } else startRun();
   }
@@ -4339,7 +4354,11 @@ function drawSelect() {
   for (let i = 0; i < SEL_SLOTS; i++) {
     const c = getChar(i), x = gx + (i % SEL_COLS) * cw, y = gy + (i / SEL_COLS | 0) * ch;
     ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(x + 4, y + 4, cw - 8, ch - 8, 10); ctx.fill();
-    {
+    if (!isUnlocked(c)) {   // 잠긴 돼지: 검은 실루엣 + 자물쇠
+      drawPig(x + cw / 2 - 6, y + ch - 26, 1, c.look, { scale: 0.5, t: 0, filter: 'brightness(0)', alpha: 0.6 });
+      txt('🔒', x + cw / 2, y + 42, 26, '#fff', null);
+      txt(`${TIERS[c.unlock][0]} 해금`, x + cw / 2, y + ch - 14, 13, TIERS[c.unlock][2], '#000', 3);
+    } else {
       drawPig(x + cw / 2 - 6, y + ch - 26, 1, c.look, { scale: 0.5, t: gT + i * 10 });
       txt(c.name, x + cw / 2, y + ch - 14, 15, '#fff', '#000', 3);
     }
@@ -4352,6 +4371,22 @@ function drawSelect() {
     txt('나만의 돼지를 만들어 보세요!', W / 2, 380, 28, '#ffd54f', '#000', 6);
     txt('색 · 장식 · 스킬 · 필살기를 고르고, 체력/파워/스피드에 9포인트를 나눠요', W / 2, 420, 15, '#fff', null);
     txt(TOUCH ? '탭하거나 Enter' : 'Enter 또는 C', W / 2, 460, 16, '#aaa', null);
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 70, 30, 8); ctx.fill(); txt('← 뒤로', 49, 29, 13, '#fff', null);
+    addHot(14, 14, 70, 30, () => { pressed.Escape = true; });
+    return;
+  }
+  if (!isUnlocked(c)) {   // 잠긴 돼지 설명: 정체는 살짝만 공개
+    const tc = TIERS[c.unlock];
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(x, 312, 640, 216, 12); ctx.fill();
+    ctx.strokeStyle = tc[2]; ctx.lineWidth = 2; rr(x, 312, 640, 216, 12); ctx.stroke();
+    drawPig(x + 540, 480, -1, c.look, { scale: c.scale * 0.95, t: 0, filter: 'brightness(0)', alpha: 0.7 });
+    txt(`🔒 ${c.name}`, x + 20, 340, 26, tc[2], '#000', 5, 'left');
+    txt(c.title, x + 20, 372, 15, '#ddd', null, 0, 'left');
+    txt(`랭크전에서 🏅 ${tc[0]} 티어를 달성하면 해금!`, x + 20, 410, 18, '#fff', null, 0, 'left');
+    txt(`지금 ${TIERS[tierOf(tp)][0]} · ${tp} / ${tc[1]} TP`, x + 20, 440, 14, '#ffe082', null, 0, 'left');
+    ctx.fillStyle = '#333'; ctx.fillRect(x + 20, 456, 300, 10); ctx.fillStyle = tc[2]; ctx.fillRect(x + 20, 456, 300 * clamp(tp / tc[1]), 10);
+    txt(`💰 ${c.perk || ''}`, x + 20, 492, 14, '#ffd54f', null, 0, 'left');
+    txt('한 번 해금하면 티어가 떨어져도 계속 쓸 수 있어요', x + 20, 514, 12, '#aaa', null, 0, 'left');
     ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 70, 30, 8); ctx.fill(); txt('← 뒤로', 49, 29, 13, '#fff', null);
     addHot(14, 14, 70, 30, () => { pressed.Escape = true; });
     return;
