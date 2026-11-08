@@ -246,7 +246,7 @@ for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if 
 padReady = true; fit();
 let padShown = false;
 function syncPad() {
-  const want = TOUCH && ['intro', 'fight', 'roundEnd'].includes(scene);
+  const want = TOUCH && mode !== 0 && mode !== 4 && ['intro', 'fight', 'roundEnd'].includes(scene);   // CPU끼리 싸우는 모드(구경·AI 베팅)엔 패드 숨김
   if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; if (!want) { joyEnd(); padReleaseAll(); } }   // 숨길 때 눌린 키가 남지 않게
   if (!padShown) return;
   // 특수 버튼 상태: 쓸 수 있으면 빛나고(필살기), 못 쓰면 흐리게
@@ -1721,12 +1721,14 @@ function ultUpdate(f, o) {
     case 'goldSafe': {   // 황금 금고 떨구기: 상대 자리에 그림자 → 0.67초 뒤 금고 낙하 (막을 수 없음, 피할 수는 있음)
       f.vx = 0;
       if (T === 8) addObj({ owner: f, kind: 'safe', x: clamp(o.x, 90, W - 90), y: -150, vx: 0, vy: 2, g: 1.3, delay: 40, w: 150, h: 120,
-        dmg: 30, kb: 6, stun: 50, launch: -11, height: 'mid', unblockable: true, life: 220, ult: false, clash: false });
+        dmg: 30, kb: 6, stun: 50, launch: -11, height: 'mid', unblockable: true, life: 220, ult: true, maxHits: 1, clash: false });   // ult: 필살기 마무리로 인정 + 맞혀도 금고가 바닥까지 떨어짐
+      if (T === 8) f.ultInv = false;   // 금고를 부른 뒤엔 무적 해제 (피한 상대가 때릴 수 있게)
       if (T >= 100) ultEnd(f, o);
       break;
     }
     case 'sliceRain': {   // 냉삼 폭탄 투하: 상대 머리 위로 얼린 냉삼이 우수수 (위치는 시드 난수 → 온라인에서도 같음)
       f.vx = 0;
+      if (T === 12) f.ultInv = false;   // 냉삼을 부르기 시작하면 무적 해제
       if (T >= 12 && T <= 78 && T % 6 === 0) {
         const tx = clamp(o.x + srand(-90, 90), 60, W - 60);
         addObj({ owner: f, kind: 'slice', x: tx, y: -40, vx: 0, vy: 5, g: 0.55, w: 60, h: 42, dmg: 5, kb: 2, stun: 24, height: 'mid', life: 150, hitstop: 4, ult: false });
@@ -1942,6 +1944,8 @@ function drawOpening() {
 // (커스텀 캐릭터 만들기 기능은 뺐음 → 기본 캐릭터만. 예전 버전 상대가 커스텀을 보내도 첫 캐릭터로 대신함)
 const SEL_SLOTS = CHARS.length, SEL_COLS = 7;
 const getChar = i => CHARS[clamp(i | 0, 0, CHARS.length - 1)];
+// 온라인: 잠긴 돼지(금한돈 등)로는 못 나감 → 기본 돼지로 바꿈
+function netCheckChar() { if (!isUnlocked(getChar(sel.c1))) { sel.c1 = 0; toast('🔒 아직 해금 안 된 돼지라 기본 돼지로 바꿨어요'); } }
 const charDef = i => ({ idx: clamp(i | 0, 0, CHARS.length - 1), cos: { hat: inv.eq.hat, fx: inv.eq.fx } });
 const defToChar = d => withCos(CHARS[clamp((d && d.idx) | 0, 0, CHARS.length - 1)], d && d.cos);
 
@@ -1983,6 +1987,7 @@ function netReset() {
   Object.assign(NET, { peer: null, conn: null, ready: false, status: '', local: {}, remote: {} });
 }
 function netHost() {
+  netCheckChar();
   if (NET.code.length !== 4) { NET.err = '4자리 숫자를 먼저 입력하세요'; return; }
   NET.err = ''; netReset(); NET.host = true;
   loadPeer(() => {
@@ -1994,6 +1999,7 @@ function netHost() {
   });
 }
 function netJoin() {
+  netCheckChar();
   if (NET.code.length !== 4) { NET.err = '4자리 숫자를 먼저 입력하세요'; return; }
   NET.err = ''; netReset(); NET.host = false;
   loadPeer(() => {
@@ -2610,7 +2616,7 @@ function drawBetPick() {
     txt(`컨디션 ${COND[cd]}`, x + 290, 156, 15, COND_COL[cd], null);
     txt(COND_FX[cd], x + 290, 175, fitSize(COND_FX[cd], 11, 180), '#ddd', null);
     // 능력치 막대 (컨디션 반영된 값은 밝게, 원래 값은 흐리게)
-    const stats = [['체력', c.hp / 130, COND_HP[cd]], ['공격', c.power / 1.4, COND_DMG[cd]], ['속도', c.speed / 1.4, 1 + 0.02 * (COND_LV[cd] - 3)]];
+    const stats = [['체력', c.hp / 130, COND_HP[cd]], ['공격', c.power / 1.4, COND_DMG[cd]], ['속도', c.speed / 1.4, 1]];
     stats.forEach(([lb, v, m], k) => {
       const yy = 198 + k * 18, bx2 = x + 232, bw2 = 150;
       txt(lb, x + 212, yy + 5, 11, '#bbb', null);
@@ -2823,9 +2829,8 @@ function borrow(amt) {
   if (amt <= 0) { SFX.block(); toast('대출 한도 초과! 티어를 올리면 한도가 늘어요'); return; }
   const owe = Math.round(amt * 1.1), fresh = totalDebt() <= 0;
   addCoins(amt); bankDebt += owe;
-  if (fresh) {   // 빚 0에서 새로 빌림 → 이 대출이 새 상환 목표, 다 갚으면 빚 청산 엔딩을 다시 볼 수 있음
-    debtBase = owe; chapSeen = chapSeen.filter(k => k !== 'ending'); lsSet('sgf_chap', chapSeen);
-  } else debtBase += owe;   // 갚는 중에 더 빌리면 목표에 더함
+  if (fresh) debtBase = owe;   // 빚 0에서 새로 빌림 → 이 대출이 새 상환 목표 (은행빚은 사채 스토리·엔딩과 상관없음)
+  else debtBase += owe;   // 갚는 중에 더 빌리면 목표에 더함
   saveDebt(); SFX.coin();
   toast(`${fmtN(amt)}코인 대출! 갚을 돈 ${fmtN(owe)} (수수료 10%)`); uploadRank();
 }
@@ -2873,8 +2878,16 @@ const BANK_ACTS = [
   ['💸 사채 가진 만큼 갚기', () => repay('debt', coins)], ['🏦 은행빚 전부 갚기', () => repay('bank', coins)],
   ['💰 대출 100 받기', () => borrow(100)], ['💰 대출 한도까지 받기', () => borrow(loanLimit())],
   ['📖 스토리 다시 보기', () => startStory('intro', 'bank')], ['🗑️ 데이터 전체 초기화', () => resetAll()],
-  ['← 나가기', () => toTitle()]
+  ['← 나가기', () => toTitle()],
+  ['🎬 엔딩 수집', () => replayNextEnding()]   // 오른쪽 아래 엔딩 수집 칸 (따로 그림)
 ];
+// 엔딩 수집: 이미 본 엔딩만 여기서 다시 볼 수 있음 (Enter를 누를 때마다 다음 엔딩)
+function replayEnding(k) { startStory(k, 'bank'); story.replay = true; }
+function replayNextEnding() {
+  const seen = ENDINGS.filter(e => endSeen.includes(e[0]));
+  if (!seen.length) { SFX.block(); toast('아직 본 엔딩이 없어요'); return; }
+  bk.endI = ((bk.endI ?? -1) + 1) % seen.length; replayEnding(seen[bk.endI][0]);
+}
 // 모든 기록(코인·빚·티어·냉장고·스토리 등) 삭제. 실수 방지로 3초 안에 두 번 눌러야 실행
 let resetAsk = -999;
 function resetAll() {
@@ -2919,16 +2932,26 @@ function drawBank() {
   drawTierBadge(54, 362, tp, 15, 'left'); txt(`${tp} TP`, 428, 362, 16, '#fff', null, 0, 'right');
   const nt = TIERS[tierOf(tp) + 1]; txt(promo && nt ? `🔥 ${nt[0]} 승급전 ${promo.w}승 ${promo.l}패 (3판 2선승)` : nt ? `다음 티어 ${nt[0]}까지 ${nt[1] - tp} TP` : '최고 티어!', 54, 390, 13, '#aaa', null, 0, 'left');
   // 엔딩 수집 (오른쪽 아래 빈 칸)
-  ctx.fillStyle = 'rgba(255,224,130,0.08)'; rr(704, 368, 218, 66, 14); ctx.fill();
-  txt(`🎬 엔딩 수집 ${endSeen.length}/${ENDINGS.length}`, 813, 386, 14, '#ffe082', null);
-  ENDINGS.forEach(([k, nm], i) => txt(endSeen.includes(k) ? nm : '???', 704 + 109 + ((i % 2) - 0.5) * 104, 406 + (i >> 1) * 18, 12, endSeen.includes(k) ? '#fff' : '#777', null));
+  // 본 엔딩 이름을 누르면 그 엔딩을 다시 봄 (이미 본 엔딩은 여기서만 나옴)
+  const eOn = bk.sel === 9;
+  ctx.fillStyle = eOn ? 'rgba(30,136,229,0.55)' : 'rgba(255,224,130,0.08)'; rr(704, 368, 218, 66, 14); ctx.fill();
+  if (eOn) { ctx.strokeStyle = '#90caf9'; ctx.lineWidth = 2; rr(704, 368, 218, 66, 14); ctx.stroke(); }
+  addHot(704, 368, 218, 22, () => { bk.sel = 9; pressed.Enter = true; });
+  txt(`🎬 엔딩 수집 ${endSeen.length}/${ENDINGS.length} · 눌러서 다시 보기`, 813, 384, fitSize(`🎬 엔딩 수집 ${endSeen.length}/${ENDINGS.length} · 눌러서 다시 보기`, 13, 206), '#ffe082', null);
+  ENDINGS.forEach(([k, nm], i) => {
+    const ex = 704 + 109 + ((i % 2) - 0.5) * 104, ey = 406 + (i >> 1) * 18, got = endSeen.includes(k);
+    txt(got ? `▶ ${nm}` : '???', ex, ey, 12, got ? '#fff' : '#777', null);
+    if (got) addHot(ex - 52, ey - 9, 104, 18, () => { bk.sel = 9; replayEnding(k); });
+  });
   // 멧돼지 실장 한마디
   const boss = { ...CHARS[2].look, body: '#6d4c41', dark: '#2b1a14', hat: 'sunglass' };
   drawPig(110, 494, 1, boss, { scale: 0.7, t: gT });
-  const say = cleared ? '"...다 갚았군. 인정한다."' : repaid >= 0.75 ? '"거의 다 왔군. 도망칠 생각 마라."' : repaid >= 0.5 ? '"절반이라... 이자는 계속 붙는다."' : repaid >= 0.25 ? '"오호, 제법인데?"' : '"갚을 돈은 언제 가져오나? 삼겹살이 되고 싶나?"';
+  const sr = clamp(1 - Math.max(0, debt) / DEBT_START);   // 멧돼지 실장은 사채만 신경 씀 (은행빚은 상관없음)
+  const say = debt <= 0 ? '"...다 갚았군. 인정한다."' : sr >= 0.75 ? '"거의 다 왔군. 도망칠 생각 마라."' : sr >= 0.5 ? '"절반이라... 이자는 계속 붙는다."' : sr >= 0.25 ? '"오호, 제법인데?"' : '"갚을 돈은 언제 가져오나? 삼겹살이 되고 싶나?"';
   txt('멧돼지 실장', 168, 430, 13, '#ffab91', null, 0, 'left'); txt(say, 168, 456, fitSize(say, 14, 440 - 168), '#fff', null, 0, 'left');   // 왼쪽 패널(오른쪽 끝 450) 안에 들어가게
   // 오른쪽: 행동
   BANK_ACTS.forEach(([label], i) => {
+    if (i === 9) return;   // 엔딩 수집 칸은 위에서 따로 그림
     const x = 474 + (i % 2) * 230, y = 64 + (i >> 1) * 76, on = bk.sel === i;
     ctx.fillStyle = on ? '#1e88e5' : 'rgba(255,255,255,0.08)'; rr(x, y, 218, 66, 14); ctx.fill();
     if (on) { ctx.strokeStyle = '#90caf9'; ctx.lineWidth = 2; rr(x, y, 218, 66, 14); ctx.stroke(); }
@@ -3102,15 +3125,21 @@ const RICH_GOAL = 30000;
 let endSeen = lsGet('sgf_end', []);
 const isBroke = () => coins <= 0 && debt + bankDebt > 0;   // 코인이 0이 되면 배드 엔딩
 let chapSeen = lsGet('sgf_chap', []);
+// 사채 스토리(ch1~3)·빚 청산 엔딩은 사채(멧돼지 실장)만 기준. 은행빚을 갚아도 사채 이야기는 안 나옴
+// 이미 본 엔딩은 다시 자동으로 안 나옴 → 은행의 '엔딩 수집'에서만 다시 볼 수 있음
 function checkChapters() {
-  const r = totalDebt() / Math.max(1, debtBase);
+  const r = Math.max(0, debt) / DEBT_START;
   for (const [k, th] of [['ch1', 0.75], ['ch2', 0.5], ['ch3', 0.25], ['ending', 0]]) {
-    if (!chapSeen.includes(k) && (k === 'ending' ? totalDebt() <= 0 : r <= th)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; }
+    if (chapSeen.includes(k) || endSeen.includes(k)) continue;
+    if (k === 'ending' ? debt <= 0 : r <= th) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; }
   }
-  const once = (k, ok) => { if (ok && !chapSeen.includes(k)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; } return false; };
+  const once = (k, ok) => { if (ok && !chapSeen.includes(k) && !endSeen.includes(k)) { chapSeen.push(k); lsSet('sgf_chap', chapSeen); startStory(k, scene); return true; } return false; };
   if (once('master', tierOf(tp) === TIERS.length - 1)) return true;
   if (once('rich', debt <= 0 && bankDebt <= 0 && coins >= RICH_GOAL)) return true;
-  if (isBroke()) { startStory('bad', 'title'); return true; }   // 배드 엔딩은 다시 시작하면 또 볼 수 있음
+  if (isBroke()) {
+    if (!endSeen.includes('bad')) { startStory('bad', 'title'); return true; }
+    restartLife(); toast('💀 파산! 돈·빚이 처음으로 돌아갔어요 (티어·랭킹은 그대로)');   // 이미 본 배드 엔딩은 다시 안 보여 줌
+  }
   return false;
 }
 // 배드 엔딩(파산) 뒤: 돈·빚·스토리 진행만 처음으로 (티어·랭킹·닉네임·캐릭터·엔딩 수집 기록은 그대로)
@@ -3120,11 +3149,11 @@ function restartLife() {
 }
 const story = { key: 'intro', i: 0, t: 0, back: 'title' };
 const storyText = pg => pg.tx.replace(/\{name\}/g, playerName);
-function startStory(key, back = 'title') { Object.assign(story, { key, i: 0, t: 0, back }); scene = 'story'; parts = []; texts = []; }
+function startStory(key, back = 'title') { Object.assign(story, { key, i: 0, t: 0, back, replay: false }); scene = 'story'; parts = []; texts = []; }
 function endStory() {
   if (story.key === 'intro') lsSet('sgf_story_seen', true);
   if (ENDINGS.some(e => e[0] === story.key) && !endSeen.includes(story.key)) { endSeen.push(story.key); lsSet('sgf_end', endSeen); }
-  if (story.key === 'bad') restartLife();
+  if (story.key === 'bad' && !story.replay) restartLife();   // 엔딩 수집에서 다시 볼 때는 초기화 안 함
   try { speechSynthesis.cancel(); } catch (e) {} scene = story.back;
   if (story.key === 'intro' && !auth && !AUTH_TEST) openAuth('choose');   // 처음 들어온 사람: 컷신 끝나면 로그인/회원가입/게스트 선택
 }
@@ -3396,6 +3425,7 @@ function updateSelect() {
     SFX.confirm();
     if (selFor === 'online') { scene = 'online'; NET.err = ''; } else startRun();
   }
+  if (pressed.Escape && !isUnlocked(getChar(sel.c1))) sel.c1 = 0;   // 잠긴 돼지에 커서를 둔 채 나가면 기본 돼지로
   if (pressed.Escape) { if (selFor === 'online') scene = 'online'; else toTitle(); }
 }
 function toast(s) { toastMsg = s; toastT = 150; }
@@ -4230,7 +4260,7 @@ function drawFighter(f) {
   }
 }
 function keyHint(f, which) {
-  if (mode === 0 || (mode === 3 ? f !== NET.me : f === p2)) return '';
+  if (mode === 0 || mode === 4 || (mode === 3 ? f !== NET.me : f === p2)) return '';
   if (TOUCH) return { ult: '[필살기 버튼]', skill: '[스킬 버튼]', tf: '[변신 버튼]' }[which] || '';   // 모바일은 버튼으로 안내
   const m = { ult: 'Y', skill: 'U', tf: 'T' };   // 한 번에 누르는 단축키로 안내
   return `[${m[which]}]`;
