@@ -170,15 +170,15 @@ cv.addEventListener('pointerdown', e => {
 // ---- 모바일 터치 패드 ----
 // 왼쪽: 아무 데나 누르고 끌면 움직이는 조이스틱 (↖↗ 대각선 점프 · 아래로 끌면 앉기 · 뒤로 끌면 막기)
 // 오른쪽: 공격 버튼. 손가락을 떼지 않고 옆 버튼으로 미끄러져도 바로 눌림
-const PAD = [   // 공격 버튼 4개 + 업어치기·스킬·필살기·변신 버튼 (조이스틱 커맨드 ↓→ · ↓← · →→ · ↓↓ + 공격도 그대로 됨)
+const PAD = [   // 공격 버튼 4개 + 업어치기·스킬·필살기 버튼 (조이스틱 커맨드 ↓→ · ↓← · →→ + 공격도 그대로 됨)
   { t: '오른손', codes: ['KeyI'] }, { t: '왼손', codes: ['KeyO'] },
   { t: '오른발', codes: ['KeyK'] }, { t: '왼발', codes: ['KeyL'] },
   { t: '업어<br>치기', codes: ['KeyJ'], c: 'grab' }, { t: '스킬', codes: ['KeyU'], c: 'skill' },
-  { t: '필살기', codes: ['KeyY'], c: 'ult' }, { t: '변신', codes: ['KeyT'], c: 'tf' }
+  { t: '필살기', codes: ['KeyY'], c: 'ult' }
 ];
 // 버튼 위치: 오른쪽 아래 모서리 기준 [가로, 세로, 크기] (단위 u)
 const PAD_POS = [[-2.15, -1.75, 1.08], [-1.0, -2.05, 1.08], [-2.15, -0.62, 1.08], [-1.0, -0.92, 1.08],   // 공격 버튼 4개
-  [-3.3, -0.6, 0.9], [-3.3, -1.6, 0.9], [-1.0, -3.1, 0.92], [-2.15, -2.85, 0.84]];   // 업어치기·스킬 (왼쪽 줄) · 필살기·변신 (위쪽 줄)
+  [-3.3, -0.6, 0.9], [-3.3, -1.6, 0.9], [-1.55, -3.0, 0.95]];   // 업어치기·스킬 (왼쪽 줄) · 필살기 (위쪽)
 const padEl = document.getElementById('pad');
 const joyZ = document.createElement('div'), joyB = document.createElement('div'), joyK = document.createElement('div');
 joyZ.id = 'joyz'; joyB.id = 'joyb'; joyK.id = 'joyk'; joyZ.append(joyB, joyK); padEl.appendChild(joyZ);
@@ -249,9 +249,9 @@ function syncPad() {
   const want = TOUCH && ['intro', 'fight', 'roundEnd'].includes(scene);
   if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; if (!want) { joyEnd(); padReleaseAll(); } }   // 숨길 때 눌린 키가 남지 않게
   if (!padShown) return;
-  // 특수 버튼 상태: 쓸 수 있으면 빛나고(필살기·변신), 못 쓰면 흐리게
+  // 특수 버튼 상태: 쓸 수 있으면 빛나고(필살기), 못 쓰면 흐리게
   const me = mode === 3 && NET.me ? NET.me : p1;
-  const st = { grab: 1, skill: me.skillCD <= 0 ? 1 : 0, ult: me.meter >= 100 ? 2 : 0, tf: me.tfG >= 100 && !me.tfOn ? 2 : 0 };
+  const st = { grab: 1, skill: me.skillCD <= 0 ? 1 : 0, ult: me.meter >= 100 ? 2 : 0 };
   for (const p of PAD) if (p.c) { const v = st[p.c]; if (p.st !== v) { p.st = v; p.el.classList.toggle('off', v === 0); p.el.classList.toggle('rdy', v === 2); } }
 }
 
@@ -1077,7 +1077,7 @@ class Fighter {
   speedMul() { let m = this.ch.speed; if (this.tfIs('wild')) m *= 1.4; if (this.tfIs('thaw')) m *= 1.15; if (this.tfIs('shadow')) m *= 1.2; if (this.tfIs('stone')) m *= 0.8; if (this.tfIs('giant')) m *= 0.85; if (this.slowT > 0) m *= 0.6; if (this.stamina < 35) m *= 0.75; return m; }
   atkSpeedMul(isPunch) { let m = 1; if (this.tfIs('wild')) m *= 0.7; if (this.tfIs('champion') && isPunch) m *= 0.7; if (this.slowT > 0) m *= 1.25; if (this.stamina < 35) m *= 1.25; return m; }
   dmgMul(kind) {
-    let m = this.ch.power;
+    let m = this.ch.power * (this.condDmg || 1);   // condDmg: AI 베팅 컨디션
     if (this.tfIs('fire')) m *= 1.25; if (this.tfIs('giant')) m *= 1.15; if (this.tfIs('spicy')) m *= 1.1; if (this.tfIs('gilded')) m *= 1.2;
     if (this.tfIs('champion') && kind === 'punch') m *= 1.4; if (this.tfIs('ironHoof') && kind === 'kick') m *= 1.5;
     if (this.weapon && (kind === 'punch' || kind === 'kick')) m *= 1.25;
@@ -1147,7 +1147,7 @@ p1.opp = p2; p2.opp = p1;
 p1.setChar(CHARS[0]); p2.setChar(CHARS[1]);
 
 // ---- 커맨드 입력 (모바일은 공격 버튼 4개뿐이라 이걸로, PC에서도 됨) ----
-//   ↓→ + 공격 = 스킬 · ↓← + 공격 = 업어치기 · →→ + 공격 = 필살기 · ↓↓ + 공격 = 변신   (→ = 상대 쪽)
+//   ↓→ + 공격 = 스킬 · ↓← + 공격 = 업어치기 · →→ + 공격 = 필살기   (→ = 상대 쪽)
 // 방향을 새로 누른 순간만 기록 → 두 방향 사이 24프레임, 마지막 방향 뒤 16프레임 안에 공격 버튼
 // 게임 입력(inp)과 프레임 번호만 써서 계산 → 온라인 두 화면에서도 똑같이 판정됨
 function readMotion(f, inp) {
@@ -1159,7 +1159,7 @@ function readMotion(f, inp) {
   if (!(inp.lp || inp.rp || inp.lk || inp.rk) || m.toks.length < 2) return inp;
   const [a, b] = m.toks.slice(-2);
   if (f.t - b[1] > 16 || b[1] - a[1] > 24) return inp;
-  const cmd = { DF: 'skill', DB: 'grab', FF: 'ult', DD: 'tf' }[a[0] + b[0]];
+  const cmd = { DF: 'skill', DB: 'grab', FF: 'ult' }[a[0] + b[0]];   // (변신은 뺐음)
   if (!cmd || (cmd === 'ult' && f.meter < 100) || (cmd === 'tf' && (f.tfG < 100 || f.tfOn)) || (cmd === 'skill' && f.skillCD > 0)) return inp;   // 못 쓰는 상황이면 그냥 공격
   m.toks = [];
   const o = { ...inp, lp: false, rp: false, lk: false, rk: false, down: false };
@@ -1171,7 +1171,6 @@ function freeUpdate(f, o, inp) {
   if (ground) f.facing = o.x > f.x ? 1 : -1;
   const back = f.facing > 0 ? inp.left : inp.right, backP = f.facing > 0 ? inp.leftP : inp.rightP;
   if (backP && f.parryCD <= 0 && ground) { f.parryT = 7; f.parryCD = 26; }
-  if (inp.tf && f.tfG >= 100 && !f.tfOn && ground) return startTf(f);   // 변신: 변신 게이지가 꽉 차면 T(모바일: 변신 버튼)
   if (inp.ult && f.meter >= 100 && ground && (f.cmdT > 0 || inp.cpu || inp.ultD)) return startUlt(f);
   if (inp.skill && f.skillCD <= 0 && ground) return startSkill(f, false);
   if (inp.grab && ground) {
@@ -1460,7 +1459,7 @@ function dealHit(a, d, h) {
         const chip = h.dmg * (h.chip ?? 0.1) * a.dmgMul(h.kind);
         d.hp = Math.max(1, d.hp - chip); d.blockLow = cb; d.state = 'blockstun'; d.stun = Math.round((h.stun || 16) * 0.6);
         d.vx = (Math.sign(d.x - h.src) || -d.facing) * (h.kb || 4) * 0.6;
-        if (!d.tfOn) d.tfG = Math.min(100, d.tfG + 2);   // 막기는 필살 게이지 없음
+        // 막기는 필살 게이지 없음
         burst(h.hx ?? (h.src + d.x) / 2, d.y - 95 * d.sc / 1.15, 8, ['#80d8ff', '#ffffff'], 6); SFX.block(); hitstop = Math.max(hitstop, 3);
         return 'block';
       }
@@ -1480,8 +1479,6 @@ function dealHit(a, d, h) {
   // 필살 게이지는 때린 쪽만 참. 한 방이 센 공격(8 넘는 피해)은 넘는 만큼 절반만 쳐줌 → 딜 센 캐릭은 궁이 천천히 참.
   // 캐릭터마다 충전 속도(ultRate)가 다름: 빠르고 약한 캐릭은 빨리, 묵직한 캐릭은 천천히
   a.meter = Math.min(100, a.meter + (dmg <= 8 ? dmg : 8 + (dmg - 8) * 0.5) * 1.6 * (a.ch.ultRate ?? 1) * (a.tfIs('gilded') ? 1.5 : 1));   // 황금 각성: 1.5배
-  if (!a.tfOn) a.tfG = Math.min(100, a.tfG + dmg * 1.3);
-  if (!d.tfOn) d.tfG = Math.min(100, d.tfG + dmg * 0.8);
   d.stamina = Math.max(0, d.stamina - dmg * 0.6);
   if (h.burn || a.tfIs('fire') || a.tfIs('spicy')) d.burnT = Math.max(d.burnT, h.burn || 120);
   if (h.slow || a.tfIs('freeze')) d.slowT = Math.max(d.slowT, h.slow || 120);
@@ -1806,8 +1803,7 @@ function cpuInput(me, op) {
   if (--ai.think <= 0) {
     ai.think = Math.max(5, 10 - L * 0.3) + (Math.random() * Math.max(8, 18 - L * 0.6) | 0);   // 밸런스 패치: 생각 간격을 늘려 덜 몰아붙이게
     const r = Math.random();
-    if (me.tfG >= 100 && !me.tfOn && r < 0.6) inp.tf = true;   // 변신 게이지가 차면 변신
-    else if (me.meter >= 100 && dist < ULT_RANGE[me.ch.ult.type] && r < 0.5) { inp.ult = true; inp.cpu = true; }
+    if (me.meter >= 100 && dist < ULT_RANGE[me.ch.ult.type] && r < 0.5) { inp.ult = true; inp.cpu = true; }
     else if (me.skillCD <= 0 && r < 0.35 && skillGood(me.ch.skill.type, dist, op)) inp.skill = true;
     else if (dist < 130 && r < 0.12) inp.grab = true;
     else if (dist < 200) {
@@ -2541,17 +2537,36 @@ function drawMarket() {
 }
 
 // ================= AI 경기 베팅 =================
-const COND = ['😵 나쁨', '🙂 보통', '😤 좋음', '🔥 최상'], COND_LV = [1, 3, 5, 8], BET_PCT = [0, 0.1, 0.25, 0.5, 1];
-const bet4 = { a: 0, b: 1, ca: 1, cb: 1, oa: 2, ob: 2, side: 0, amt: 1, stake: 0, fast: false };
+// 컨디션은 실제 경기에 반영됨: AI 실력(COND_LV) + 체력(COND_HP) + 공격력(COND_DMG). 화면에도 돼지 모습·효과로 보여 줌
+const COND = ['😵 나쁨', '🙂 보통', '😤 좋음', '🔥 최상'], COND_LV = [0, 3, 6, 10], BET_PCT = [0, 0.1, 0.25, 0.5, 1];
+const COND_HP = [0.85, 1, 1.08, 1.15], COND_DMG = [0.9, 1, 1.05, 1.1], COND_COL = ['#ff8a80', '#fff', '#69f0ae', '#ffd740'];
+const COND_FX = ['체력·공격↓ · 반응 느림', '평소 실력', '체력·공격↑ · 반응 빠름', '체력·공격↑↑ · 신들림'];
+const bet4 = { a: 0, b: 1, ca: 1, cb: 1, oa: 2, ob: 2, pa: 0.5, side: 0, amt: 1, stake: 0, fast: false };
+// 예상 전투력: 체력 × 공격력 × 속도 × 컨디션 (AI 실력 포함)
+const betPower = (c, cd) => (c.hp / 100) * COND_HP[cd] * c.power * COND_DMG[cd] * Math.sqrt(c.speed) * (1 + 0.04 * COND_LV[cd]);
 function openBet() {
   if (coins < 10) toast('💸 파산! 🏦 은행에서 대출을 받으세요 (지금은 구경만 가능)');
   const a = Math.random() * CHARS.length | 0; let b; do { b = Math.random() * CHARS.length | 0; } while (b === a);
   Object.assign(bet4, { a, b, ca: Math.random() * 4 | 0, cb: Math.random() * 4 | 0, side: 0, amt: 1, stake: 0 });
-  const rate = (c, cd) => (c.hp / 100) * c.power * Math.sqrt(c.speed) * (1 + 0.07 * COND_LV[cd]);
-  const ra = rate(CHARS[a], bet4.ca) ** 3, rb = rate(CHARS[b], bet4.cb) ** 3;
-  const pa = clamp(ra / (ra + rb) + (Math.random() - 0.5) * 0.1, 0.15, 0.85);   // 숨은 변수 조금
+  const ra = betPower(CHARS[a], bet4.ca) ** 3, rb = betPower(CHARS[b], bet4.cb) ** 3;
+  const pa = bet4.pa = clamp(ra / (ra + rb) + (Math.random() - 0.5) * 0.06, 0.1, 0.9);   // 숨은 변수 조금
   bet4.oa = Math.max(1.1, Math.round(92 / pa) / 100); bet4.ob = Math.max(1.1, Math.round(92 / (1 - pa)) / 100);
   mode = 4; scene = 'betpick';
+}
+// 컨디션을 돼지 모습으로: 나쁨 = 칙칙·식은땀·움찔, 좋음 = 초록 기운, 최상 = 불꽃 기운 + 만세
+function condPose(cd, p, x, y, sc) {
+  if (cd === 0) { p.filter = (p.filter || '') + ' saturate(0.45) brightness(0.85)'; if (gT % 90 < 30) p.hurt = true; }
+  if (cd === 2) p.aura = '#69f0ae';
+  if (cd === 3) p.aura = '#ff9100';
+  return p;
+}
+function drawCondFx(cd, x, y, sc) {   // 머리 위 땀방울·한숨 / 반짝이·불꽃
+  if (cd === 0) {
+    const k = (gT % 50) / 50; ctx.fillStyle = `rgba(130,200,255,${1 - k})`; ell(x + 30 * sc, y - 170 * sc + k * 30, 5, 8); ctx.fill();
+    txt('💦', x - 34 * sc, y - 185 * sc, 20, '#fff', null);
+  }
+  if (cd === 2 && gT % 60 < 30) txt('💪', x - 40 * sc, y - 185 * sc, 20, '#fff', null);
+  if (cd === 3) { txt(gT % 40 < 20 ? '🔥' : '✨', x - 40 * sc, y - 190 * sc, 24, '#fff', null); txt('🔥', x + 42 * sc, y - 150 * sc + Math.sin(gT * 0.2) * 4, 18, '#fff', null); }
 }
 function updateBetPick() {
   if (pressed.KeyA || pressed.ArrowLeft) { bet4.side = 0; SFX.select(); }
@@ -2572,7 +2587,13 @@ function drawBetPick() {
   drawStage(); ctx.fillStyle = 'rgba(15,8,25,0.7)'; ctx.fillRect(0, 0, W, H);
   txt('🎲 AI 경기 베팅', W / 2, 32, 32, '#fff', '#000', 6);
   txt(`🪙 ${fmtN(coins)} 코인`, W - 24, 32, 20, '#ffd740', '#000', 4, 'right');
-  txt('이길 것 같은 돼지를 고르고 코인을 거세요!  배당이 높을수록 이변!', W / 2, 62, 15, '#ffe082', null);
+  // 예상 승률 막대: 왼쪽 돼지 vs 오른쪽 돼지 (능력치 + 컨디션으로 계산)
+  const pa = bet4.pa, bx = W / 2 - 200, bwid = 400;
+  ctx.fillStyle = '#222'; rr(bx - 2, 54, bwid + 4, 18, 6); ctx.fill();
+  ctx.fillStyle = '#ef5350'; ctx.fillRect(bx, 56, bwid * pa, 14); ctx.fillStyle = '#42a5f5'; ctx.fillRect(bx + bwid * pa, 56, bwid * (1 - pa), 14);
+  txt(`예상 승률 ${Math.round(pa * 100)}%`, bx - 10, 63, 14, '#ff8a80', '#000', 3, 'right');
+  txt(`${Math.round((1 - pa) * 100)}%`, bx + bwid + 10, 63, 14, '#82b1ff', '#000', 3, 'left');
+  txt(pa > 0.62 ? '◀ 왼쪽 우세' : pa < 0.38 ? '오른쪽 우세 ▶' : '막상막하!', W / 2, 63, 12, '#fff', '#000', 3);
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 16, 80, 32, 8); ctx.fill(); txt('← 나가기', 54, 32, 13, '#fff', null);
   addHot(14, 16, 80, 32, () => { pressed.Escape = true; });
   [[bet4.a, bet4.ca, bet4.oa], [bet4.b, bet4.cb, bet4.ob]].forEach(([ci, cd, od], s) => {
@@ -2580,13 +2601,27 @@ function drawBetPick() {
     ctx.fillStyle = on ? 'rgba(110,25,35,0.9)' : 'rgba(25,12,40,0.85)'; rr(x, 80, 400, 300, 16); ctx.fill();
     ctx.strokeStyle = on ? '#ff5252' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = on ? 4 : 2; rr(x, 80, 400, 300, 16); ctx.stroke();
     addHot(x, 80, 400, 300, () => { bet4.side = s; SFX.select(); });
-    drawPig(x + 110, 330, s ? -1 : 1, c.look, { scale: c.scale * 1.15, t: gT + s * 40, victory: on && gT % 120 < 40 });
-    txt(c.name, x + 290, 112, 28, '#fff', '#000', 5); txt(`${c.title} · ${c.type}`, x + 290, 142, 13, '#ccc', null);
-    txt(`컨디션 ${COND[cd]}`, x + 290, 182, 17, ['#ff8a80', '#fff', '#69f0ae', '#ffd740'][cd], null);
-    txt(`배당`, x + 290, 228, 15, '#bbb', null);
-    txt(`×${od.toFixed(2)}`, x + 290, 262, 40, '#ffd740', '#000', 6);
-    txt(`필살기: ${c.ult.name}`, x + 290, 302, 12, '#ffab91', null);
-    if (on) txt('✔ 여기에 건다!', x + 290, 350, 18, '#ff8a80', '#000', 4);
+    const psc = c.scale * 1.15;
+    drawPig(x + 110, 330, s ? -1 : 1, c.look, condPose(cd, { scale: psc, t: gT + s * 40, victory: cd === 3 ? gT % 80 < 40 : on && gT % 120 < 40 }, x + 110, 330, psc));
+    drawCondFx(cd, x + 110, 330, psc);
+    txt(c.name, x + 290, 106, 26, '#fff', '#000', 5); txt(`${c.title} · ${c.type}`, x + 290, 130, 12, '#ccc', null);
+    // 컨디션: 배지 + 실제 효과
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(x + 195, 142, 190, 44, 8); ctx.fill(); ctx.strokeStyle = COND_COL[cd]; ctx.lineWidth = 2; rr(x + 195, 142, 190, 44, 8); ctx.stroke();
+    txt(`컨디션 ${COND[cd]}`, x + 290, 156, 15, COND_COL[cd], null);
+    txt(COND_FX[cd], x + 290, 175, fitSize(COND_FX[cd], 11, 180), '#ddd', null);
+    // 능력치 막대 (컨디션 반영된 값은 밝게, 원래 값은 흐리게)
+    const stats = [['체력', c.hp / 130, COND_HP[cd]], ['공격', c.power / 1.4, COND_DMG[cd]], ['속도', c.speed / 1.4, 1 + 0.02 * (COND_LV[cd] - 3)]];
+    stats.forEach(([lb, v, m], k) => {
+      const yy = 198 + k * 18, bx2 = x + 232, bw2 = 150;
+      txt(lb, x + 212, yy + 5, 11, '#bbb', null);
+      ctx.fillStyle = '#333'; ctx.fillRect(bx2, yy, bw2, 9);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(bx2, yy, bw2 * clamp(v), 9);
+      ctx.fillStyle = COND_COL[cd] === '#fff' ? '#90caf9' : COND_COL[cd]; ctx.fillRect(bx2, yy, bw2 * clamp(v * m), 9);
+    });
+    txt(`배당`, x + 290, 262, 13, '#bbb', null);
+    txt(`×${od.toFixed(2)}`, x + 290, 292, 34, '#ffd740', '#000', 6);
+    txt(`필살기: ${c.ult.name}`, x + 290, 324, 12, '#ffab91', null);
+    if (on) txt('✔ 여기에 건다!', x + 290, 352, 18, '#ff8a80', '#000', 4);
   });
   ['구경만', '10%', '25%', '50%', '올인!'].forEach((s, i) => {
     const x = W / 2 - 300 + i * 122, on = bet4.amt === i, v = i ? Math.max(1, Math.floor(coins * BET_PCT[i])) : 0;
@@ -2725,7 +2760,7 @@ function drawTitle() {
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
   drawPig(810, 470, -1, CHARS[(i + 5) % CHARS.length].look, { t: gT + 30, scale: CHARS[(i + 5) % CHARS.length].scale * 1.1 });
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(60, 482, 840, 50, 10); ctx.fill();
-  const hl = TOUCH ? '왼쪽 조이스틱: 이동·점프·앉기 (뒤로 끌면 막기) · 오른쪽 버튼: 공격·스킬·업어치기·필살기·변신' : '이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y · 변신 T (↓→ 같은 커맨드도 됨)'; txt(hl, W / 2, 497, fitSize(hl, 13, 900), '#ffd6df', null);   // 길면 글자를 줄여서 한 줄에
+  const hl = TOUCH ? '왼쪽 조이스틱: 이동·점프·앉기 (뒤로 끌면 막기) · 오른쪽 버튼: 공격·스킬·업어치기·필살기' : '이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y (↓→ 같은 커맨드도 됨)'; txt(hl, W / 2, 497, fitSize(hl, 13, 900), '#ffd6df', null);   // 길면 글자를 줄여서 한 줄에
   txt(TOUCH ? '📱 버튼으로 조작 · 메뉴는 탭!' : 'W/S 메뉴 이동 · Enter 선택 · 숫자키 바로가기 · M 배경음', W / 2, 518, 12, '#80d8ff', null);
   txt(`🔊 ${musicMuted ? '꺼짐' : '켜짐'}`, W - 16, 20, 13, '#ccc', '#000', 3, 'right');
   addHot(W - 90, 6, 84, 28, () => { toggleMute(); });
@@ -3034,7 +3069,7 @@ const STORY = {
   bad: [
     { sp: '사채업자 멧돼지 실장', tx: '"코인이 한 푼도 없다고? ...약속대로다."', art: 'boss' },
     { sp: '{name}', tx: '"자, 잠깐만요! 한 판만... 딱 한 판만 더...!"', art: 'bankrupt' },
-    { sp: '내레이션', tx: '그날 밤, 멧돼지 실장의 철판 위에서 아주 맛있는 냄새가 났다고 합니다... 💀 삼겹살 엔딩 (처음부터 다시 시작)', art: 'bankrupt' }
+    { sp: '내레이션', tx: '그날 밤, 멧돼지 실장의 철판 위에서 아주 맛있는 냄새가 났다고 합니다... 💀 삼겹살 엔딩 (돈·빚은 처음부터, 티어·랭킹은 그대로)', art: 'bankrupt' }
   ],
   // 최고 티어 달성
   master: [
@@ -3065,10 +3100,10 @@ function checkChapters() {
   if (isBroke()) { startStory('bad', 'title'); return true; }   // 배드 엔딩은 다시 시작하면 또 볼 수 있음
   return false;
 }
-// 배드 엔딩 뒤: 돈·빚·티어·스토리 진행만 처음으로 (닉네임·캐릭터·엔딩 수집 기록은 유지)
+// 배드 엔딩(파산) 뒤: 돈·빚·스토리 진행만 처음으로 (티어·랭킹·닉네임·캐릭터·엔딩 수집 기록은 그대로)
 function restartLife() {
   coins = 100; lsSet('sgf_coin', coins); debt = DEBT_START; bankDebt = 0; debtBase = DEBT_START; saveDebt();
-  tp = 0; lsSet('sgf_tp', tp); promo = null; lsSet('sgf_promo', null); chapSeen = ['intro']; lsSet('sgf_chap', chapSeen); uploadRank();
+  chapSeen = chapSeen.includes('master') ? ['intro', 'master'] : ['intro']; lsSet('sgf_chap', chapSeen);   // 마스터 티어 엔딩은 이미 봤으면 다시 안 띄움
 }
 const story = { key: 'intro', i: 0, t: 0, back: 'title' };
 const storyText = pg => pg.tx.replace(/\{name\}/g, playerName);
@@ -3278,7 +3313,11 @@ function startMatch() {
   p2.name = mode === 0 ? p2.base + ' (CPU)' : `${p2.base} Lv.${oppLv() + 1}`;
   if (mode === 1) p2.meter = Math.min(40, (ranked ? tierOf(tp) : streak) * 4);
   if (mode === 3) { p1.cpuLv = p2.cpuLv = 0; p1.name = NET.names[0]; p2.name = NET.names[1]; }
-  p1.hpMul = p2.hpMul = 1;
+  p1.hpMul = p2.hpMul = 1; p1.condDmg = p2.condDmg = 1; p1.cond = p2.cond = -1;
+  if (mode === 4) {   // AI 베팅: 컨디션이 실제 체력·공격력에 반영됨
+    p1.cond = bet4.ca; p2.cond = bet4.cb;
+    p1.hpMul = COND_HP[bet4.ca]; p2.hpMul = COND_HP[bet4.cb]; p1.condDmg = COND_DMG[bet4.ca]; p2.condDmg = COND_DMG[bet4.cb];
+  }
   if (mode === 4) { p1.cpuLv = COND_LV[bet4.ca]; p2.cpuLv = COND_LV[bet4.cb]; p1.name = `${p1.base} ×${bet4.oa.toFixed(2)}`; p2.name = `${p2.base} ×${bet4.ob.toFixed(2)}`; }
   if (mode === 1) {
     if (inv.use.hpup > 0) { inv.use.hpup--; p1.hpMul = 1.15; toast('🛡️ 강철 체력! 체력 +15%'); }
@@ -4136,6 +4175,10 @@ function poseOf(f) {
   if (f.slowT > 0) p.filter = (p.filter || '') + ' hue-rotate(170deg) saturate(0.7)';
   if (f.weapon) p.weapon = f.weapon.kind;
   if (f.drunkT > 0 && f.state !== 'ko') { p.tilt = Math.sin(f.t * 0.12) * 0.18; p.filter = (p.filter || '') + ' saturate(1.4) hue-rotate(-12deg)'; }
+  if (mode === 4 && f.cond >= 0 && f.state !== 'ko') {   // AI 베팅: 경기 중에도 컨디션이 보이게
+    if (f.cond === 0) p.filter = (p.filter || '') + ' saturate(0.55) brightness(0.9)';
+    if (f.cond >= 2 && !p.aura) p.aura = f.cond === 3 ? '#ff9100' : '#69f0ae';
+  }
   return p;
 }
 // 자세가 한 번에 '툭' 바뀌지 않게: 앉기·맞음(몸 기울기)·막기·걷기를 몇 프레임에 걸쳐 부드럽게 바꿈 (화면 표시만, 판정과 무관)
@@ -4154,6 +4197,7 @@ function drawFighter(f) {
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ell(f.x, GROUND + 2, 50 * k * s, 9 * k); ctx.fill();
   if (f.tfIs('clone')) drawPig(f.x - f.facing * 45 * s, f.y, f.facing, f.C, { ...p, alpha: 0.35, aura: null });
   drawPig(f.x, f.y, f.facing, f.C, p);
+  if (mode === 4 && f.cond >= 0 && f.cond !== 1 && f.state !== 'ko') drawCondFx(f.cond, f.x, f.y, f.sc);
   if (f.state === 'locked' && f.opp.ch.ult.type === 'absoluteZero') {
     ctx.fillStyle = 'rgba(179,229,252,0.45)'; ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 3;
     rr(f.x - 70 * s, f.y - 170 * s, 140 * s, 170 * s, 12); ctx.fill(); ctx.stroke();
@@ -4211,13 +4255,6 @@ function drawHUD() {
     ctx.fillStyle = full ? (gT % 20 < 10 ? '#ff4081' : '#ffeb3b') : '#ffb300';
     ctx.fillRect(dir > 0 ? mx : mx + mw - mwF, H - 50, mwF, 12);
     if (full) txt('MAX!', mx + mw / 2, H - 44, 12, '#fff', '#000', 3);
-    // 변신 게이지 (필살 게이지 아래): 꽉 차면 T(모바일: 변신 버튼)로 변신, 변신 중엔 남은 시간
-    const tk = f.tfOn ? f.tfT / 480 : f.tfG / 100, tw2 = mw * clamp(tk), tReady = !f.tfOn && f.tfG >= 100;
-    ctx.fillStyle = '#222'; rr(mx - 3, H - 30, mw + 6, 11, 4); ctx.fill();
-    ctx.fillStyle = tReady ? (gT % 20 < 10 ? '#ffffff' : f.ch.tf.color) : f.ch.tf.color; ctx.globalAlpha = f.tfOn || tReady ? 1 : 0.75;
-    ctx.fillRect(dir > 0 ? mx : mx + mw - tw2, H - 28, tw2, 7); ctx.globalAlpha = 1;
-    const tLabel = f.tfOn ? `변신 중 · ${f.ch.tf.name}` : tReady ? `변신 가능! ${keyHint(f, 'tf')} ${f.ch.tf.name}` : `변신 ${f.ch.tf.name}`;
-    txt(tLabel, max, H - 11, 11, tReady ? '#fff' : '#b2ebf2', '#000', 3, mal);
     const sx = dir > 0 ? mx + mw + 14 : mx - 14 - 120;
     ctx.fillStyle = '#222'; rr(sx, H - 52, 120, 40, 8); ctx.fill();
     if (f.skillCD > 0) { const cdMax = f.ch.skill.cd; ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(sx, H - 52, 120 * (1 - f.skillCD / cdMax), 40); }
@@ -4336,8 +4373,6 @@ function drawSelect() {
   ctx.fillStyle = '#333'; ctx.fillRect(x + 312, 385, 110, 10);
   ctx.fillStyle = '#ffb300'; ctx.fillRect(x + 312, 385, 110 * clamp((ur - 0.6) / 0.7), 10);
   txt(ur >= 1.15 ? '빠름' : ur <= 0.85 ? '느림' : '보통', x + 312, 408, 12, '#ffcc80', null, 0, 'left');
-  const tfInfo = `변신 [${TOUCH ? '변신 버튼' : 'T'}]: ${c.tf.name} — ${c.tf.desc}`;   // 변신 게이지가 꽉 차면 T
-  txt(tfInfo, x + 250, 428, fitSize(tfInfo, 12, 200), '#80deea', null, 0, 'left');
   ctx.fillStyle = '#ff5252'; rr(x + 470, 324, 150, 40, 10); ctx.fill(); txt(selFor === 'online' ? '이 돼지로 온라인!' : '이 돼지로 시작!', x + 545, 344, 16, '#fff', null);
   addHot(x + 470, 324, 150, 40, () => { pressed.Enter = true; });
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 70, 30, 8); ctx.fill(); txt('← 뒤로', 49, 29, 13, '#fff', null);
@@ -4354,8 +4389,8 @@ function drawVs() {
   drawPig(lerp(-200, 260, k), 420, 1, lf.C, { scale: 2, t: gT, victory: true });
   drawPig(lerp(W + 200, 700, k), 420, -1, rf.C, { scale: 2, t: gT + 20, victory: true });
   if (mode === 4) {
-    txt(p1.base, 220, 470, 34, '#fff', '#000', 8); txt(`×${bet4.oa.toFixed(2)} · ${COND[bet4.ca]}`, 220, 505, 17, '#ffd740', '#000', 4);
-    txt(p2.base, 740, 470, 34, '#fff', '#000', 8); txt(`×${bet4.ob.toFixed(2)} · ${COND[bet4.cb]}`, 740, 505, 17, '#ffd740', '#000', 4);
+    txt(p1.base, 220, 470, 34, '#fff', '#000', 8); txt(`×${bet4.oa.toFixed(2)} · ${COND[bet4.ca]} · 승률 ${Math.round(bet4.pa * 100)}%`, 220, 505, 17, '#ffd740', '#000', 4);
+    txt(p2.base, 740, 470, 34, '#fff', '#000', 8); txt(`×${bet4.ob.toFixed(2)} · ${COND[bet4.cb]} · 승률 ${Math.round((1 - bet4.pa) * 100)}%`, 740, 505, 17, '#ffd740', '#000', 4);
     txt('🎲 AI 경기', W / 2, 50, 28, '#ffd740', '#000', 6);
     txt(bet4.stake ? `${(bet4.side ? p2 : p1).base}에 ${bet4.stake}코인!` : '구경 모드', W / 2, 92, 18, '#fff', '#000', 4);
     txt('VS', W / 2, H / 2 - 40, 120 * (1 + (1 - k)), '#ffeb3b', '#000', 14);
