@@ -2710,8 +2710,48 @@ const MENU = [
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
   ['🏮 포장마차 시장', '요리 팔기 · 꾸미기 상점', () => openMarket()],
   ['🏦 은행 · 빚 갚기', () => totalDebt() > 0 ? `빚 ${fmtN(totalDebt())} 남음` : '빚 청산 완료! 👑', () => { bk.sel = 0; scene = 'bank'; }],
-  ['📊 랭킹', '랭크전 티어 · 최고 연승 TOP 100', () => openRanking(false)]
+  ['📊 랭킹', '랭크전 티어 · 최고 연승 TOP 100', () => openRanking(false)],
+  ['🎬 엔딩 수집', () => `${endSeen.length}/${ENDINGS.length} · 본 엔딩 다시 보기`, () => { endSel = 0; scene = 'endings'; }]
 ];
+// ================= 엔딩 수집 화면 =================
+// 이미 본 엔딩은 여기서만 다시 볼 수 있음. 안 본 엔딩은 얻는 방법 힌트만
+const END_INFO = {
+  ending: ['🎉', '사채 10,000코인을 모두 갚기'],
+  rich: ['💰', '빚을 다 갚고 코인 30,000 모으기'],
+  master: ['🏆', '랭크전 최고 티어(그렌드피아노) 달성'],
+  bad: ['💀', '코인이 0이 되어 파산하기']
+};
+let endSel = 0;
+function updateEndings() {
+  const n = ENDINGS.length;
+  if (pressed.KeyA || pressed.ArrowLeft || pressed.KeyD || pressed.ArrowRight) { endSel ^= 1; SFX.select(); }
+  if (pressed.KeyW || pressed.ArrowUp || pressed.KeyS || pressed.ArrowDown) { endSel = (endSel + 2) % n; SFX.select(); }
+  if (pressed.Enter || pressed.Space || pressed.KeyI) {
+    const k = ENDINGS[endSel][0];
+    if (endSeen.includes(k)) { SFX.confirm(); startStory(k, 'endings'); story.replay = true; }
+    else { SFX.block(); toast(`아직 못 본 엔딩이에요 · 힌트: ${END_INFO[k][1]}`); }
+  }
+  if (pressed.Escape) toTitle();
+}
+function drawEndings() {
+  drawStage(); ctx.fillStyle = 'rgba(10,5,25,0.8)'; ctx.fillRect(0, 0, W, H);
+  txt('🎬 엔딩 수집', W / 2, 40, 34, '#ffe082', '#000', 7);
+  txt(`모은 엔딩 ${endSeen.length} / ${ENDINGS.length} · 본 엔딩은 눌러서 다시 볼 수 있어요`, W / 2, 76, 15, '#fff', null);
+  ENDINGS.forEach(([k, nm], i) => {
+    const x = 90 + (i % 2) * 400, y = 104 + (i >> 1) * 170, got = endSeen.includes(k), on = endSel === i;
+    ctx.fillStyle = on ? (got ? 'rgba(255,145,0,0.35)' : 'rgba(255,255,255,0.12)') : 'rgba(25,12,40,0.85)'; rr(x, y, 380, 150, 16); ctx.fill();
+    ctx.strokeStyle = on ? '#ffd54f' : got ? 'rgba(255,224,130,0.5)' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = on ? 4 : 2; rr(x, y, 380, 150, 16); ctx.stroke();
+    txt(got ? END_INFO[k][0] : '🔒', x + 60, y + 75, 48, '#fff', null);
+    txt(got ? `${nm} 엔딩` : '???', x + 230, y + 42, 24, got ? '#fff' : '#888', '#000', 4);
+    txt(got ? '본 엔딩' : '아직 못 본 엔딩', x + 230, y + 74, 13, got ? '#69f0ae' : '#aaa', null);
+    txt(`조건: ${END_INFO[k][1]}`, x + 230, y + 100, fitSize(`조건: ${END_INFO[k][1]}`, 12, 260), '#ffe0b2', null);
+    if (got) { ctx.fillStyle = on ? '#ff5252' : 'rgba(255,82,82,0.6)'; rr(x + 170, y + 114, 120, 26, 8); ctx.fill(); txt('▶ 다시 보기', x + 230, y + 127, 13, '#fff', null); }
+    addHot(x, y, 380, 150, () => { endSel = i; pressed.Enter = true; });
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 80, 30, 8); ctx.fill(); txt('← 나가기', 54, 29, 13, '#fff', null);
+  addHot(14, 14, 80, 30, () => { pressed.Escape = true; });
+  txt(TOUCH ? '엔딩 칸을 탭하면 다시 보기' : '방향키/WASD 고르기 · Enter 다시 보기 · Esc 나가기', W / 2, 470, 13, '#aaa', null);
+}
 let titleSel = 0;
 function updateTitle() {
   if (pressed.KeyW || pressed.ArrowUp) { titleSel = (titleSel + MENU.length - 1) % MENU.length; SFX.select(); }
@@ -3441,6 +3481,7 @@ function step() {
   else if (scene === 'ranking') updateRanking();
   else if (scene === 'story') updateStory();
   else if (scene === 'bank') updateBank();
+  else if (scene === 'endings') updateEndings();
   else if (scene === 'opening') {
     sceneT++; updateOpening();
     if (sceneT >= OPEN_T || pressed.Space || pressed.Enter) { try { speechSynthesis.cancel(); } catch (e) {} nextOpponent(); }
@@ -4500,6 +4541,7 @@ function draw() {
   else if (scene === 'betpick') drawBetPick();
   else if (scene === 'story') drawStory();
   else if (scene === 'bank') drawBank();
+  else if (scene === 'endings') drawEndings();
   else if (scene === 'select') drawSelect();
   else if (scene === 'vs') drawVs();
   else if (scene === 'ranking') drawRanking();
