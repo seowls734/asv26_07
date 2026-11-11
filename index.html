@@ -538,7 +538,7 @@ function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch
 // 회원은 기록이 바뀌면 몇 초 뒤 자동으로 계정에 저장 → 다른 기기에서 로그인해도 이어서 할 수 있음. 게스트는 이 기기에만 저장, 랭킹에 안 오름.
 const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
 // 구글 로그인용 OAuth 클라이언트 ID (공개값). 비어 있으면 구글 버튼을 안 보여 줌. server/auth-worker.js의 DEFAULT_GOOGLE_CLIENT_ID와 같아야 함
-const GOOGLE_CLIENT_ID = '';
+const GOOGLE_CLIENT_ID = '36016988229-39ku26haf3v904rslpfvh5vnjlb3fc3t.apps.googleusercontent.com';
 const AUTH_TEST = /autotest|view=|shot=|nettest/i.test(location.search);   // 자동 테스트에서는 회원 서버에 저장 안 함
 const SAVE_SKIP = ['sgf_auth', 'sgf_pid', 'sgf_homeTip', 'sgf_pidDropped'];   // 기기마다 다른 값 → 계정 저장에서 뺌
 let auth = lsGet('sgf_auth', null);   // null: 아직 선택 안 함 · { guest: true } · { uid, login, token, syncT }

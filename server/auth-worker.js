@@ -37,7 +37,7 @@ const normLogin = v => String(v || '').trim().normalize('NFC').toLowerCase();
 const DEFAULT_ADMINS = '정우쮝';
 const adminList = env => String(env.ADMINS || DEFAULT_ADMINS).split(',').map(normLogin).filter(Boolean);
 // 구글 OAuth 클라이언트 ID (공개값이라 코드에 둬도 됨. 환경변수 GOOGLE_CLIENT_ID가 있으면 그걸 씀) — index.html의 GOOGLE_CLIENT_ID와 같아야 함
-const DEFAULT_GOOGLE_CLIENT_ID = '';
+const DEFAULT_GOOGLE_CLIENT_ID = '36016988229-39ku26haf3v904rslpfvh5vnjlb3fc3t.apps.googleusercontent.com';
 // 구글 ID 토큰 확인 → 구글 계정 고유번호(sub) / 실패하면 null
 async function googleSub(cred, env) {
   const cid = env.GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
