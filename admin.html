@@ -165,7 +165,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
       <fieldset>
         <legend>엔딩 · 해금</legend>
         <div class="checks" id="endChecks"></div>
-        <div class="checks" style="margin-top:8px"><label><input type="checkbox" id="f_unlock_gold"> 금한돈 해금 (sgf_unlock_금한돈)</label><label><input type="checkbox" id="f_unlock_jo"> 🎁 돼타로 선물 (sgf_unlock_돼타로)</label><label><input type="checkbox" id="f_unlock_pio"> 🎁 PIO 선물 (sgf_unlock_PIO)</label></div>
+        <div class="checks" style="margin-top:8px"><label><input type="checkbox" id="f_unlock_gold"> 금한돈 해금 (sgf_unlock_금한돈)</label><label><input type="checkbox" id="f_unlock_jo"> 🎁 돼타로 선물 (sgf_unlock_돼타로)</label><label><input type="checkbox" id="f_unlock_pio"> 🎁 PIO 선물 (sgf_unlock_PIO)</label><label><input type="checkbox" id="f_unlock_kk"> 🎁 돼쿄인 선물 (sgf_unlock_돼쿄인)</label></div>
       </fieldset>
       <fieldset>
         <legend>포장마차 장사 (sgf_tycoon)</legend>
@@ -316,7 +316,7 @@ function fillForm() {
   $('h_tp').textContent = '티어: ' + tierOf(+getV('sgf_tp') || 0);
   const ends = getV('sgf_end') || [];
   $('endChecks').innerHTML = ENDINGS.map(([k, n]) => `<label><input type="checkbox" data-end="${k}" ${ends.includes(k) ? 'checked' : ''}> ${n} 엔딩</label>`).join('');
-  $('f_unlock_gold').checked = !!getV('sgf_unlock_금한돈'); $('f_unlock_jo').checked = !!(getV('sgf_unlock_돼타로') || getV('sgf_unlock_무뚝돈')); $('f_unlock_pio').checked = !!getV('sgf_unlock_PIO');
+  $('f_unlock_gold').checked = !!getV('sgf_unlock_금한돈'); $('f_unlock_jo').checked = !!(getV('sgf_unlock_돼타로') || getV('sgf_unlock_무뚝돈')); $('f_unlock_pio').checked = !!getV('sgf_unlock_PIO'); $('f_unlock_kk').checked = !!getV('sgf_unlock_돼쿄인');
   const ty = getV('sgf_tycoon') || {};
   TYK.forEach(k => { $('t_' + k).value = ty[k] ?? ''; });
 }
@@ -327,6 +327,7 @@ function formToSave() {
   if ($('f_unlock_gold').checked) setV('sgf_unlock_금한돈', true); else delete save['sgf_unlock_금한돈'];
   if ($('f_unlock_jo').checked) setV('sgf_unlock_돼타로', true); else delete save['sgf_unlock_돼타로']; delete save['sgf_unlock_무뚝돈'];   // 예전 이름 칸은 정리
   if ($('f_unlock_pio').checked) setV('sgf_unlock_PIO', true); else delete save['sgf_unlock_PIO'];
+  if ($('f_unlock_kk').checked) setV('sgf_unlock_돼쿄인', true); else delete save['sgf_unlock_돼쿄인'];
   const ty = getV('sgf_tycoon') || {};
   TYK.forEach(k => { const v = $('t_' + k).value.trim(); if (v !== '') ty[k] = Math.max(0, Math.round(+v || 0)); });
   if (Object.keys(ty).length) setV('sgf_tycoon', ty);
