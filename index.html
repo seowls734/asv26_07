@@ -591,7 +591,7 @@ function authFetch(path, method = 'GET', data, extra = {}) {
   const h = { 'Content-Type': 'application/json' };
   if (isMember()) h.Authorization = 'Bearer ' + auth.token;
   return fetch(AUTH_URL + path, { method, headers: h, body: data === undefined ? undefined : JSON.stringify(data), ...extra })
-    .then(r => r.json().catch(() => ({})).then(d => { if (!r.ok) throw Object.assign(new Error(d.error || '서버 오류'), { status: r.status }); return d; }));
+    .then(r => r.json().catch(() => ({})).then(d => { if (!r.ok) throw Object.assign(new Error(d.error || '서버 오류'), { status: r.status, data: d }); return d; }));
 }
 // 계정에 올리는 저장 데이터 = 이 기기의 sgf_ 값 전부(기기 전용 값 제외)
 function collectSave() {
@@ -610,24 +610,40 @@ function cloudDirty() { if (!isMember() || AUTH_TEST) return; clearTimeout(cloud
 function cloudPush(keepalive) {
   clearTimeout(cloudTimer); cloudTimer = 0;
   if (!isMember() || AUTH_TEST) return Promise.resolve();
-  return authFetch('/save', 'PUT', { save: collectSave() }, keepalive ? { keepalive: true } : {})
+  return authFetch('/save', 'PUT', { save: collectSave(), base: auth.syncT || 0 }, keepalive ? { keepalive: true } : {})
     .then(d => setAuth({ ...auth, syncT: d.saved }))
-    .catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403, e.message); });
+    .catch(e => { if (e.status === 409 && e.data && e.data.conflict) return remoteSave(e.data); if (e.status === 401 || e.status === 403) authExpired(e.status === 403, e.message); });
 }
 // 다른 기기에서 더 최근에 저장했으면 그 기록을 받아 옴 (게임 시작할 때)
 function cloudPull() {
   if (!isMember() || AUTH_TEST) return;
   authFetch('/save').then(d => {
-    if (d.save && d.saved > (auth.syncT || 0)) { applySave(d.save); setAuth({ ...auth, syncT: d.saved }); location.reload(); }
+    if (d.save && d.saved > (auth.syncT || 0)) remoteSave(d);
   }).catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403, e.message); });
 }
+// 서버에 더 새 기록이 있음 (관리자가 고쳤거나 다른 기기에서 함) → 싸우는 중이 아니면 바로, 싸우는 중이면 끝나고 받아서 다시 시작
+let pendingSave = null;
+const safeToReload = () => !['intro', 'fight', 'roundEnd', 'cutscene', 'vs', 'opening'].includes(scene) && mode !== 3 && !authShown;
+function remoteSave(d) { pendingSave = d; if (safeToReload()) applyRemoteSave(); }
+function applyRemoteSave() {
+  const d = pendingSave; pendingSave = null; if (!d || !d.save) return;
+  applySave(d.save); setAuth({ ...auth, syncT: d.saved });
+  try { sessionStorage.setItem('sgf_msg', '🔄 계정 기록이 바뀌어서 새로 불러왔어요'); } catch (e) {}
+  location.reload();
+}
+// 게임을 켜 둔 동안에도 30초마다 확인 (관리자가 고친 게 바로 반영되게)
+setInterval(() => { if (isMember() && !AUTH_TEST && !document.hidden && !pendingSave) cloudPull(); }, 30000);
 function authExpired(banned, msg) { setAuth({ guest: true }); toast(banned ? '⛔ ' + (msg || '정지된 계정이에요. 관리자에게 문의하세요') : '🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
 // 공지 · 랭킹 시즌: 관리자가 시즌을 초기화하면 시즌 번호가 올라감 → 이 기기의 티어·연승 기록도 지움 (게스트 포함)
-let notice = '';
+let notice = '', EVT = null;   // EVT: 관리자가 켠 이벤트 { coin2x, tp2x, ty2x, msg, until }
+const evOn = k => !!(EVT && EVT[k] && (!EVT.until || Date.now() < EVT.until));
+const evText = () => !EVT || !(evOn('coin2x') || evOn('tp2x') || evOn('ty2x')) ? '' : '🎉 이벤트: ' + [evOn('coin2x') && '승리 코인 2배', evOn('tp2x') && '티어 점수 2배', evOn('ty2x') && '장사 매출 2배'].filter(Boolean).join(' · ') + (EVT.msg ? ` · ${EVT.msg}` : '');
+setInterval(() => { if (!document.hidden) fetchConfig(); }, 60000);   // 이벤트·공지는 1분마다 새로 확인
 function fetchConfig() {
   if (AUTH_TEST) return;
   fetch(AUTH_URL + '/config').then(r => r.json()).then(d => {
     notice = String(d.notice || '');
+    EVT = d.event || null;
     const s = +d.season || 0;
     if (s > lsGet('sgf_season', 0)) {
       const had = tp > 0 || lsGet('sgf_rbest', 0) > 0;
@@ -2723,7 +2739,7 @@ function tyServe(j) {
   const qs = tr.splice(0, c.n), pay = (qs.reduce((s, q) => s + tyPrice(c.k) * q, 0) + (c.side ? tySidePrice(c.side) : 0)) * (c.vip ? 3 : 1);
   TY.combo = Math.min(5, TY.combo + 1);
   const tip = 0.5 * (TY.ev && TY.ev.tip || 1) * (tyU.staff >= 5 ? 1.2 : 1);
-  const total = Math.round((pay + pay * tip * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)));   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
+  const total = Math.round((pay + pay * tip * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)) * (evOn('ty2x') ? 2 : 1));   // 이벤트: 장사 2배   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
   const avgQ = qs.reduce((a, b) => a + b, 0) / qs.length;
   TY.stars.push(clamp(2 + 3 * (c.pat / c.max) + (avgQ > 1.2 ? 0.5 : avgQ < 1 ? -0.5 : 0), 1, 5));
   addCoins(total); TY.earned += total; TY.served++; if (c.vip) TY.vip++; TY.cust.splice(j, 1); SFX.coin();
@@ -3417,7 +3433,9 @@ function drawTitle() {
   drawParts();
   ctx.save(); ctx.shadowColor = '#ff4081'; ctx.shadowBlur = 28;
   txt('삼겹살 파이터', W / 2, 62 + b, 70, '#ffc1d0', '#5a1a2a', 14); ctx.restore();
-  txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
+  const evT = evText();   // 이벤트 중이면 부제 자리에 이벤트 안내
+  if (evT) txt(evT, W / 2, 112, fitSize(evT, 18, W - 80), gT % 40 < 28 ? '#ffd740' : '#fff59d', '#000', 5);
+  else txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
   const best = getRank().filter(r => r.name === playerName).reduce((m, r) => Math.max(m, r.streak), 0);
   // 티어 배지 + 상태 줄을 한 덩어리로 가운데 정렬 (숫자가 길어져도 배지와 겹치지 않게, 너무 길면 글자를 줄임)
   const stat = `👤 ${playerName}${isMember() ? '' : ' [N]'}  ·🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`;
@@ -3551,7 +3569,7 @@ function rankedResult(win, online, revived = false) {
   }
   promo = null;
   if (win) {
-    tp += winTP(i, online);
+    tp += winTP(i, online) * (evOn('tp2x') ? 2 : 1);   // 이벤트: 티어 점수 2배
     if (next && tp >= next[1]) { tp = next[1] - 1; promo = { w: 0, l: 0 }; lsSet('sgf_promo', promo); lsSet('sgf_tp', tp); return `🔥 ${next[0]} 승급전 시작! (3판 2선승)`; }
   } else tp = Math.max(0, tp - Math.round(loseTP(i, online) * (revived ? 0.5 : 1)));
   lsSet('sgf_promo', promo); lsSet('sgf_tp', tp); return '';
@@ -4164,6 +4182,7 @@ function step() {
   gT++;
   if (toastT > 0) toastT--;
   if (scene !== 'tycoon' && tyU.auto) tyBackground();   // 자동 영업: 다른 화면에서도 계속
+  if (pendingSave && safeToReload()) applyRemoteSave();   // 싸움이 끝나면 바뀐 계정 기록 받기
   if (scene === 'title') updateTitle();
   else if (scene === 'select') updateSelect();
   else if (scene === 'market') updateMarket();
@@ -4291,7 +4310,7 @@ function startCutscene(w, l) {
   if (mode === 1) {
     if (w === p1) {
       streak++;
-      cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1);   // 금한돈: 승리 코인 3배
+      cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1) * (evOn('coin2x') ? 2 : 1);   // 금한돈: 승리 코인 3배
       if (bet > 0) cut.earn.bet = bet * (betSel === 2 ? 3 : 2);
       addCoins(cut.earn.win + cut.earn.bet);
     } else {
@@ -4307,7 +4326,7 @@ function startCutscene(w, l) {
   }
   if (mode === 3) {
     const meWin = w === NET.me;
-    cut.earn.win = meWin ? 80 * (NET.me.ch.name === '금한돈' ? 3 : 1) : 0; if (meWin) addCoins(cut.earn.win);   // 금한돈: 3배
+    cut.earn.win = meWin ? 80 * (NET.me.ch.name === '금한돈' ? 3 : 1) * (evOn('coin2x') ? 2 : 1) : 0; if (meWin) addCoins(cut.earn.win);   // 금한돈: 3배
     const r = lsGet('sgf_online', { w: 0, l: 0 }); r[meWin ? 'w' : 'l']++; lsSet('sgf_online', r);
   }
   afterMatchEconomy(w);

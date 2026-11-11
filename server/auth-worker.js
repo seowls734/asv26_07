@@ -72,7 +72,7 @@ async function init(db) {
   try { await db.prepare('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0').run(); } catch (e) {}   // 계정 정지 칸 (이미 있으면 무시)
   try { await db.prepare('ALTER TABLE users ADD COLUMN google TEXT').run(); } catch (e) {}   // 연결된 구글 계정 고유번호
   await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS users_google ON users(google)').run();
-  for (const c of ['ban_until INTEGER DEFAULT 0', 'ban_reason TEXT', 'totp TEXT', 'totp_on INTEGER DEFAULT 0'])   // 정지 기간·사유, 2단계 인증
+  for (const c of ['ban_until INTEGER DEFAULT 0', 'ban_reason TEXT', 'totp TEXT', 'totp_on INTEGER DEFAULT 0', 'admin_edit INTEGER DEFAULT 0'])   // 정지 기간·사유, 2단계 인증
     try { await db.prepare('ALTER TABLE users ADD COLUMN ' + c).run(); } catch (e) {}
   await db.prepare('CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT)').run();   // 공지 · 랭킹 시즌 번호
   ready = true;
@@ -124,7 +124,7 @@ async function newSession(db, uid) {
 async function who(db, req) {
   const m = (req.headers.get('Authorization') || '').match(/^Bearer ([0-9a-f]{64})$/);
   if (!m) return null;
-  return db.prepare('SELECT u.uid, u.login, u.save, u.saved, u.banned, u.ban_until, u.ban_reason, u.google, u.hash, u.totp, u.totp_on FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
+  return db.prepare('SELECT u.uid, u.login, u.save, u.saved, u.banned, u.ban_until, u.ban_reason, u.google, u.hash, u.totp, u.totp_on, u.admin_edit FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
 }
 function checkSave(s) {
   if (s === undefined || s === null) return { ok: true, v: null };
@@ -170,8 +170,15 @@ async function admin(req, env, db, path) {
     return json({ ...u, save: u.save ? JSON.parse(u.save) : null, sessions: s.n, fails: f || null, isAdmin: admins.includes(u.login) });
   }
   if (path === '/admin/config' && req.method === 'GET')
-    return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0 });
+    return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0, event: JSON.parse(await getConf(db, 'event', 'null')) });
   const b = await body(req); if (!b) return err('잘못된 요청이에요');
+  if (path === '/admin/event' && req.method === 'POST') {   // 작은 이벤트: 코인 2배 · TP 2배 · 장사 2배 (+ 안내 문구, 끝나는 시각)
+    const hours = Math.max(0, Math.min(24 * 30, +b.hours || 0));
+    const ev = { coin2x: !!b.coin2x, tp2x: !!b.tp2x, ty2x: !!b.ty2x, msg: String(b.msg || '').trim().slice(0, 60), until: hours ? now + hours * 3600000 : 0 };
+    const on = ev.coin2x || ev.tp2x || ev.ty2x;
+    await setConf(db, 'event', on ? JSON.stringify(ev) : 'null');
+    return json({ ok: true, event: on ? ev : null });
+  }
   if (path === '/admin/notice' && req.method === 'POST') {   // 게임 타이틀에 뜨는 공지 (빈 글이면 공지 없음)
     const t = String(b.text || '').trim().slice(0, 200);
     await setConf(db, 'notice', t); await setConf(db, 'noticeT', now);
@@ -189,7 +196,7 @@ async function admin(req, env, db, path) {
   const protectedAdmin = admins.includes(u.login) && u.uid !== me.uid;   // 다른 관리자는 정지·삭제 못 함
   if (path === '/admin/user' && req.method === 'PUT') {   // 저장 데이터 고치기 (saved를 지금으로 → 그 사람이 다음에 게임을 켜면 이 값으로 받아감)
     const s = checkSave(b.save); if (!s.ok) return err(s.msg || '저장 데이터 형식이 이상해요');
-    await db.prepare('UPDATE users SET save = ?, saved = ? WHERE uid = ?').bind(s.v, now, u.uid).run();
+    await db.prepare('UPDATE users SET save = ?, saved = ?, admin_edit = ? WHERE uid = ?').bind(s.v, now, now, u.uid).run();
     return json({ ok: true, saved: now });
   }
   if (req.method !== 'POST') return err('없는 주소예요', 404);
@@ -350,6 +357,7 @@ export default {
         const b = await body(req); if (!b) return err('잘못된 요청이에요');
         const s = checkSave(b.save); if (!s.ok) return err(s.msg || '저장 데이터 형식이 이상해요');
         const now = Date.now();
+        if (u.admin_edit && u.admin_edit > (+b.base || 0)) return json({ conflict: true, save: u.save ? JSON.parse(u.save) : null, saved: u.saved || 0 }, 409);   // 관리자가 고친 뒤의 옛 기록으로 덮어쓰지 않게 → 게임이 새 기록을 받아 감
         await db.prepare('UPDATE users SET save = ?, saved = ? WHERE uid = ?').bind(s.v, now, u.uid).run();
         return json({ saved: now });
       }
@@ -357,7 +365,7 @@ export default {
 
     // 공지 · 랭킹 시즌 (누구나 읽음, 게임 켤 때 한 번)
     if (path === '/config' && req.method === 'GET')
-      return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0 });
+      return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0, event: JSON.parse(await getConf(db, 'event', 'null')) });
 
     // 2단계 인증: setup(비밀키 만들기) → on(인증 앱 숫자로 확인하면 켜짐) · off(숫자 확인하고 끄기) · GET 상태
     if (path.startsWith('/2fa')) {

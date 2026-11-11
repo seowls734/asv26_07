@@ -93,6 +93,20 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
         <div class="actions" style="margin-top:6px"><button id="noticeBtn" class="primary">공지 저장</button></div>
       </section>
       <section class="card">
+        <h3 style="margin:0 0 8px">🎉 이벤트</h3>
+        <p class="muted" style="margin:0 0 6px">켜면 모든 플레이어에게 1분 안에 적용되고, 타이틀 화면에 이벤트 안내가 떠요. <b id="evNow">-</b></p>
+        <div class="checks">
+          <label><input type="checkbox" id="evCoin"> 승리 코인 2배</label>
+          <label><input type="checkbox" id="evTp"> 티어 점수 2배</label>
+          <label><input type="checkbox" id="evTy"> 장사 매출 2배</label>
+        </div>
+        <div class="bar" style="margin:8px 0 0">
+          <input id="evMsg" maxlength="60" placeholder="안내 문구 (예: 주말 특별 이벤트!)">
+          <input id="evHours" type="number" min="0" max="720" placeholder="시간" style="max-width:90px" title="몇 시간 동안 (0이나 비우면 끌 때까지)">
+        </div>
+        <div class="actions" style="margin-top:6px"><button id="evOn" class="primary">이벤트 켜기 / 바꾸기</button><button id="evOff">이벤트 끄기</button></div>
+      </section>
+      <section class="card">
         <h3 style="margin:0 0 8px">🏆 랭킹 관리</h3>
         <p class="muted" style="margin:0 0 6px">지금 시즌 <b id="seasonNo">-</b> · 랭킹 서버 4곳(Firebase 3 + Cloudflare)을 한 번에 관리해요.</p>
         <div class="actions">
@@ -383,8 +397,22 @@ $('aDel').onclick = async () => {
 
 // ---- 공지 · 시즌 ----
 async function loadConfig() {
-  try { const c = await api('/admin/config'); $('noticeTxt').value = c.notice || ''; $('seasonNo').textContent = c.season; } catch (e) { toast(e.message); }
+  try { const c = await api('/admin/config'); $('noticeTxt').value = c.notice || ''; $('seasonNo').textContent = c.season; showEvent(c.event); } catch (e) { toast(e.message); }
 }
+// ---- 이벤트 ----
+function showEvent(ev) {
+  const on = ev && (!ev.until || Date.now() < ev.until) && (ev.coin2x || ev.tp2x || ev.ty2x);
+  $('evNow').textContent = on ? `지금: ${[ev.coin2x && '코인 2배', ev.tp2x && 'TP 2배', ev.ty2x && '장사 2배'].filter(Boolean).join(' · ')}${ev.until ? ` (${when(ev.until)}까지)` : ' (끌 때까지)'}` : '지금: 이벤트 없음';
+  $('evCoin').checked = !!(on && ev.coin2x); $('evTp').checked = !!(on && ev.tp2x); $('evTy').checked = !!(on && ev.ty2x); $('evMsg').value = on ? ev.msg || '' : '';
+}
+$('evOn').onclick = async () => {
+  const b = { coin2x: $('evCoin').checked, tp2x: $('evTp').checked, ty2x: $('evTy').checked, msg: $('evMsg').value, hours: +$('evHours').value || 0 };
+  if (!b.coin2x && !b.tp2x && !b.ty2x) { toast('켤 이벤트를 하나 이상 골라 주세요'); return; }
+  try { const d = await api('/admin/event', 'POST', b); showEvent(d.event); toast('이벤트를 켰어요 (1분 안에 모두에게 적용)'); } catch (e) { toast(e.message); }
+};
+$('evOff').onclick = async () => {
+  try { await api('/admin/event', 'POST', {}); showEvent(null); toast('이벤트를 껐어요'); } catch (e) { toast(e.message); }
+};
 $('noticeBtn').onclick = async () => {
   try { const d = await api('/admin/notice', 'POST', { text: $('noticeTxt').value }); toast(d.notice ? '공지를 올렸어요 (게임을 새로 켜면 보여요)' : '공지를 내렸어요'); } catch (e) { toast(e.message); }
 };
