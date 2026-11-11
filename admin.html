@@ -136,6 +136,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
           <button id="aLogout">🚪 모든 기기 로그아웃</button>
           <button id="aUnlock">🔓 로그인 잠금 풀기</button>
           <button id="a2fa">🔐 2단계 인증 끄기</button>
+          <button id="aGoog">🔗 구글 연결 끊기</button>
           <button id="aBan" class="danger">⛔ 정지</button>
           <button id="aDel" class="danger">🗑️ 계정 삭제</button>
         </div>
@@ -299,9 +300,9 @@ async function openUser(uid) {
     cur = u; save = { ...(u.save || {}) };
     $('detail').classList.add('show');
     $('dname').textContent = u.login;
-    $('dtags').innerHTML = (u.isAdmin ? '<span class="tag adm">관리자</span> ' : '') + (u.g ? '<span class="tag on">G 구글 연결</span> ' : '') + (banned(u) ? `<span class="tag ban">정지 · ${u.ban_until ? when(u.ban_until) + '까지' : '영구'}${u.ban_reason ? ' · ' + esc(u.ban_reason) : ''}</span> ` : '') + (u.totp_on ? '<span class="tag on">🔐 2단계 인증</span> ' : '') + (u.sessions ? `<span class="tag on">로그인 기기 ${u.sessions}</span> ` : '') + (u.fails && u.fails.n ? `<span class="tag ban">비번 틀림 ${u.fails.n}회</span>` : '');
+    $('dtags').innerHTML = (u.isAdmin ? '<span class="tag adm">관리자</span> ' : '') + (u.g ? `<span class="tag on">G 구글 연결${u.gonly ? ' (구글로만 가입)' : ''}</span> ` : '') + (banned(u) ? `<span class="tag ban">정지 · ${u.ban_until ? when(u.ban_until) + '까지' : '영구'}${u.ban_reason ? ' · ' + esc(u.ban_reason) : ''}</span> ` : '') + (u.totp_on ? '<span class="tag on">🔐 2단계 인증</span> ' : '') + (u.sessions ? `<span class="tag on">로그인 기기 ${u.sessions}</span> ` : '') + (u.fails && u.fails.n ? `<span class="tag ban">비번 틀림 ${u.fails.n}회</span>` : '');
     $('dmeta').textContent = `uid ${u.uid} · 가입 ${when(u.created)} · 최근 저장 ${when(u.saved)}`;
-    $('aBan').textContent = banned(u) ? '✅ 정지 풀기' : '⛔ 정지'; $('a2fa').style.display = u.totp_on ? '' : 'none'; $('banBox').style.display = 'none';
+    $('aBan').textContent = banned(u) ? '✅ 정지 풀기' : '⛔ 정지'; $('a2fa').style.display = u.totp_on ? '' : 'none'; $('aGoog').style.display = u.g ? '' : 'none'; $('banBox').style.display = 'none';
     fillForm(); renderRaw();
     document.querySelectorAll('#rows tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.i !== undefined && rows[+tr.dataset.i].uid === uid));
     $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -366,6 +367,10 @@ $('banGo').onclick = () => {
   if (!reason && !confirm('사유 없이 정지할까요?')) return;
   if (!confirm(`${cur.login} 님을 ${days ? days + '일' : '영구'} 정지할까요? (바로 로그아웃돼요)`)) return;
   $('banReason').value = ''; act('/admin/user/ban', { banned: true, days, reason }, `${days ? days + '일' : '영구'} 정지했어요`);
+};
+$('aGoog').onclick = () => {
+  const warn = cur.gonly ? ' ⚠️ 이 계정은 구글로만 가입해서 비밀번호가 없어요. 끊으면 로그인할 방법이 없으니, 먼저 "비밀번호 바꾸기"로 비밀번호를 만들어 주세요.' : '';
+  if (confirm(`${cur.login} 님의 구글 연결을 끊을까요? (그 구글 계정은 다른 아이디에 다시 연결할 수 있어요)${warn}`)) act('/admin/user/google-unlink', {}, '구글 연결을 끊었어요');
 };
 $('a2fa').onclick = () => { if (confirm(`${cur.login} 님의 2단계 인증을 끌까요? (폰을 잃어버렸을 때)`)) act('/admin/user/2fa-off', {}, '2단계 인증을 껐어요'); };
 $('aDel').onclick = async () => {

@@ -5198,7 +5198,7 @@ const escH = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;'
 function closeAuth() { authShown = false; authEl.style.display = 'none'; authEl.innerHTML = ''; for (const k in keys) keys[k] = false; }
 // ---- 구글 로그인 (Google Identity Services) ----
 // 구글이 준 ID 토큰을 회원 서버(/google)로 보내면 서버가 구글에 확인하고 계정을 찾거나 만듦. 처음 온 구글 계정은 닉네임만 정하면 가입.
-let gsiP = null, gCred = '';
+let gsiP = null, gCred = '', gSuggest = '';
 function loadGsi() {
   return gsiP || (gsiP = new Promise((ok, no) => {
     const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
@@ -5247,6 +5247,16 @@ function openAuth(page, arg) {
     <input id="a_pw2" type="password" placeholder="비밀번호 확인" autocomplete="new-password" maxlength="64">
     <div class="err"></div><button data-ok>가입하기</button><button class="sub" data-back>뒤로</button>
     <small>지금까지 하던 기록(코인·티어 등)은 새 계정으로 그대로 옮겨져요.<br>다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</small>`;
+  // 처음 온 구글 계정: 전에는 바로 새 계정을 만들어서, 이미 아이디가 있던 사람도 계정이 따로 하나 더 생겼음 → 먼저 고르게 함
+  else if (page === 'gpick') h = `<h2>🔗 구글 계정 확인</h2><p>이 구글 계정에 연결된 아이디가 아직 없어요</p>
+    <button data-go="glink">🔗 이미 아이디가 있어요 (내 계정에 연결)</button>
+    <button class="sub" data-go="gname">✨ 처음이에요 (새 계정 만들기)</button>
+    <button class="sub" data-back>뒤로</button>
+    <small>이미 하던 아이디가 있으면 꼭 위 버튼을 눌러 주세요.<br>연결하면 다음부터 구글로 그 아이디에 바로 로그인돼요.</small>`;
+  else if (page === 'glink') h = `<h2>🔗 내 계정에 구글 연결</h2><p>원래 쓰던 아이디와 비밀번호를 한 번만 넣어 주세요</p>${idIn('아이디')}
+    <input id="a_pw" type="password" placeholder="비밀번호" autocomplete="current-password" maxlength="64">
+    <div class="err"></div><button data-ok>연결하고 로그인</button><button class="sub" data-back>뒤로</button>
+    <small>그 아이디의 기록을 그대로 불러와요.</small>`;
   else if (page === 'gname') h = `<h2>🐷 닉네임 정하기</h2><p>처음 오셨네요! 게임에서 쓸 닉네임을 정해 주세요</p>
     ${idIn('닉네임 (한글·영어·숫자 2~16자)')}
     <div class="err"></div><button data-ok>시작하기</button><button class="sub" data-back>뒤로</button>
@@ -5265,7 +5275,7 @@ function openAuth(page, arg) {
   if (page === 'choose' && auth) h += '<button class="sub" data-back>닫기</button>';
   authEl.innerHTML = `<div class="box">${h}</div>`;
   const f = authEl.querySelector('#a_id') || authEl.querySelector('#a_code');
-  if (f && page === 'gname') f.value = String(arg || '').normalize('NFC').toLowerCase().replace(/[^a-z0-9_가-힣]/g, '').slice(0, 16);   // 구글 이름을 닉네임 후보로
+  if (f && page === 'gname') f.value = String(gSuggest || '').normalize('NFC').toLowerCase().replace(/[^a-z0-9_가-힣]/g, '').slice(0, 16);   // 구글 이름을 닉네임 후보로
   if (f && !TOUCH) f.focus();
   if (GOOGLE_CLIENT_ID && !AUTH_TEST) renderGoogle();
 }
@@ -5281,6 +5291,12 @@ function authSubmit() {
   if (authPage === 'tfa') { const b = authEl.querySelector('[data-tfa]'); if (b) b.click(); return; }
   const page = authPage, id = authEl.querySelector('#a_id').value.trim().normalize('NFC').toLowerCase();
   if (!/^[a-z0-9_가-힣]{2,16}$/.test(id)) return authBusy(false, /[ㄱ-ㅎㅏ-ㅣ]/.test(id) ? '아이디에 낱자(ㄱ, ㅏ 등)는 못 써요' : '아이디는 한글·영어·숫자 2~16자예요 (띄어쓰기·특수문자 안 돼요)');
+  if (page === 'glink') {   // 이미 있는 아이디에 구글 연결
+    const pw = authEl.querySelector('#a_pw').value;
+    if (!pw) return authBusy(false, '비밀번호를 넣어 주세요');
+    pend2fa = { credential: gCred, login: id, pw }; authBusy(true, '연결 중...');
+    return authFetch('/google', 'POST', pend2fa).then(d => authDone(d, 'login')).catch(authFail);
+  }
   if (page === 'gname') {   // 구글로 처음 가입: 닉네임만 정하면 끝
     authBusy(true, '잠시만요...');
     return authFetch('/google', 'POST', { credential: gCred, login: id, save: collectSave() }).then(d => authDone(d, 'signup')).catch(authFail);
@@ -5297,14 +5313,14 @@ function authFail(e) { authBusy(false, e.status ? e.message : '서버에 연결�
 // 로그인·가입 성공 (아이디/비밀번호와 구글 둘 다 여기로)
 function authDone(d, page) {
   if (d.need2fa) { openAuth('2fa'); return; }   // 2단계 인증 켠 계정 → 인증 앱 숫자 입력
-  if (d.need === 'name') { openAuth('gname', d.suggest); return; }   // 처음 온 구글 계정 → 닉네임 정하기
+  if (d.need === 'name') { gSuggest = d.suggest || ''; openAuth('gpick'); return; }   // 처음 온 구글 계정 → 새 계정 또는 기존 아이디 연결 고르기
   pend2fa = null;
   playerName = d.login;   // 회원 닉네임 = 아이디
   setAuth({ uid: d.uid, login: d.login, token: d.token, syncT: d.saved || 0, google: !!d.google });
   dropLegacyRank();
   if (page === 'login' && d.save) {   // 계정에 저장된 기록으로 바꾸고 다시 시작
     applySave(d.save);
-    try { sessionStorage.setItem('sgf_msg', `🔑 ${d.login}님 로그인! 계정 기록을 불러왔어요`); } catch (e) {}
+    try { sessionStorage.setItem('sgf_msg', d.linked ? `🔗 구글 연결 완료! ${d.login}님 기록을 불러왔어요` : `🔑 ${d.login}님 로그인! 계정 기록을 불러왔어요`); } catch (e) {}
     location.reload(); return;
   }
   if (page === 'login') cloudPush();   // 계정에 저장된 기록이 없으면 지금 기록을 올림
@@ -5356,7 +5372,7 @@ authEl.addEventListener('click', e => {
   else if ('ok' in b.dataset) authSubmit();
   else if ('logout' in b.dataset) authLogout();
   else if ('tfa' in b.dataset) tfaAct(b.dataset.tfa);
-  else if ('back' in b.dataset) ['login', 'signup', 'gname', '2fa'].includes(authPage) ? openAuth('choose') : authPage === 'tfa' ? openAuth('account') : closeAuth();
+  else if ('back' in b.dataset) ['gname', 'glink'].includes(authPage) ? openAuth('gpick') : ['login', 'signup', 'gpick', '2fa'].includes(authPage) ? openAuth('choose') : authPage === 'tfa' ? openAuth('account') : closeAuth();
 });
 authEl.addEventListener('keydown', e => {   // 입력칸에서 친 키는 게임으로 안 넘어가게
   e.stopPropagation();
