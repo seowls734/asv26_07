@@ -177,6 +177,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
           <div class="field"><label>🍲 사이드 메뉴 (0~4)</label><input id="t_side" type="number" min="0" max="4"></div>
           <div class="field"><label>🪑 인테리어 (0~5)</label><input id="t_deco" type="number" min="0" max="5"></div>
           <div class="field"><label>🏢 체인점 수 (0~12)</label><input id="t_chain" type="number" min="0" max="12"></div>
+          <div class="field"><label>🌙 무인 영업 (0~1)</label><input id="t_idle" type="number" min="0" max="1"></div>
           <div class="field"><label>📜 항정살 메뉴 (0~1)</label><input id="t_menu" type="number" min="0" max="1"></div>
           <div class="field"><label>📅 영업 일수</label><input id="t_shifts" type="number" min="0"></div>
           <div class="field"><label>💰 총매출</label><input id="t_total" type="number" min="0"></div>
@@ -309,7 +310,7 @@ async function openUser(uid) {
   } catch (e) { toast(e.message); }
 }
 const QUICK = { f_coin: 'sgf_coin', f_debt: 'sgf_debt', f_bank: 'sgf_bank', f_debtbase: 'sgf_debtbase', f_tp: 'sgf_tp', f_rbest: 'sgf_rbest' };
-const TYK = ['grade', 'grill', 'rep', 'staff', 'menu', 'side', 'deco', 'chain', 'shifts', 'total', 'best'];
+const TYK = ['grade', 'grill', 'rep', 'staff', 'menu', 'side', 'deco', 'chain', 'idle', 'shifts', 'total', 'best'];
 function fillForm() {
   for (const [id, k] of Object.entries(QUICK)) { const v = getV(k); $(id).value = v == null ? '' : v; }
   $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank'));
