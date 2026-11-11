@@ -610,9 +610,10 @@ function cloudDirty() { if (!isMember() || AUTH_TEST) return; clearTimeout(cloud
 function cloudPush(keepalive) {
   clearTimeout(cloudTimer); cloudTimer = 0;
   if (!isMember() || AUTH_TEST) return Promise.resolve();
+  pushing++;
   return authFetch('/save', 'PUT', { save: collectSave(), base: auth.syncT || 0 }, keepalive ? { keepalive: true } : {})
     .then(d => setAuth({ ...auth, syncT: d.saved }))
-    .catch(e => { if (e.status === 409 && e.data && e.data.conflict) return remoteSave(e.data); if (e.status === 401 || e.status === 403) authExpired(e.status === 403, e.message); });
+    .catch(e => { if (e.status === 409 && e.data && e.data.conflict) return remoteSave(e.data); if (e.status === 401 || e.status === 403) authExpired(e.status === 403, e.message); }).finally(() => { pushing--; });
 }
 // 다른 기기에서 더 최근에 저장했으면 그 기록을 받아 옴 (게임 시작할 때)
 function cloudPull() {
@@ -632,7 +633,8 @@ function applyRemoteSave() {
   location.reload();
 }
 // 게임을 켜 둔 동안에도 30초마다 확인 (관리자가 고친 게 바로 반영되게)
-setInterval(() => { if (isMember() && !AUTH_TEST && !document.hidden && !pendingSave) cloudPull(); }, 30000);
+let pushing = 0;   // 저장 중이면 확인을 건너뜀 (방금 내가 올린 기록을 '새 기록'으로 착각해서 다시 시작하지 않게)
+setInterval(() => { if (isMember() && !AUTH_TEST && !document.hidden && !pendingSave && !pushing && !cloudTimer) cloudPull(); }, 30000);
 function authExpired(banned, msg) { setAuth({ guest: true }); toast(banned ? '⛔ ' + (msg || '정지된 계정이에요. 관리자에게 문의하세요') : '🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
 // 공지 · 랭킹 시즌: 관리자가 시즌을 초기화하면 시즌 번호가 올라감 → 이 기기의 티어·연승 기록도 지움 (게스트 포함)
 let notice = '', EVT = null;   // EVT: 관리자가 켠 이벤트 { coin2x, tp2x, ty2x, msg, until }
@@ -5414,6 +5416,32 @@ function draw() {
 
 // ================= autotest (?autotest) =================
 // 성능 측정 (?view=perf): 화면마다 그리기·진행에 걸리는 시간 (getImageData로 실제로 다 그릴 때까지 기다림)
+// 막누르기 테스트 (?view=fuzz&seed=N): 무작위로 키를 누르며 여러 화면을 돌아다님 → 오류가 나면 기록
+function fuzzRun() {
+  const qs = new URLSearchParams(location.search); let sd = +(qs.get('seed') || 1);
+  const rnd = () => (sd = (sd * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyI', 'KeyO', 'KeyK', 'KeyL', 'KeyJ', 'KeyU', 'KeyY', 'Enter', 'Space', 'Escape', 'KeyR', 'KeyQ', 'KeyE', 'KeyZ', 'KeyX', 'KeyC', 'KeyF', 'KeyN', 'KeyM', 'KeyT', 'KeyB', 'KeyG', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'];
+  const out = [], seen = {}; let errs = 0;
+  window.prompt = () => null; window.confirm = () => false; window.alert = () => {};   // 창이 뜨면 멈추니까 막음
+  coins = 1e13; tyU.auto = true;
+  const JUMPS = [() => openTycoon(), () => openMarket(), () => { scene = 'bank'; }, () => openBet(), () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }, () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; },
+    () => openRanking(false), () => { scene = 'endings'; }, () => { mode = 0; p1.setChar(CHARS[rnd() * CHARS.length | 0]); p2.setChar(CHARS[rnd() * CHARS.length | 0]); startMatch(); }, () => { tyU.auto = !tyU.auto; }, () => toTitle(),
+    () => { mode = 1; ranked = true; p1.setChar(CHARS[rnd() * CHARS.length | 0]); p2.setChar(CHARS[rnd() * CHARS.length | 0]); p1.meter = p2.meter = 100; startMatch(); }];
+  for (let f = 0; f < 60 * 60 * 6; f++) {
+    for (const k in keys) if (rnd() < 0.08) keys[k] = false;
+    if (rnd() < 0.5) press(KEYS[rnd() * KEYS.length | 0]);
+    if (authShown) closeAuth();
+    if (scene === 'online' || f % 900 === 0) { try { JUMPS[rnd() * JUMPS.length | 0](); } catch (e) { out.push('ERR jump ' + e.message); } }
+    try { step(); if (f % 7 === 0) draw(); } catch (e) {
+      errs++; const key = e.message + ' in ' + scene;
+      if (!seen[key]) { seen[key] = 1; out.push('ERR ' + key + ' | ' + String(e.stack || '').split(String.fromCharCode(10)).slice(1, 3).join(' / ')); }
+    }
+    for (const k in pressed) delete pressed[k];
+    seen['scene:' + scene] = (seen['scene:' + scene] || 0) + 1;
+  }
+  out.push('errors ' + errs + ' · scenes ' + Object.keys(seen).filter(k => k.startsWith('scene:')).map(k => k.slice(6) + '=' + seen[k]).join(' '));
+  const pre = document.createElement('pre'); pre.id = 'r'; pre.textContent = out.join(String.fromCharCode(10)); document.body.appendChild(pre);
+}
 function perfRun() {
   const out = [], fl = () => ctx.getImageData(0, 0, 1, 1), time = (name, setup) => {
     setup(); for (let i = 0; i < 20; i++) { step(); draw(); }
@@ -5771,6 +5799,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 if (new URLSearchParams(location.search).get('view') === 'perf') perfRun();
+if (new URLSearchParams(location.search).get('view') === 'fuzz') fuzzRun();
 </script>
 </body>
 </html>
