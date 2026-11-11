@@ -393,8 +393,19 @@ function playS(buf, o = {}) {
   if (pan && AC.createStereoPanner) { const p = AC.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(dest); } else g.connect(dest);
   const t = AC.currentTime + at;
   if (dur) { g.gain.setValueAtTime(v, t + dur * 0.8); g.gain.linearRampToValueAtTime(0.0001, t + dur); s.start(t, off, dur * rate + 0.05); } else s.start(t, off);
+  return s;
 }
-function smp(k, o = {}) { if (BUF[k]) { playS(BUF[k], { off: SAMPLES[k].off, ...o }); return true; } return false; }
+// 목소리(외침·대사)는 한 번에 하나만: 새 목소리가 나오면 앞 목소리는 멈춤 (겹쳐서 웅성거리지 않게)
+const VOICE = new Set(['ttSummon', 'ttStop', 'ttRush', 'ttWin', 'pioStop', 'pioRoller', 'pioSummon']);
+let voiceSrc = null;
+function smp(k, o = {}) {
+  if (!BUF[k]) return false;
+  const v = VOICE.has(k);
+  if (v && voiceSrc) { try { voiceSrc.stop(); } catch (e) {} voiceSrc = null; }
+  const s = playS(BUF[k], { off: SAMPLES[k].off, ...o });
+  if (v) voiceSrc = s;
+  return true;
+}
 // 타격 한 방(묵직한 펀치 녹음): rate 낮을수록 묵직, 높을수록 가볍게
 function thump(rate = 1, v = 0.8, at = 0, o = {}) { if (!smp('punch', { rate, v, at, ...o })) nz(0.09, { v: v * 0.6, freq: 1100 * rate, f2: 150, at, out: o.out }); }
 // 손 공격용 밝은 너클 펀치 (없으면 묵직한 펀치로)
@@ -550,7 +561,7 @@ const CHARS = [
     ult: { name: '황금 금고 떨구기', type: 'goldSafe', desc: '머리 위로 금고 쿵! 그림자 보고 피하기' } },
   // 관리자가 선물로 주는 돼지 (unlock: 'admin' → 관리자 페이지에서 sgf_unlock_돼타로를 켜 줘야 쓸 수 있음. legacy: 예전 이름 '무뚝돈'으로 받은 사람도 그대로 해금)
   // 학생모·긴 코트의 과묵한 불량 돼지. 스킬·필살기 때 보라색 수호령 '뚱타플레티나'가 나와서 주먹을 날림. 필살기는 시작할 때 컷신
-  { name: '돼타로', title: '말없는 불량 돼지', type: '수호령', hp: 104, power: 1.06, speed: 1.0, ultRate: 0.95, scale: 1.16, unlock: 'admin', legacy: '무뚝돈', perk: '관리자 선물 돼지', spirit: true, standName: '뚱타플레티나',
+  { name: '돼타로', title: '말없는 불량 돼지', type: '수호령', hp: 104, power: 1.06, speed: 1.0, ultRate: 0.95, scale: 1.16, unlock: 'admin', legacy: '무뚝돈', perk: '관리자 선물 돼지', spirit: true, standName: '뚱타플레티나', winSnd: 'ttWin',
     stats: [['파괴력', 'A'], ['스피드', 'A'], ['사정거리', 'C'], ['지속력', 'A'], ['정밀동작성', 'A'], ['성장성', 'A']],
     look: look('#f2c4b4', '#9c6656', '#fbe1d8', '#e8a898', '#4a2a22', '#2a1712', '#ffd54f', ['cap', 'coat', 'stern', 'bold'], 1.04),
     skill: { name: '뚱타플레티나 러시', type: 'spiritRush', cd: 600, desc: '뚱타플레티나가 날아가 5초 넘게 주먹 연타 · 방어 무시' },
@@ -561,10 +572,10 @@ const SPIRIT = look('#9575cd', '#4527a0', '#b39ddb', '#7e57c2', '#311b92', '#1a0
 const WORLD = look('#f2c230', '#8a6a10', '#ffe58a', '#e0ac20', '#5a4000', '#3a2a00', '#2e7d32', ['band', 'muscle', 'glow', 'bold'], 1.22);   // 더 돼월드 (PIO의 스탠드)
 // 관리자 선물 돼지 PIO: 시간을 멈추는 흡혈 돼지 (스탠드 '더 돼월드'). 나이프 던지기 · 때리면 흡혈 · 시간 정지 끝에 로드롤러
 CHARS.push({ name: 'PIO', title: '시간을 멈추는 흡혈 돼지', type: '흡혈귀', hp: 108, power: 1.08, speed: 1.02, ultRate: 0.95, scale: 1.18, unlock: 'admin', perk: '흡혈: 때리면 체력 회복',
-  spirit: true, vampire: true, roller: true, standName: '더 돼월드', standLook: WORLD, standCol: '#ffd740', menace: 'ドドド', menaceCol: '#ffd740',
+  spirit: true, vampire: true, roller: true, standName: '더 돼월드', standLook: WORLD, standCol: '#ffd740', menace: 'ドドド', menaceCol: '#ffd740', menaceSize: 1.45, bossAura: 'rgba(184,134,11,0.9)',
   standSnd: { summon: 'pioSummon', stop: 'pioStop', stopAt: 4 }, stopLine: '더 돼월드! 시간이여 멈춰라!',
   stats: [['파괴력', 'A'], ['스피드', 'A'], ['사정거리', 'C'], ['지속력', 'A'], ['정밀동작성', 'B'], ['성장성', '?']],
-  look: look('#f6dccf', '#a8705a', '#fff0e8', '#f0b8a8', '#4a2a22', '#8a6a10', '#2e7d32', ['blond', 'fangs', 'cape', 'bold'], 1.05),
+  look: look('#f6dccf', '#a8705a', '#fff0e8', '#f0b8a8', '#4a2a22', '#8a6a10', '#2e7d32', ['blond', 'fangs', 'muscle', 'armor', 'redeye', 'bold'], 1.05),
   skill: { name: '돼지 나이프 던지기', type: 'knifeThrow', cd: 130, desc: '나이프 5자루 · 시간 정지 중엔 공중에서 멈췄다가 날아감' },
   tf: { name: '흡혈 각성', type: 'champion', color: '#ffd740', desc: '펀치 피해·속도↑' },
   ult: { name: '더 돼월드 · 시간 정지', type: 'timeStop', desc: '시간을 멈추고 마음대로 · 끝날 때 로드롤러!' } });
@@ -887,7 +898,17 @@ function drawPig(x, y, face, C, p = {}) {
 
   ell(0, -60 + by, 46 * bw, 34); ctx.fill(); ctx.stroke();
   ctx.fillStyle = C.belly; ell(6, -46 + by, 28 * bw, 15); ctx.fill();
-  if (acc.includes('muscle')) {   // 근육: 가슴·복근 선 + 빛나는 별 무늬
+  if (acc.includes('armor')) {   // 금빛 갑옷 조끼 + 어깨 갑옷 (마지막 보스 느낌)
+    ctx.save(); ell(0, -60 + by, 46 * bw, 34); ctx.clip();
+    const ag = ctx.createLinearGradient(0, -96 + by, 0, -40 + by); ag.addColorStop(0, '#fff3b0'); ag.addColorStop(0.45, '#f2c230'); ag.addColorStop(1, '#8a6a10');
+    ctx.fillStyle = ag; ctx.fillRect(-50 * bw, -96 + by, 100 * bw, 50);
+    ctx.strokeStyle = '#6d5200'; ctx.lineWidth = 2 * LWM; line(-50 * bw, -46 + by, 50 * bw, -46 + by); line(8 * bw, -96 + by, 8 * bw, -46 + by);
+    ctx.fillStyle = '#6d5200'; for (const [rx, ry] of [[-20, -84], [30, -84], [-20, -56], [30, -56]]) { ell(rx * bw, ry + by, 2.5, 2.5); ctx.fill(); }
+    ctx.restore();
+    ctx.fillStyle = '#f2c230'; ctx.strokeStyle = '#6d5200'; ctx.lineWidth = 2.5 * LWM;   // 어깨 갑옷
+    ctx.beginPath(); ctx.ellipse(18 * bw, -90 + by, 20, 12, -0.2, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ell(12 * bw, -96 + by, 7, 3); ctx.fill();
+  } else   if (acc.includes('muscle')) {   // 근육: 가슴·복근 선 + 빛나는 별 무늬
     ctx.strokeStyle = C.dark; ctx.lineWidth = 2.5 * LWM; ctx.globalAlpha *= 0.8;
     ctx.beginPath(); ctx.arc(-4 * bw, -74 + by, 15 * bw, 0.2, 2.4); ctx.stroke(); ctx.beginPath(); ctx.arc(22 * bw, -74 + by, 15 * bw, 0.7, 2.9); ctx.stroke();
     for (let i = 0; i < 3; i++) { line(2 * bw, -54 + by + i * 8, 12 * bw, -54 + by + i * 8); line(16 * bw, -54 + by + i * 8, 26 * bw, -54 + by + i * 8); }
@@ -1012,6 +1033,11 @@ function drawPig(x, y, face, C, p = {}) {
     ctx.save(); ell(ex, ey, 7.5, 8.5); ctx.clip(); ctx.fillStyle = shadeHex(C.body, 0.85); ctx.fillRect(ex - 9, ey - 10, 18, 8); ctx.restore();
     ctx.strokeStyle = '#1a0e0a'; ctx.lineWidth = 2 * LWM; line(ex - 7, ey - 2, ex + 7, ey - 2);
     ctx.lineWidth = 5.5 * LWM; line(ex - 11, ey - 12, ex + 10, ey - 5);
+  }
+  if (acc.includes('redeye') && eyeOpen) {   // 빛나는 붉은 눈
+    ctx.fillStyle = 'rgba(255,23,68,0.35)'; ell(ex, ey, 14, 11); ctx.fill();
+    ctx.fillStyle = '#fff5f5'; ell(ex, ey, 7.5, 6.5); ctx.fill(); ctx.fillStyle = '#d50000'; ell(ex + 2, ey + 0.5, 3.4, 4); ctx.fill(); ctx.fillStyle = '#000'; ell(ex + 2, ey + 0.5, 1.2, 3); ctx.fill();
+    ctx.strokeStyle = '#3a2a00'; ctx.lineWidth = 4 * LWM; line(ex - 11, ey - 12, ex + 10, ey - 5);
   }
   if (acc.includes('glow') && eyeOpen) {   // 수호령: 빛나는 흰 눈
     ctx.fillStyle = 'rgba(255,255,255,0.35)'; ell(ex, ey, 13, 11); ctx.fill();
@@ -4292,7 +4318,7 @@ const CHOICE_T = 2.2;
 function startCutscene(w, l) {
   const meat = spick(MEATS);
   scene = 'cutscene'; parts = []; texts = []; shake = 0; TSTOP = null;
-  if (w.ch.spirit) smp('ttWin', { v: 1, at: 0.4 });   // 돼타로가 이기면 한마디
+  if (w.ch.winSnd) smp(w.ch.winSnd, { v: 1, at: 0.4 });   // 이기면 그 돼지 전용 한마디 (돼타로만 있음)
   cut = { w, l, t: 0, prev: 0, grade: computeGrade(w), meat, options: meat.opts.map(o => [srnd(), o]).sort((a, b) => a[0] - b[0]).map(x => x[1]),
     dish: null, chosen: false, waiting: false, sel: 0, waitN: 0, stars: 3, earn: { win: 0, bet: 0, dish: 0 } };
   if (mode === 1) {
@@ -4955,6 +4981,7 @@ function poseOf(f) {
   if (st === 'transforming') p.victory = true;
   if (st === 'jump' || f.y < GROUND - 1) p.air = true;
   p.flash = f.flash > 0;
+  if (f.ch.bossAura && !p.aura && f.state !== 'ko') p.aura = f.ch.bossAura;   // PIO: 늘 어두운 금빛 기운
   if (f.tfOn) {
     p.aura = f.ch.tf.color;
     const ty = f.ch.tf.type;
@@ -5020,7 +5047,7 @@ function drawFighter(f) {
     for (let i = 0; i < 3; i++) {
       const ph = ((gT + i * 40) % 120) / 120, a = Math.sin(ph * Math.PI);
       ctx.save(); ctx.globalAlpha = a * 0.85; ctx.translate(f.x - f.facing * (70 + i * 26) * k, f.y - (120 + i * 30 + ph * 40) * k); ctx.rotate(-0.15 + i * 0.12);
-      txt((f.ch.menace || 'ゴゴゴ')[i], 0, 0, (34 - i * 3) * k, f.ch.menaceCol || '#b388ff', '#1a0f40', 6); ctx.restore();
+      txt((f.ch.menace || 'ゴゴゴ')[i], 0, 0, (34 - i * 3) * k * (f.ch.menaceSize || 1), f.ch.menaceCol || '#b388ff', '#1a0f40', 6); ctx.restore();
     }
   }
   if (mode === 4 && f.cond >= 0 && f.cond !== 1 && f.state !== 'ko') drawCondFx(f.cond, f.x, f.y, f.sc);
