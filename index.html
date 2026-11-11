@@ -2697,7 +2697,20 @@ function tyWage(earned, served) {
   const boss = tyU.auto ? Math.round(earned * 0.05 * tyRaise()) : 0;
   return { staff, boss, total: staff + boss };
 }
-function openTycoon() { TY.phase = 'lobby'; TY.sel = 0; TY.autoT = 180; scene = 'tycoon'; }
+function openTycoon() { if (!(tyU.auto && TY.phase !== 'lobby')) { TY.phase = 'lobby'; TY.autoT = 180; } TY.sel = 0; scene = 'tycoon'; }   // 자동 영업 중이면 하던 영업 화면 그대로
+// 자동 영업은 장사 화면을 안 보고 있어도 계속 돌아감 (싸움·시장 등 어디서든). 소리·효과·입력 없이 조용히 진행하고, 영업이 끝나면 알림만
+function tyBackground() {
+  const keep = { ...pressed }, ac = AC, pp = parts, tt = texts, tm = toastMsg, tT = toastT, before = TY.phase;
+  for (const k in pressed) delete pressed[k];
+  AC = null; parts = []; texts = [];
+  try { updateTycoon(); } finally {
+    Object.assign(pressed, keep); AC = ac; parts = pp; texts = tt; toastMsg = tm; toastT = tT;
+  }
+  if (before === 'play' && TY.phase === 'result') {
+    const w = TY.wage || { paid: 0 }, net = TY.earned - w.paid + TY.chainInc + TY.bonus - TY.fines;
+    toast(`🏮 자동 영업 ${tyU.shifts}일차 끝 · 순이익 ${net >= 0 ? '+' : ''}${fmtN(net)}`);
+  }
+}
 function tyStart() {
   Object.assign(TY, { phase: 'play', t: 0, left: TY_SHIFT, slots: Array(3 + tyU.grill).fill(null), meat: 's', tray: { s: [], m: [], h: [] }, cust: [],
     earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 40, combo: 0, wage: null, autoT: 0, banner: 150,
@@ -4234,6 +4247,7 @@ function toast(s) { toastMsg = s; toastT = 150; }
 function step() {
   gT++;
   if (toastT > 0) toastT--;
+  if (scene !== 'tycoon' && tyU.auto) tyBackground();   // 자동 영업: 다른 화면에서도 계속
   if (scene === 'title') updateTitle();
   else if (scene === 'select') updateSelect();
   else if (scene === 'market') updateMarket();
@@ -5559,7 +5573,7 @@ if (/autotest/.test(location.search)) {
     openMarket(); draw(); const c0 = coins; sellDish(0); out.push(`market: sold +${coins - c0}, fridge=${fridge.length}`); mk.tab = 1; draw();
     coins = 2000; for (let i = 0; i < SHOP.length; i++) shopAct(i);
     // 포장마차 장사: 영업 한 판 (불판·서빙·알바·업그레이드)
-    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); tyU.staff = 0; tyU.side = 4; tyU.deco = 2; tyU.auto = false; TY.phase = 'lobby'; tyToggleAuto(); TY.ev = TY_EV[1]; const aph = TY.phase; for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) step(); const asv = TY.served; for (let n = 0; n < 400 && TY.phase === 'result'; n++) step(); out.push(`tycoon auto: start=${aph} served=${asv} next=${TY.phase} rating=${tyU.rating} sides=${JSON.stringify(TY.sideStock)}`); if (!isFinite(tyU.total) || !isFinite(tyU.rating)) throw new Error('장사 숫자 오류'); if (!(aph === 'play' && asv > 0 && TY.phase === 'play')) throw new Error('자동 영업 실패'); tyU.auto = false; coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); coins = 3e8; tyBuy(TY_UP.find(u => u.id === 'chain')); draw(); if (tyU.chain !== 1 || tyU.chains.length !== 1) throw new Error('체인점 실패'); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = TYU0(); saveTyU(); }
+    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); tyU.staff = 0; tyU.side = 4; tyU.deco = 2; tyU.auto = false; TY.phase = 'lobby'; tyToggleAuto(); TY.ev = TY_EV[1]; const aph = TY.phase; for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) step(); const asv = TY.served; for (let n = 0; n < 400 && TY.phase === 'result'; n++) step(); out.push(`tycoon auto: start=${aph} served=${asv} next=${TY.phase} rating=${tyU.rating} sides=${JSON.stringify(TY.sideStock)}`); if (!isFinite(tyU.total) || !isFinite(tyU.rating)) throw new Error('장사 숫자 오류'); if (!(aph === 'play' && asv > 0 && TY.phase === 'play')) throw new Error('자동 영업 실패'); { const s0 = tyU.shifts, c0 = coins; tyU.auto = true; TY.phase = 'lobby'; TY.autoT = 1; scene = 'title'; for (let n = 0; n < TY_SHIFT + 400; n++) step(); out.push(`tycoon bg: shifts ${s0}->${tyU.shifts} coins+${coins - c0} scene=${scene}`); if (tyU.shifts <= s0 || scene !== 'title') throw new Error('다른 화면 자동 영업 실패'); } tyU.auto = false; coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); coins = 3e8; tyBuy(TY_UP.find(u => u.id === 'chain')); draw(); if (tyU.chain !== 1 || tyU.chains.length !== 1) throw new Error('체인점 실패'); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = TYU0(); saveTyU(); }
     out.push('shop: own=' + Object.keys(inv.own).join(',') + ' use=' + JSON.stringify(inv.use) + ' coins=' + coins);
     scene = 'title'; draw(); p1.setChar(withCos(CHARS[0])); scene = 'fight'; draw(); scene = 'betpick'; draw();
     // 스토리 · 은행 · 티어 · 랭킹
