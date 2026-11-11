@@ -564,16 +564,16 @@ function cloudPush(keepalive) {
   if (!isMember() || AUTH_TEST) return Promise.resolve();
   return authFetch('/save', 'PUT', { save: collectSave() }, keepalive ? { keepalive: true } : {})
     .then(d => setAuth({ ...auth, syncT: d.saved }))
-    .catch(e => { if (e.status === 401) authExpired(); });
+    .catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403); });
 }
 // 다른 기기에서 더 최근에 저장했으면 그 기록을 받아 옴 (게임 시작할 때)
 function cloudPull() {
   if (!isMember() || AUTH_TEST) return;
   authFetch('/save').then(d => {
     if (d.save && d.saved > (auth.syncT || 0)) { applySave(d.save); setAuth({ ...auth, syncT: d.saved }); location.reload(); }
-  }).catch(e => { if (e.status === 401) authExpired(); });
+  }).catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403); });
 }
-function authExpired() { setAuth({ guest: true }); toast('🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
+function authExpired(banned) { setAuth({ guest: true }); toast(banned ? '⛔ 정지된 계정이에요. 관리자에게 문의하세요' : '🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
 document.addEventListener('visibilitychange', () => { if (document.hidden && cloudTimer) cloudPush(true); });   // 앱을 내리거나 닫을 때 바로 저장
 // 닉네임: 회원은 회원가입 때 정한 아이디 그대로(바꿀 수 없음), 게스트는 N으로 정한 이름 또는 '돼지123'
 let playerName = isMember() ? auth.login : (lsGet('sgf_name', null) || ('돼지' + (100 + Math.random() * 900 | 0)));
@@ -2335,7 +2335,7 @@ function openMarket() { mk.tab = 0; mk.sel = 0; scene = 'market'; }
 function sellDish(i) {
   const d = fridge[i]; if (!d) return;
   const p = dishPrice(d); addCoins(p); fridge.splice(i, 1); saveFridge();
-  SFX.coin(); popText(W / 2, 470, `${d.n} 판매! +${p} 코인`, '#ffd740', 28);
+  SFX.coin(); popText(W / 2, 470, `${d.n} 판매! +${fmtN(p)} 코인`, '#ffd740', 28);
   mk.sel = Math.min(mk.sel, Math.max(0, fridge.length - 1));
 }
 function shopAct(i) {
@@ -2366,39 +2366,57 @@ function updateMarket() {
   if (pressed.Enter || pressed.Space || pressed.KeyI) { if (mk.tab === 0) sellDish(mk.sel); else shopAct(mk.sel); }
   if (mk.tab === 0 && pressed.KeyX && fridge.length) {
     const total = fridge.reduce((s, d) => s + dishPrice(d), 0); addCoins(total); fridge = []; saveFridge(); mk.sel = 0;
-    SFX.coin(); popText(W / 2, 470, `전부 판매! +${total} 코인`, '#ffd740', 32);
+    SFX.coin(); popText(W / 2, 470, `전부 판매! +${fmtN(total)} 코인`, '#ffd740', 32);
   }
   if (pressed.Escape) toTitle();
 }
 
 // ================= 포장마차 장사 (타이쿤) =================
 // 90초 영업: 불판에 고기 올리기 → 잘 익었을 때 집기(완벽하면 비싸게) → 손님 눌러서 주문대로 서빙 → 코인!
-// 번 돈으로 고기 등급·불판·소문·알바를 업그레이드하면 점점 크게 벌 수 있음 (사채 1000만 갚기용)
+// 번 돈으로 고기 등급·불판·소문·알바·메뉴를 업그레이드 → 가게 등급이 오르고 점점 크게 벌 수 있음 (사채 1000만 갚기용)
+// 영업이 끝나면 알바비를 줌: 알바가 많을수록·손님이 많을수록·오래 일할수록(경력) 오름. 🤖 자동 영업은 점장이 다 해 주지만 점장 월급이 더 듦
 const TY_MEAT = {
   s: { name: '삼겹살', base: 25, cook: 240, raw: '#f2a49b', fat: '#fff3e8' },
-  m: { name: '목살', base: 40, cook: 330, raw: '#d8786b', fat: '#f5d3c3' }
+  m: { name: '목살', base: 40, cook: 330, raw: '#d8786b', fat: '#f5d3c3' },
+  h: { name: '항정살', base: 70, cook: 290, raw: '#f0b7aa', fat: '#ffffff' }
 };
 const TY_UP = [
   { id: 'grade', name: '🥩 고기 등급', max: 15, cost: l => Math.round(500 * 2.6 ** l), desc: l => `판매가 ×${fmtN(2 ** l)} → ×${fmtN(2 ** (l + 1))}` },
   { id: 'grill', name: '🔥 불판 늘리기', max: 3, cost: l => 800 * 3 ** l, desc: l => `불판 ${3 + l}칸 → ${4 + l}칸` },
   { id: 'rep', name: '📣 가게 소문', max: 6, cost: l => 1000 * 3 ** l, desc: () => '손님이 더 자주 오고 더 오래 기다려요' },
-  { id: 'staff', name: '🐷 알바 고용', max: 2, cost: l => [5000, 60000][l], desc: l => l === 0 ? '알바가 손님에게 알아서 서빙' : '알바가 고기도 알아서 굽고 집어요' }
+  { id: 'staff', name: '🐷 알바 고용', max: 2, cost: l => [5000, 60000][l], desc: l => l === 0 ? '알바가 손님에게 알아서 서빙 (알바비 있음)' : '알바가 고기도 알아서 굽고 집어요 (알바비↑)' },
+  { id: 'menu', name: '📜 새 메뉴: 항정살', max: 1, cost: () => 20000, desc: () => '비싼 항정살 주문이 들어와요 (1개 70×등급)' }
 ];
+// 가게 등급: 지금까지 번 돈(총매출)으로 올라감
+const TY_RANK = [['🏮 길거리 포장마차', 0], ['🍖 작은 고깃집', 50000], ['🏠 동네 맛집', 1000000], ['⭐ 소문난 맛집', 10000000], ['🏢 고깃집 프랜차이즈', 100000000], ['👑 전국 1등 고기 체인', 1000000000]];
 const TY_SHIFT = 60 * 90;
-let tyU = Object.assign({ grill: 0, grade: 0, rep: 0, staff: 0, best: 0, shifts: 0 }, lsGet('sgf_tycoon', {}));
+let tyU = Object.assign({ grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false }, lsGet('sgf_tycoon', {}));
 const saveTyU = () => lsSet('sgf_tycoon', tyU);
-const TY = { phase: 'lobby', sel: 0, t: 0, left: 0, slots: [], meat: 's', tray: { s: [], m: [] }, cust: [], earned: 0, served: 0, missed: 0, burnt: 0, spawn: 0, combo: 0 };
+const TY = { phase: 'lobby', sel: 0, t: 0, left: 0, slots: [], meat: 's', tray: { s: [], m: [], h: [] }, cust: [], earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 0, combo: 0, wage: null, autoT: 0, banner: 0 };
 const tyPrice = k => TY_MEAT[k].base * 2 ** tyU.grade;
+const tyKinds = () => tyU.menu ? ['s', 'm', 'h'] : ['s', 'm'];
+const tyRank = () => { let i = 0; TY_RANK.forEach((r, k) => { if (tyU.total >= r[1]) i = k; }); return i; };
 const tySlotXY = i => [340 + (i % 3) * 132, 318 + (i / 3 | 0) * 96];
 const tySeatX = s => 150 + s * 220;
+// 알바비: 알바 1명당 매출의 8% + 손님 1명당 수고비, 점장(자동 영업)은 매출의 10% 더. 영업을 할수록 경력이 쌓여 최대 50%까지 인상
+const tyRaise = () => 1 + 0.02 * Math.min(25, tyU.shifts);
+function tyWage(earned, served) {
+  const staff = Math.round(tyU.staff * (earned * 0.08 + served * 2 * 2 ** tyU.grade) * tyRaise());
+  const boss = tyU.auto ? Math.round(earned * 0.1 * tyRaise()) : 0;
+  return { staff, boss, total: staff + boss };
+}
 function openTycoon() { TY.phase = 'lobby'; TY.sel = 0; scene = 'tycoon'; }
 function tyStart() {
-  Object.assign(TY, { phase: 'play', t: 0, left: TY_SHIFT, slots: Array(3 + tyU.grill).fill(null), meat: 's', tray: { s: [], m: [] }, cust: [],
-    earned: 0, served: 0, missed: 0, burnt: 0, spawn: 40, combo: 0 });
+  Object.assign(TY, { phase: 'play', t: 0, left: TY_SHIFT, slots: Array(3 + tyU.grill).fill(null), meat: 's', tray: { s: [], m: [], h: [] }, cust: [],
+    earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 40, combo: 0, wage: null, autoT: 0, banner: 120 });
   SFX.confirm();
 }
 function tyEnd() {
-  TY.phase = 'result'; tyU.shifts++; tyU.best = Math.max(tyU.best, TY.earned); saveTyU(); SFX.bell();
+  const w = tyWage(TY.earned, TY.served), pay = Math.min(coins, w.total);
+  addCoins(-pay); TY.wage = { ...w, paid: pay };
+  tyU.shifts++; tyU.best = Math.max(tyU.best, TY.earned); tyU.total += TY.earned; tyU.cust += TY.served;
+  tyU.hist = (tyU.hist || []).concat([TY.earned - pay]).slice(-7); saveTyU();
+  TY.phase = 'result'; TY.autoT = 240; SFX.bell();
 }
 function tyBuy(u) {
   const l = tyU[u.id];
@@ -2407,6 +2425,7 @@ function tyBuy(u) {
   if (coins < c) { SFX.block(); toast(`코인이 부족해요 (${fmtN(c)} 필요)`); return; }
   addCoins(-c); tyU[u.id]++; saveTyU(); SFX.coin(); toast(`${u.name} ${tyU[u.id]}단계!`);
 }
+function tyToggleAuto() { tyU.auto = !tyU.auto; saveTyU(); SFX.select(); toast(tyU.auto ? '🤖 자동 영업 켬: 점장이 굽고·집고·서빙하고 다음 영업도 알아서 시작해요 (점장 월급 있음)' : '🤖 자동 영업 끔'); }
 // 익힘 정도 → 품질: 덜 익음 0.7 · 잘 익음 1 · 완벽 1.25 · 탐 -1(버림)
 const tyQual = p => p < 0.75 ? null : p < 1 ? 0.7 : p <= 1.35 ? 1.25 : p <= 1.6 ? 1 : -1;
 function tySlot(i) {
@@ -2426,27 +2445,48 @@ function tyServe(j) {
   const c = TY.cust[j]; if (!c) return;
   const tr = TY.tray[c.k];
   if (tr.length < c.n) { SFX.block(); toast(`${TY_MEAT[c.k].name} ${c.n}개가 필요해요 (접시에 ${tr.length}개)`); return; }
-  const qs = tr.splice(0, c.n), pay = qs.reduce((s, q) => s + tyPrice(c.k) * q, 0);
+  const qs = tr.splice(0, c.n), pay = qs.reduce((s, q) => s + tyPrice(c.k) * q, 0) * (c.vip ? 3 : 1);
   TY.combo = Math.min(5, TY.combo + 1);
   const total = Math.round((pay + pay * 0.5 * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)));   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
-  addCoins(total); TY.earned += total; TY.served++; TY.cust.splice(j, 1); SFX.coin();
-  popText(tySeatX(c.seat), 120, `+${fmtN(total)}${TY.combo > 1 ? ` (${TY.combo}연속!)` : ''}`, '#ffd740', 24);
+  addCoins(total); TY.earned += total; TY.served++; if (c.vip) TY.vip++; TY.cust.splice(j, 1); SFX.coin();
+  popText(tySeatX(c.seat), 120, `${c.vip ? '👑 ' : ''}+${fmtN(total)}${TY.combo > 1 ? ` (${TY.combo}연속!)` : ''}`, '#ffd740', c.vip ? 28 : 24);
+  burst(tySeatX(c.seat), 150, c.vip ? 18 : 8, ['#ffd740', '#fff8e1'], 6);
 }
+// 손님 주문은 많은데 접시·불판에 모자란 고기
+const tyNeed = k => TY.cust.filter(c => c.k === k).reduce((s, c) => s + c.n, 0) - TY.tray[k].length - TY.slots.filter(c => c && c.k === k).length;
+function tyPlaceBest(e) { const keep = TY.meat; TY.meat = tyKinds().reduce((a, b) => tyNeed(b) > tyNeed(a) ? b : a, 's'); tySlot(e); TY.meat = keep; }
+// 점장 / 알바 행동
+function tyBotPick() {
+  const i = TY.slots.findIndex(c => c && ((c.p >= 1.08 && c.p <= 1.35) || c.p > 1.6));
+  if (i >= 0) { tySlot(i); return true; } return false;
+}
+function tyBotServe() {
+  const ok = TY.cust.map((c, j) => [c, j]).filter(([c]) => TY.tray[c.k].length >= c.n).sort((a, b) => b[0].vip - a[0].vip || a[0].pat - b[0].pat)[0];
+  if (ok) { tyServe(ok[1]); return true; } return false;
+}
+function tyBotPlace() { const e = TY.slots.findIndex(c => !c); if (e >= 0) { tyPlaceBest(e); return true; } return false; }
 function updateTycoon() {
   if (TY.phase === 'lobby') {
-    const n = TY_UP.length + 1;
+    const n = TY_UP.length + 2;   // 0 영업 시작 · 1~5 업그레이드 · 6 자동 영업
     if (pressed.KeyW || pressed.ArrowUp) { TY.sel = (TY.sel + n - 1) % n; SFX.select(); }
     if (pressed.KeyS || pressed.ArrowDown) { TY.sel = (TY.sel + 1) % n; SFX.select(); }
-    if (pressed.Enter || pressed.Space || pressed.KeyI) { if (TY.sel === 0) tyStart(); else tyBuy(TY_UP[TY.sel - 1]); }
+    if (pressed.Enter || pressed.Space || pressed.KeyI) { if (TY.sel === 0) tyStart(); else if (TY.sel === n - 1) tyToggleAuto(); else tyBuy(TY_UP[TY.sel - 1]); }
+    if (pressed.KeyR) tyToggleAuto();
     if (pressed.Escape) openMarket();
     return;
   }
-  if (TY.phase === 'result') { if (pressed.Enter || pressed.Space || pressed.KeyI || pressed.Escape) { TY.phase = 'lobby'; TY.sel = 0; } return; }
+  if (TY.phase === 'result') {
+    if (pressed.Escape && tyU.auto) { tyToggleAuto(); return; }
+    if (pressed.Enter || pressed.Space || pressed.KeyI || pressed.Escape) { TY.phase = 'lobby'; TY.sel = 0; return; }
+    if (tyU.auto && --TY.autoT <= 0) tyStart();   // 자동 영업: 잠깐 쉬고 다음 영업
+    return;
+  }
   // ---- 영업 중 ----
-  TY.t++; TY.left--;
+  TY.t++; TY.left--; if (TY.banner > 0) TY.banner--;
   for (let i = 0; i < 6; i++) if (pressed['Digit' + (i + 1)] || pressed['Numpad' + (i + 1)]) tySlot(i);
-  if (pressed.KeyQ) TY.meat = 's'; if (pressed.KeyE) TY.meat = 'm';
+  if (pressed.KeyQ) TY.meat = 's'; if (pressed.KeyE) TY.meat = 'm'; if (pressed.KeyW && tyU.menu) TY.meat = 'h';
   ['KeyA', 'KeyS', 'KeyD', 'KeyF'].forEach((k, s) => { if (pressed[k]) { const j = TY.cust.findIndex(c => c.seat === s); if (j >= 0) tyServe(j); } });
+  if (pressed.KeyR) tyToggleAuto();
   for (let i = 0; i < TY.slots.length; i++) {
     const c = TY.slots[i]; if (!c) continue;
     c.p += 1 / TY_MEAT[c.k].cook;
@@ -2457,30 +2497,24 @@ function updateTycoon() {
     TY.spawn = Math.max(70, 250 - 28 * tyU.rep) * (0.7 + Math.random() * 0.6) | 0;
     const used = TY.cust.map(c => c.seat), free = [0, 1, 2, 3].filter(s => !used.includes(s));
     if (free.length) {
-      const mx = (1000 + 160 * tyU.rep) | 0, ch = CHARS[Math.random() * CHARS.length | 0];
-      TY.cust.push({ seat: pick(free), k: Math.random() < 0.6 ? 's' : 'm', n: 1 + (Math.random() < 0.5 ? 0 : Math.random() < 0.6 ? 1 : 2), pat: mx, max: mx, look: ch.look, t: 0 });
+      const vip = Math.random() < 0.08, mx = ((1000 + 160 * tyU.rep) * (vip ? 0.6 : 1)) | 0, ch = CHARS[Math.random() * CHARS.length | 0];
+      const r = Math.random(), k = tyU.menu && r < 0.22 ? 'h' : r < 0.6 ? 's' : 'm';
+      TY.cust.push({ seat: pick(free), k, n: 1 + (Math.random() < 0.5 ? 0 : Math.random() < 0.6 ? 1 : 2), pat: mx, max: mx, look: ch.look, t: 0, vip });
+      if (vip) popText(tySeatX(TY.cust[TY.cust.length - 1].seat), 90, '👑 VIP 손님! (3배)', '#ffd740', 20);
     }
   }
   for (let j = TY.cust.length - 1; j >= 0; j--) {
     const c = TY.cust[j]; c.t++;
     if (--c.pat <= 0) { TY.cust.splice(j, 1); TY.missed++; TY.combo = 0; SFX.block(); popText(tySeatX(c.seat), 120, '😡 그냥 갈래!', '#ff8a80', 22); }
   }
-  if (tyU.staff >= 1 && TY.t % 50 === 0) {   // 알바: 기다린 지 오래된 손님부터 서빙
-    const ok = TY.cust.map((c, j) => [c, j]).filter(([c]) => TY.tray[c.k].length >= c.n).sort((a, b) => a[0].pat - b[0].pat)[0];
-    if (ok) tyServe(ok[1]);
+  if (tyU.auto) {   // 🤖 점장: 고기 집기 → 서빙 → 빈 불판에 올리기 (사람보다 조금 느림)
+    if (TY.t % 14 === 0) tyBotPick() || tyBotServe() || tyBotPlace();
+  } else {
+    if (tyU.staff >= 1 && TY.t % 50 === 0) tyBotServe();               // 알바 1: 서빙
+    if (tyU.staff >= 2 && TY.t % 25 === 0) tyBotPick() || tyBotPlace();   // 알바 2: 굽기·집기
   }
-  if (tyU.staff >= 2 && TY.t % 25 === 0) {   // 알바 2: 잘 익은 고기 집기 + 빈 불판에 주문 많은 고기 올리기
-    const i = TY.slots.findIndex(c => c && c.p >= 1.1 && c.p <= 1.35);
-    if (i >= 0) tySlot(i);
-    else {
-      const e = TY.slots.findIndex(c => !c);
-      if (e >= 0) {
-        const need = k => TY.cust.filter(c => c.k === k).reduce((s, c) => s + c.n, 0) - TY.tray[k].length - TY.slots.filter(c => c && c.k === k).length;
-        const keep = TY.meat; TY.meat = need('m') > need('s') ? 'm' : 's'; tySlot(e); TY.meat = keep;
-      }
-    }
-  }
-  if (TY.left <= 0 || pressed.Escape) tyEnd();
+  if (TY.left <= 0) tyEnd();
+  else if (pressed.Escape) { if (tyU.auto) tyToggleAuto(); tyEnd(); }
 }
 const tyMix = (a, b, t) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * clamp(t))).join(',')})`; };
 function tyDrawMeat(k, p, x, y, sc = 1) {
@@ -2491,9 +2525,18 @@ function tyDrawMeat(k, p, x, y, sc = 1) {
   ctx.fillStyle = col; rr(-44, -18, 88, 34, 10); ctx.fill();
   ctx.fillStyle = p > 1.6 ? '#3a2a20' : p < 1 ? m.fat : '#f3d9a8';
   if (k === 's') { ctx.fillRect(-40, -8, 80, 5); ctx.fillRect(-40, 4, 80, 4); }   // 삼겹살: 지방 줄무늬
-  else { ell(-12, -2, 10, 5); ctx.fill(); ell(16, 4, 8, 4); ctx.fill(); }          // 목살: 마블링
+  else if (k === 'm') { ell(-12, -2, 10, 5); ctx.fill(); ell(16, 4, 8, 4); ctx.fill(); }   // 목살: 마블링
+  else for (let i = 0; i < 9; i++) { ell(-34 + (i * 37) % 70, -10 + (i * 13) % 22, 3, 2); ctx.fill(); }   // 항정살: 촘촘한 마블링
   if (p >= 1 && p <= 1.35) { ctx.strokeStyle = '#7a3d1d'; ctx.lineWidth = 3; for (let i = -1; i <= 1; i++) line(i * 22 - 8, -14, i * 22 + 8, 12); }   // 그릴 자국
   ctx.restore();
+}
+// 가게 정면 그림 (가게 등급이 오를수록 간판·등불이 화려해짐)
+function tyDrawShop(x, y, w) {
+  const r = tyRank();
+  ctx.fillStyle = ['#8d2a2a', '#9c4a1a', '#6d4c41', '#4527a0', '#263238', '#b8860b'][r]; rr(x, y, w, 46, 10); ctx.fill();
+  ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = r >= 3 ? 4 : 2; rr(x, y, w, 46, 10); ctx.stroke();
+  txt(`${TY_RANK[r][0]} · 꿀꿀 포차`, x + w / 2, y + 24, 18, '#fff8e1', '#000', 4);
+  for (let i = 0; i < 2 + r; i++) { const lx = x + 20 + i * (w - 40) / Math.max(1, 1 + r); ctx.fillStyle = `rgba(255,${110 + (i % 2) * 70},60,${0.6 + 0.3 * Math.sin(gT * 0.06 + i)})`; ell(lx, y + 64, 9, 12); ctx.fill(); }
 }
 function drawTycoon() {
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2b1420'); g.addColorStop(1, '#120a10');
@@ -2505,58 +2548,86 @@ function drawTycoon() {
     addHot(14, 40, 80, 30, () => { pressed.Escape = true; });
   }
   if (TY.phase === 'lobby') {
-    txt('🏮 꿀꿀 포장마차 장사', W / 2, 62, 30, '#ffcc80', '#000', 6);
-    txt(`고기를 구워 손님에게 팔아요! · 최고 매출 ${fmtN(tyU.best)} · 영업 ${tyU.shifts}번`, W / 2, 94, 14, '#fff59d', null);
-    const rows = [['🔔 영업 시작! (90초)', `1개당 삼겹살 ${fmtN(tyPrice('s'))} · 목살 ${fmtN(tyPrice('m'))}코인`, null]]
-      .concat(TY_UP.map(u => { const l = tyU[u.id]; return [`${u.name}  Lv.${l}/${u.max}`, l >= u.max ? '최고 단계!' : u.desc(l), l >= u.max ? null : u.cost(l)]; }));
+    // 왼쪽: 내 가게 현황
+    const r = tyRank(), nx = TY_RANK[r + 1];
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; rr(20, 80, 420, 446, 14); ctx.fill();
+    tyDrawShop(40, 92, 380);
+    txt(`📅 ${tyU.shifts + 1}일차 영업 준비`, 40, 190, 18, '#fff', null, 0, 'left');
+    txt(nx ? `다음 가게 등급 ${nx[0]}까지 ${fmtN(nx[1] - tyU.total)}` : '최고 가게 등급!', 40, 216, 13, '#ffe082', null, 0, 'left');
+    ctx.fillStyle = '#333'; ctx.fillRect(40, 226, 380, 8); ctx.fillStyle = '#ffd54f'; ctx.fillRect(40, 226, 380 * (nx ? clamp((tyU.total - TY_RANK[r][1]) / (nx[1] - TY_RANK[r][1])) : 1), 8);
+    txt(`총매출 ${fmtN(tyU.total)} · 손님 ${fmtN(tyU.cust)}명 · 최고 하루 매출 ${fmtN(tyU.best)}`, 40, 254, 13, '#ddd', null, 0, 'left');
+    // 최근 7일 순이익 그래프
+    txt('📈 최근 영업 순이익', 40, 282, 13, '#bbb', null, 0, 'left');
+    const hs = tyU.hist || [], mx = Math.max(1, ...hs.map(Math.abs));
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(40, 294, 380, 90);
+    hs.forEach((v, i) => { const bh = 80 * Math.abs(v) / mx, bx = 50 + i * 53; ctx.fillStyle = v >= 0 ? '#66bb6a' : '#ef5350'; ctx.fillRect(bx, 380 - bh, 40, bh); txt(fmtN(v), bx + 20, 372 - bh, 10, '#fff', '#000', 2); });
+    if (!hs.length) txt('아직 영업 기록이 없어요', 230, 340, 13, '#888', null);
+    // 알바비 안내
+    const ex = tyWage(1000 * 2 ** tyU.grade, 20);
+    txt(`💸 알바비: 알바 ${tyU.staff}명${tyU.auto ? ' + 점장' : ''} · 경력 인상 +${Math.round((tyRaise() - 1) * 100)}%`, 40, 404, 13, '#ffab91', null, 0, 'left');
+    txt(`손님이 많을수록 알바비도 올라요 (예: 매출 ${fmtN(1000 * 2 ** tyU.grade)}·손님 20명 → ${fmtN(ex.total)})`, 40, 424, fitSize(`손님이 많을수록 알바비도 올라요 (예: 매출 ${fmtN(1000 * 2 ** tyU.grade)}·손님 20명 → ${fmtN(ex.total)})`, 12, 380), '#ccc', null, 0, 'left');
+    // 오른쪽: 영업 시작 · 업그레이드 · 자동 영업
+    const rows = [['🔔 영업 시작! (90초)', `1개당 ${tyKinds().map(k => `${TY_MEAT[k].name} ${fmtN(tyPrice(k))}`).join(' · ')}`, null]]
+      .concat(TY_UP.map(u => { const l = tyU[u.id]; return [`${u.name}  Lv.${l}/${u.max}`, l >= u.max ? '최고 단계!' : u.desc(l), l >= u.max ? null : u.cost(l)]; }))
+      .concat([[`🤖 자동 영업 ${tyU.auto ? 'ON' : 'OFF'} ${TOUCH ? '' : '[R]'}`, '점장이 다 하고 영업도 계속 이어서 (점장 월급: 매출의 10%)', null]]);
     rows.forEach(([a, b, c], i) => {
-      const y = 116 + i * 74, on = TY.sel === i, x = 170;
-      ctx.fillStyle = on ? (i === 0 ? '#e53935' : 'rgba(255,145,0,0.5)') : 'rgba(255,255,255,0.08)'; rr(x, y, 620, 64, 12); ctx.fill();
-      if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 620, 64, 12); ctx.stroke(); }
-      txt(a, x + 20, y + 22, 18, '#fff', null, 0, 'left'); txt(b, x + 20, y + 46, 13, '#ddd', null, 0, 'left');
-      if (c !== null) txt(`${fmtN(c)} 코인`, x + 600, y + 32, 17, coins >= c ? '#69f0ae' : '#ff8a80', null, 0, 'right');
-      addHot(x, y, 620, 64, () => { TY.sel = i; pressed.Enter = true; });
+      const y = 80 + i * 64, on = TY.sel === i, x = 456, last = i === rows.length - 1;
+      ctx.fillStyle = on ? (i === 0 ? '#e53935' : 'rgba(255,145,0,0.5)') : last && tyU.auto ? 'rgba(67,160,71,0.55)' : 'rgba(255,255,255,0.08)'; rr(x, y, 484, 56, 12); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 484, 56, 12); ctx.stroke(); }
+      txt(a, x + 16, y + 19, 16, '#fff', null, 0, 'left'); txt(b, x + 16, y + 40, fitSize(b, 12, c !== null ? 340 : 450), '#ddd', null, 0, 'left');
+      if (c !== null) txt(`${fmtN(c)}`, x + 470, y + 28, 17, coins >= c ? '#69f0ae' : '#ff8a80', null, 0, 'right');
+      addHot(x, y, 484, 56, () => { TY.sel = i; pressed.Enter = true; });
     });
-    txt(TOUCH ? '탭해서 시작·업그레이드' : 'W/S 고르기 · Enter 시작/구매 · Esc 시장으로', W / 2, 500, 13, '#aaa', null);
+    txt(TOUCH ? '탭해서 시작·업그레이드' : 'W/S 고르기 · Enter 시작/구매 · R 자동 영업 · Esc 시장으로', 690, 530, 12, '#aaa', null);
     return;
   }
   if (TY.phase === 'result') {
-    txt('🏮 영업 끝!', W / 2, 120, 40, '#ffcc80', '#000', 7);
-    txt(`오늘 매출 +${fmtN(TY.earned)} 코인`, W / 2, 190, 30, '#ffd740', '#000', 5);
-    txt(`서빙 ${TY.served}명 · 놓친 손님 ${TY.missed}명 · 태운 고기 ${TY.burnt}개`, W / 2, 240, 18, '#fff', null);
-    if (TY.earned >= tyU.best && TY.earned > 0) txt('🏆 최고 매출 갱신!', W / 2, 280, 20, '#69f0ae', '#000', 4);
-    txt(`남은 사채 ${fmtN(Math.max(0, debt))} · 🏦 은행에서 갚을 수 있어요`, W / 2, 330, 15, '#ffab91', null);
+    const w = TY.wage || { staff: 0, boss: 0, paid: 0 };
+    txt(`🏮 ${tyU.shifts}일차 영업 끝!`, W / 2, 110, 38, '#ffcc80', '#000', 7);
+    txt(`매출 +${fmtN(TY.earned)}`, W / 2, 170, 26, '#ffd740', '#000', 5);
+    txt(`💸 알바비 -${fmtN(w.staff)}${w.boss ? ` · 점장 월급 -${fmtN(w.boss)}` : ''}`, W / 2, 208, 18, '#ff8a80', '#000', 4);
+    txt(`순이익 ${fmtN(TY.earned - w.paid)}`, W / 2, 248, 30, TY.earned - w.paid >= 0 ? '#69f0ae' : '#ff8a80', '#000', 5);
+    txt(`서빙 ${TY.served}명${TY.vip ? ` (👑VIP ${TY.vip})` : ''} · 놓친 손님 ${TY.missed}명 · 태운 고기 ${TY.burnt}개`, W / 2, 292, 16, '#fff', null);
+    if (TY.earned >= tyU.best && TY.earned > 0) txt('🏆 최고 매출 갱신!', W / 2, 322, 18, '#69f0ae', '#000', 4);
+    txt(`가게 등급 ${TY_RANK[tyRank()][0]} · 남은 사채 ${fmtN(Math.max(0, debt))} (🏦 은행에서 갚기)`, W / 2, 352, 14, '#ffab91', null);
     ctx.fillStyle = '#e53935'; rr(W / 2 - 120, 380, 240, 50, 12); ctx.fill(); txt('확인', W / 2, 405, 20, '#fff', null);
     addHot(W / 2 - 120, 380, 240, 50, () => { pressed.Enter = true; });
+    if (tyU.auto) txt(`🤖 자동 영업: ${Math.ceil(TY.autoT / 60)}초 뒤 다음 영업 시작 · Esc로 자동 끄기`, W / 2, 458, 14, '#69f0ae', null);
     return;
   }
   // ---- 영업 중 화면 ----
   const sec = Math.ceil(TY.left / 60);
-  txt(`⏰ ${sec}초`, 20, 50, 20, sec <= 10 && gT % 30 < 15 ? '#ff5252' : '#fff', '#000', 4, 'left');
+  txt(`⏰ ${sec}초 · ${tyU.shifts + 1}일차`, 20, 50, 18, sec <= 10 && gT % 30 < 15 ? '#ff5252' : '#fff', '#000', 4, 'left');
   txt(`오늘 매출 ${fmtN(TY.earned)}${TY.combo > 1 ? ` · 🔥${TY.combo}연속` : ''}`, W / 2, 50, 18, '#ffd740', '#000', 4);
-  // 손님 자리 4개
+  ctx.fillStyle = tyU.auto ? '#43a047' : 'rgba(255,255,255,0.15)'; rr(W - 250, 36, 110, 28, 8); ctx.fill();
+  txt(`🤖 자동 ${tyU.auto ? 'ON' : 'OFF'}`, W - 195, 50, 13, '#fff', null);
+  addHot(W - 250, 36, 110, 28, () => { pressed.KeyR = true; });
+  // 손님 자리 4개 (새 손님은 오른쪽에서 걸어 들어옴)
   for (let s = 0; s < 4; s++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; rr(tySeatX(s) - 95, 70, 190, 180, 14); ctx.fill(); }
   TY.cust.forEach((c, j) => {
-    const x = tySeatX(c.seat), k = c.pat / c.max, ready = TY.tray[c.k].length >= c.n;
-    drawPig(x - 40, 238, 1, c.look, { scale: 0.42, t: gT + c.seat * 20, hurt: k < 0.25 && gT % 40 < 20, walk: c.t < 20 });
+    const x = tySeatX(c.seat) + (1 - clamp(c.t / 30)) * 260, k = c.pat / c.max, ready = TY.tray[c.k].length >= c.n;
+    drawPig(x - 40, 238, 1, c.look, { scale: 0.42, t: gT + c.seat * 20, hurt: k < 0.25 && gT % 40 < 20, walk: c.t < 30, aura: c.vip ? '#ffd700' : null });
+    if (c.vip) txt('👑', x - 40, 158, 22, '#fff', null);
     ctx.fillStyle = ready ? '#fffde7' : '#fff'; rr(x - 10, 82, 100, 74, 10); ctx.fill();
-    if (ready) { ctx.strokeStyle = '#43a047'; ctx.lineWidth = 3; rr(x - 10, 82, 100, 74, 10); ctx.stroke(); }
+    if (ready || c.vip) { ctx.strokeStyle = c.vip ? '#ffb300' : '#43a047'; ctx.lineWidth = 3; rr(x - 10, 82, 100, 74, 10); ctx.stroke(); }
     tyDrawMeat(c.k, 1.1, x + 40, 106, 0.5);
     txt(`${TY_MEAT[c.k].name} ×${c.n}`, x + 40, 138, 14, '#3e2723', null);
     ctx.fillStyle = '#333'; ctx.fillRect(x - 80, 252, 160, 8);
     ctx.fillStyle = k > 0.5 ? '#66bb6a' : k > 0.25 ? '#ffca28' : '#ef5350'; ctx.fillRect(x - 80, 252, 160 * k, 8);
-    if (!TOUCH) txt(['A', 'S', 'D', 'F'][c.seat], x + 80, 76, 12, '#aaa', null);
-    addHot(x - 95, 70, 190, 190, () => tyServe(j));
+    if (!TOUCH) txt(['A', 'S', 'D', 'F'][c.seat], tySeatX(c.seat) + 80, 76, 12, '#aaa', null);
+    addHot(tySeatX(c.seat) - 95, 70, 190, 190, () => tyServe(j));
   });
   ctx.fillStyle = '#5d4037'; ctx.fillRect(0, 268, W, 12);   // 카운터
   // 왼쪽: 다 구운 고기 접시
+  const ks = tyKinds(), gap = ks.length === 3 ? 72 : 90;
   ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(20, 290, 240, 236, 14); ctx.fill();
-  txt('🍽️ 다 구운 고기', 140, 308, 15, '#ffe0b2', null);
-  ['s', 'm'].forEach((k, r) => {
-    const tr = TY.tray[k], y = 350 + r * 90;
-    ctx.fillStyle = '#eceff1'; ell(140, y + 14, 100, 30); ctx.fill();
-    for (let i = 0; i < Math.min(6, tr.length); i++) tyDrawMeat(k, 1.1, 80 + i * 24, y + 8 - (i % 2) * 6, 0.42);
-    txt(`${TY_MEAT[k].name} ${tr.length}개${tr.filter(q => q > 1.2).length ? ` (✨${tr.filter(q => q > 1.2).length})` : ''}`, 140, y + 56, 14, '#fff', '#000', 3);
+  txt('🍽️ 다 구운 고기', 140, 306, 15, '#ffe0b2', null);
+  ks.forEach((k, r) => {
+    const tr = TY.tray[k], y = (ks.length === 3 ? 330 : 350) + r * gap;
+    ctx.fillStyle = '#eceff1'; ell(140, y + 12, 100, ks.length === 3 ? 22 : 30); ctx.fill();
+    for (let i = 0; i < Math.min(6, tr.length); i++) tyDrawMeat(k, 1.1, 80 + i * 24, y + 8 - (i % 2) * 6, 0.4);
+    const pf = tr.filter(q => q > 1.2).length;
+    txt(`${TY_MEAT[k].name} ${tr.length}개${pf ? ` (✨${pf})` : ''}`, 140, y + (ks.length === 3 ? 42 : 56), 13, '#fff', '#000', 3);
   });
   // 가운데: 불판
   ctx.fillStyle = '#212121'; rr(268, 274, 494, 256, 16); ctx.fill();
@@ -2577,16 +2648,23 @@ function drawTycoon() {
     addHot(x - 60, y - 40, 120, 84, () => tySlot(i));
   });
   // 오른쪽: 올릴 고기 고르기
-  ['s', 'm'].forEach((k, r) => {
-    const x = 780, y = 296 + r * 92, on = TY.meat === k;
-    ctx.fillStyle = on ? '#ef6c00' : 'rgba(255,255,255,0.1)'; rr(x, y, 160, 80, 12); ctx.fill();
-    if (on) { ctx.strokeStyle = '#ffe0b2'; ctx.lineWidth = 3; rr(x, y, 160, 80, 12); ctx.stroke(); }
-    tyDrawMeat(k, 0, x + 80, y + 28, 0.6);
-    txt(`${TOUCH ? '' : r ? '[E] ' : '[Q] '}${TY_MEAT[k].name} ${fmtN(tyPrice(k))}`, x + 80, y + 62, 13, '#fff', null);
-    addHot(x, y, 160, 80, () => { TY.meat = k; SFX.select(); });
+  const bh = ks.length === 3 ? 58 : 80;
+  ks.forEach((k, r) => {
+    const x = 780, y = 290 + r * (bh + 6), on = TY.meat === k;
+    ctx.fillStyle = on ? '#ef6c00' : 'rgba(255,255,255,0.1)'; rr(x, y, 160, bh, 12); ctx.fill();
+    if (on) { ctx.strokeStyle = '#ffe0b2'; ctx.lineWidth = 3; rr(x, y, 160, bh, 12); ctx.stroke(); }
+    tyDrawMeat(k, 0, x + 80, y + bh * 0.35, bh / 130);
+    txt(`${TOUCH ? '' : ['[Q] ', '[E] ', '[W] '][r]}${TY_MEAT[k].name} ${fmtN(tyPrice(k))}`, x + 80, y + bh - 14, 12, '#fff', null);
+    addHot(x, y, 160, bh, () => { TY.meat = k; SFX.select(); });
   });
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(780, 484, 160, 40, 10); ctx.fill(); txt('영업 끝내기', 860, 504, 14, '#fff', null);
   addHot(780, 484, 160, 40, () => { pressed.Escape = true; });
+  if (TY.banner > 0) {   // 영업 시작 안내
+    ctx.globalAlpha = clamp(TY.banner / 30); ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 220, 150, 440, 70, 14); ctx.fill();
+    txt(`☀️ ${tyU.shifts + 1}일차 영업 시작!`, W / 2, 176, 26, '#ffd740', '#000', 5);
+    txt(tyU.auto ? '🤖 점장이 알아서 장사해요' : '고기를 굽고, 익으면 집고, 손님을 눌러 서빙!', W / 2, 204, 13, '#fff', null);
+    ctx.globalAlpha = 1;
+  }
   drawParts();
 }
 // ================= 요리 그림: 요리 이름마다 생김새가 전부 다름 =================
@@ -2737,7 +2815,7 @@ function drawMarket() {
       txt(d.n, 170, y + 19, 18, '#fff', null, 0, 'left');
       txt(`${'★'.repeat(d.s)}${'☆'.repeat(5 - d.s)}`, 400, y + 19, 15, '#ffd54f', null);
       txt(`${d.m} · ${METHODS[d.k].label}${d.f === 1 ? ' · 모험' : ''}`, 530, y + 19, 13, '#bbb', null);
-      txt(`${p}코인 ${p > pp ? '▲' : p < pp ? '▼' : '-'}`, 660, y + 19, 17, p > pp ? '#69f0ae' : p < pp ? '#ff8a80' : '#fff', null);
+      txt(`${fmtN(p)}코인 ${p > pp ? '▲' : p < pp ? '▼' : '-'}`, 660, y + 19, 17, p > pp ? '#69f0ae' : p < pp ? '#ff8a80' : '#fff', null);
       ctx.fillStyle = '#43a047'; rr(770, y + 5, 100, 28, 8); ctx.fill(); txt('팔기', 820, y + 19, 15, '#fff', null);
       addHot(770, y + 5, 100, 28, () => { mk.sel = i; pressed.Enter = true; });
     }
@@ -2756,7 +2834,7 @@ function drawMarket() {
       txt(it.name, x + 145, y + 30, fitSize(it.name, 15, 92), '#fff', null);   // 카드(오른쪽 끝 x+196) 밖으로 안 나가게
       txt(it.type === 'use' ? `보유 ${inv.use[it.id] || 0}` : eq ? '장착 중' : own ? '보유 (탭=장착)' : '', x + 145, y + 54, 12, eq ? '#69f0ae' : '#bbb', null);
       if (it.desc) txt(it.desc, x + 98, y + 100, 10, '#aaa', null);
-      if (!own || it.type === 'use') txt(`🪙 ${it.price}`, x + 145, y + 78, 16, coins >= it.price ? '#ffd740' : '#ff8a80', null);
+      if (!own || it.type === 'use') txt(`🪙 ${fmtN(it.price)}`, x + 145, y + 78, 16, coins >= it.price ? '#ffd740' : '#ff8a80', null);
     });
     txt('Enter / 탭: 구매 · 장착/해제', W / 2, 516, 14, '#aaa', null);
   }
@@ -3055,7 +3133,13 @@ function checkUnlocks() {
   return got.length ? ` · 🔓 ${got.map(c => c.name).join(', ')} 해금!` : '';
 }
 const tierOf = v => { let i = 0; TIERS.forEach((t, k) => { if (v >= t[1]) i = k; }); return i; };
-const fmtN = n => Math.round(n).toLocaleString('ko-KR');
+// 돈 표시: 1,000 → 1K · 1,500,000 → 1.5M · 1,000,000,000 → 1B (숫자가 길어져 화면이 밀리지 않게)
+const fmtN = n => {
+  n = Math.round(n); const a = Math.abs(n), s = n < 0 ? '-' : '';
+  if (a < 1000) return s + a;
+  const [d, u] = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']].find(x => a >= x[0]), v = a / d;
+  return s + (v < 10 ? Math.floor(v * 100) / 100 : v < 100 ? Math.floor(v * 10) / 10 : Math.floor(v)) + u;
+};
 function drawTierBadge(x, y, v, size = 14, align = 'center') {
   const t = TIERS[tierOf(v)], label = `🏅 ${t[0]}`;
   ctx.font = `900 ${size}px ${FONT}`; const w = ctx.measureText(label).width + 16, h = size + 10;
@@ -4388,9 +4472,9 @@ function drawFinal(f) {
   if ((mode === 1 || mode === 3 || mode === 4) && f > 1.6) {
     const e = cut.earn, tot = e.win + Math.max(0, e.bet) + e.dish;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; rr(24, 238, 300, 112, 12); ctx.fill();
-    txt(`🪙 +${tot} 코인`, 174, 262, 26, '#ffd740', '#000', 5);
+    txt(`🪙 +${fmtN(tot)} 코인`, 174, 262, 26, '#ffd740', '#000', 5);
     const parts2 = [];
-    if (e.win) parts2.push(`승리 +${e.win}`); if (e.bet > 0) parts2.push(`베팅 적중 +${e.bet}`); if (e.bet < 0) parts2.push(`베팅 꽝 ${e.bet}`); if (cut.fridged) parts2.push(`🧊 ${cut.dish.name} 냉장고행`); if (mode === 4 && !e.bet) parts2.push('구경만 했어요');
+    if (e.win) parts2.push(`승리 +${fmtN(e.win)}`); if (e.bet > 0) parts2.push(`베팅 적중 +${fmtN(e.bet)}`); if (e.bet < 0) parts2.push(`베팅 꽝 ${fmtN(e.bet)}`); if (cut.fridged) parts2.push(`🧊 ${cut.dish.name} 냉장고행`); if (mode === 4 && !e.bet) parts2.push('구경만 했어요');
     txt(parts2.join(' · '), 174, 296, 13, '#fff', null);
     txt(`보유 ${fmtN(coins)} 코인`, 174, 326, 16, '#ffe082', null);
   }
@@ -4402,13 +4486,13 @@ function drawFinal(f) {
       txt(`${cut.tp.d >= 0 ? '+' : ''}${cut.tp.d} TP (${cut.tp.after})${up ? ' ⬆ 승급!' : down ? ' ⬇ 강등' : ''}`, 44 + bw2, 376, 14, up ? '#69f0ae' : down ? '#ff8a80' : '#fff', null, 0, 'left');
     } else txt('티어 점수는 랭크전에서만 바뀌어요', 174, 376, 13, '#aaa', null);
     if (cut.tp && cut.tp.msg) txt(cut.tp.msg, 174, 402, 13, '#ffd740', null);   // 승급전 소식이 있으면 우선 표시
-    else txt(cut.interest ? `💸 사채 이자 +${cut.interest} · 남은 빚 ${fmtN(debt)}` : '👑 빚 없음!', 174, 402, 13, '#ffab91', null);
+    else txt(cut.interest ? `💸 사채 이자 +${fmtN(cut.interest)} · 남은 빚 ${fmtN(debt)}` : '👑 빚 없음!', 174, 402, 13, '#ffab91', null);
   }
   addHot(0, 60, W, H - 60, () => { pressed.Enter = true; });
 
   if (mode === 1 && !runOver) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(W - 130, 8, 120, 34, 8); ctx.fill(); txt('그만하기', W - 70, 25, 15, '#fff', null); addHot(W - 130, 8, 120, 34, () => { pressed.Escape = true; }); }
   if (mode === 3) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(W - 130, 8, 120, 34, 8); ctx.fill(); txt('나가기', W - 70, 25, 15, '#fff', null); addHot(W - 130, 8, 120, 34, () => { pressed.Escape = true; }); }
-  if (mode === 4 && f > 0.8) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 230, 196, 460, 44, 12); ctx.fill(); txt(bet4.stake ? (cut.earn.bet > 0 ? `🎉 베팅 적중! +${cut.earn.bet} 코인` : `💸 베팅 실패... -${bet4.stake} 코인`) : '👀 구경 끝!', W / 2, 218, 24, cut.earn.bet > 0 ? '#ffd740' : '#fff', '#000', 5); }
+  if (mode === 4 && f > 0.8) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 230, 196, 460, 44, 12); ctx.fill(); txt(bet4.stake ? (cut.earn.bet > 0 ? `🎉 베팅 적중! +${fmtN(cut.earn.bet)} 코인` : `💸 베팅 실패... -${fmtN(bet4.stake)} 코인`) : '👀 구경 끝!', W / 2, 218, 24, cut.earn.bet > 0 ? '#ffd740' : '#fff', '#000', 5); }
   const hint = mode === 4 ? '[Enter] 다음 경기 베팅      [Esc] 타이틀' : mode === 3 ? '[Enter] 재대결 (둘 중 한 명)      [Esc] 방 나가기' : mode !== 1 ? '[Enter] 타이틀' : runOver ? '[Enter] 랭킹 보기      [Esc] 타이틀' : '[Enter] 다음 상대      [Esc] 그만하기(기록 저장)';
   if (f > 0.6 && gT % 60 < 42) txt(hint, W / 2, H - 28, 22, '#fff', '#000', 5);
 }
@@ -4585,7 +4669,7 @@ function drawHUD() {
   txt(String(Math.max(0, Math.ceil(timer / 60))), W / 2, 40, 36, timer < 600 ? '#ff5252' : '#fff', null);
   if (mode === 1) txt(`${ranked ? "랭크전 · " : ""}${streak}연승 중`, W / 2, 82, 15, '#ffeb3b', '#000', 4);
   if (mode === 4) {
-    txt(bet4.stake ? `🎲 ${(bet4.side ? p2 : p1).base}에 ${bet4.stake}코인` : '👀 구경 중', W / 2, 82, 14, '#ffd740', '#000', 4);
+    txt(bet4.stake ? `🎲 ${(bet4.side ? p2 : p1).base}에 ${fmtN(bet4.stake)}코인` : '👀 구경 중', W / 2, 82, 14, '#ffd740', '#000', 4);
     ctx.fillStyle = bet4.fast ? '#ff9100' : 'rgba(0,0,0,0.55)'; rr(W / 2 - 64, 136, 128, 26, 8); ctx.fill();
     txt(bet4.fast ? '▶▶▶ 3배속 (F)' : '▶ 빨리 보기 (F)', W / 2, 149, 13, '#fff', null);
     addHot(W / 2 - 64, 136, 128, 26, () => { pressed.KeyF = true; });
@@ -4729,7 +4813,7 @@ function drawVs() {
     txt(p1.base, 220, 470, 34, '#fff', '#000', 8); txt(`×${bet4.oa.toFixed(2)} · ${COND[bet4.ca]} · 승률 ${Math.round(bet4.pa * 100)}%`, 220, 505, 17, '#ffd740', '#000', 4);
     txt(p2.base, 740, 470, 34, '#fff', '#000', 8); txt(`×${bet4.ob.toFixed(2)} · ${COND[bet4.cb]} · 승률 ${Math.round((1 - bet4.pa) * 100)}%`, 740, 505, 17, '#ffd740', '#000', 4);
     txt('🎲 AI 경기', W / 2, 50, 28, '#ffd740', '#000', 6);
-    txt(bet4.stake ? `${(bet4.side ? p2 : p1).base}에 ${bet4.stake}코인!` : '구경 모드', W / 2, 92, 18, '#fff', '#000', 4);
+    txt(bet4.stake ? `${(bet4.side ? p2 : p1).base}에 ${fmtN(bet4.stake)}코인!` : '구경 모드', W / 2, 92, 18, '#fff', '#000', 4);
     txt('VS', W / 2, H / 2 - 40, 120 * (1 + (1 - k)), '#ffeb3b', '#000', 14);
     return;
   }
@@ -4869,7 +4953,7 @@ if (/autotest/.test(location.search)) {
     openMarket(); draw(); const c0 = coins; sellDish(0); out.push(`market: sold +${coins - c0}, fridge=${fridge.length}`); mk.tab = 1; draw();
     coins = 2000; for (let i = 0; i < SHOP.length; i++) shopAct(i);
     // 포장마차 장사: 영업 한 판 (불판·서빙·알바·업그레이드)
-    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); draw(); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = { grill: 0, grade: 0, rep: 0, staff: 0, best: 0, shifts: 0 }; saveTyU(); }
+    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); draw(); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = { grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false }; saveTyU(); }
     out.push('shop: own=' + Object.keys(inv.own).join(',') + ' use=' + JSON.stringify(inv.use) + ' coins=' + coins);
     scene = 'title'; draw(); p1.setChar(withCos(CHARS[0])); scene = 'fight'; draw(); scene = 'betpick'; draw();
     // 스토리 · 은행 · 티어 · 랭킹

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>삼겹살 파이터 관리자</title>
+<style>
+:root{--bg:#160d14;--panel:#24161f;--panel2:#2f1d29;--line:#4a2d3d;--text:#f6eef2;--dim:#b9a3ae;--accent:#ff5c8a;--ok:#66bb6a;--warn:#ffb74d;--bad:#ef5350;--gold:#ffd740}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0;flex:1}
+main{max-width:1280px;margin:0 auto;padding:16px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+button.danger{background:#5a1c22;border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:#12090f;border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.login{max-width:360px;margin:60px auto;display:grid;gap:10px}
+.login h2{margin:0 0 4px;text-align:center}
+.err{color:var(--bad);min-height:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat b{display:block;font-size:22px}
+.stat span{color:var(--dim);font-size:12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.bar input{flex:1;min-width:160px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:var(--panel2);color:var(--dim);font-weight:600;font-size:12px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#2a1923}
+tbody tr.sel{background:#3a1f2d}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;border:1px solid var(--line)}
+.tag.ban{border-color:var(--bad);color:var(--bad)}
+.tag.on{border-color:var(--ok);color:var(--ok)}
+.tag.adm{border-color:var(--gold);color:var(--gold)}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:8px;color:var(--dim)}
+.detail{margin-top:16px;display:none}
+.detail.show{display:block}
+.dhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.dhead h2{margin:0;font-size:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.field{display:grid;gap:4px}
+.field label{color:var(--dim);font-size:12px}
+.field small{color:var(--dim);font-size:11px}
+fieldset{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 12px}
+legend{padding:0 6px;color:var(--gold);font-weight:700}
+.checks{display:flex;flex-wrap:wrap;gap:12px}
+.checks label{display:flex;gap:6px;align-items:center}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.raw{display:grid;gap:6px}
+.rawrow{display:grid;grid-template-columns:200px 1fr auto;gap:6px;align-items:start}
+.rawrow textarea{min-height:34px;resize:vertical;font-family:Consolas,monospace;font-size:12px}
+.rawrow input{font-family:Consolas,monospace;font-size:12px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000c;border:1px solid var(--line);padding:10px 16px;border-radius:10px;display:none;z-index:20}
+.muted{color:var(--dim)}
+@media (max-width:640px){main{padding:10px}.rawrow{grid-template-columns:1fr}header h1{font-size:15px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🐷 삼겹살 파이터 · 관리자</h1>
+  <span id="who" class="muted"></span>
+  <button id="logoutBtn" style="display:none">로그아웃</button>
+</header>
+<main>
+  <!-- 로그인 -->
+  <form id="loginBox" class="card login" autocomplete="on">
+    <h2>관리자 로그인</h2>
+    <p class="muted" style="margin:0;text-align:center">관리자 아이디로 게임에 가입한 비밀번호로 로그인해요</p>
+    <input id="lid" placeholder="아이디" autocomplete="username" required>
+    <input id="lpw" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+    <button class="primary" type="submit">로그인</button>
+    <div class="err" id="lerr"></div>
+  </form>
+
+  <!-- 관리 화면 -->
+  <section id="app" style="display:none">
+    <div class="stats" id="stats"></div>
+    <div class="bar">
+      <input id="q" placeholder="아이디 또는 uid 검색">
+      <select id="sort">
+        <option value="created">가입 최신순</option>
+        <option value="saved">최근 접속(저장)순</option>
+        <option value="login">아이디순</option>
+      </select>
+      <button id="searchBtn" class="primary">검색</button>
+      <button id="reloadBtn">새로고침</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>아이디</th><th>상태</th><th class="num">코인</th><th class="num">사채</th><th class="num">은행빚</th><th>티어</th><th class="num">최고 연승</th><th>엔딩</th><th class="num">장사 총매출</th><th>가입</th><th>최근 저장</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="pager"><span id="pinfo"></span><button id="prev">◀ 이전</button><button id="next">다음 ▶</button></div>
+
+    <!-- 계정 상세 -->
+    <section id="detail" class="card detail">
+      <div class="dhead">
+        <h2 id="dname"></h2>
+        <span id="dtags"></span>
+        <span class="muted" id="dmeta"></span>
+      </div>
+      <fieldset>
+        <legend>계정 관리</legend>
+        <div class="actions">
+          <button id="aPw">🔑 비밀번호 바꾸기</button>
+          <button id="aRename">✏️ 아이디 바꾸기</button>
+          <button id="aLogout">🚪 모든 기기 로그아웃</button>
+          <button id="aUnlock">🔓 로그인 잠금 풀기</button>
+          <button id="aBan" class="danger">⛔ 정지</button>
+          <button id="aDel" class="danger">🗑️ 계정 삭제</button>
+        </div>
+        <p class="muted" style="margin:8px 0 0">저장 데이터를 고치면 그 사람이 다음에 게임을 켤 때 받아가요. 지금 게임 중이면 그 사람 기록이 다시 덮어쓸 수 있으니, 필요하면 먼저 "모든 기기 로그아웃"을 누르세요.</p>
+      </fieldset>
+      <fieldset>
+        <legend>돈 · 빚 · 티어</legend>
+        <div class="grid">
+          <div class="field"><label>🪙 코인 (sgf_coin)</label><input id="f_coin" type="number" min="0"><small id="h_coin"></small></div>
+          <div class="field"><label>💸 사채 (sgf_debt)</label><input id="f_debt" type="number" min="0"><small id="h_debt"></small></div>
+          <div class="field"><label>🏦 은행 대출 (sgf_bank)</label><input id="f_bank" type="number" min="0"><small id="h_bank"></small></div>
+          <div class="field"><label>🎯 빚 상환 목표 (sgf_debtbase)</label><input id="f_debtbase" type="number" min="1"></div>
+          <div class="field"><label>🏅 티어 점수 TP (sgf_tp)</label><input id="f_tp" type="number" min="0"><small id="h_tp"></small></div>
+          <div class="field"><label>🔥 랭크전 최고 연승 (sgf_rbest)</label><input id="f_rbest" type="number" min="0"></div>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>엔딩 · 해금</legend>
+        <div class="checks" id="endChecks"></div>
+        <div class="checks" style="margin-top:8px"><label><input type="checkbox" id="f_unlock_gold"> 금한돈 해금 (sgf_unlock_금한돈)</label></div>
+      </fieldset>
+      <fieldset>
+        <legend>포장마차 장사 (sgf_tycoon)</legend>
+        <div class="grid">
+          <div class="field"><label>🥩 고기 등급 (0~15)</label><input id="t_grade" type="number" min="0" max="15"></div>
+          <div class="field"><label>🔥 불판 늘리기 (0~3)</label><input id="t_grill" type="number" min="0" max="3"></div>
+          <div class="field"><label>📣 가게 소문 (0~6)</label><input id="t_rep" type="number" min="0" max="6"></div>
+          <div class="field"><label>🐷 알바 (0~2)</label><input id="t_staff" type="number" min="0" max="2"></div>
+          <div class="field"><label>📜 항정살 메뉴 (0~1)</label><input id="t_menu" type="number" min="0" max="1"></div>
+          <div class="field"><label>📅 영업 일수</label><input id="t_shifts" type="number" min="0"></div>
+          <div class="field"><label>💰 총매출</label><input id="t_total" type="number" min="0"></div>
+          <div class="field"><label>🏆 최고 하루 매출</label><input id="t_best" type="number" min="0"></div>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>전체 저장 데이터 (고급)</legend>
+        <p class="muted" style="margin:0 0 8px">값은 JSON 문자열이에요. 숫자는 그대로(예: 1500), 글자는 따옴표("abc"), 목록은 [..], 묶음은 {..}.</p>
+        <div class="raw" id="raw"></div>
+        <div class="actions" style="margin-top:8px"><button id="addKey">+ 칸 추가</button></div>
+      </fieldset>
+      <div class="actions">
+        <button id="saveBtn" class="primary">💾 저장 데이터 저장</button>
+        <button id="revertBtn">되돌리기</button>
+      </div>
+    </section>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+'use strict';
+const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
+const TIERS = [['아이언', 0], ['브론즈', 100], ['실버', 250], ['골드', 450], ['플레티넘', 700], ['에메랄드스플레시', 1000], ['다이아', 1400], ['울트라', 1850], ['마스터', 2350], ['스타플래티나', 2900], ['그렌드마더', 3500], ['그렌드피아노', 4200]];
+const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '마블링 마스터'], ['bad', '삼겹살']];
+const $ = id => document.getElementById(id);
+let token = sessionStorage.getItem('sgf_admin_token') || '', meLogin = sessionStorage.getItem('sgf_admin_login') || '';
+let page = 0, total = 0, cur = null, rows = [];
+const LIM = 50;
+
+const tierOf = v => { let i = 0; TIERS.forEach((t, k) => { if (v >= t[1]) i = k; }); return TIERS[i][0]; };
+const compact = n => { n = Math.round(+n || 0); const a = Math.abs(n), s = n < 0 ? '-' : ''; if (a < 1000) return s + a; const [d, u] = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']].find(x => a >= x[0]), v = a / d; return s + (v < 10 ? Math.floor(v * 100) / 100 : v < 100 ? Math.floor(v * 10) / 10 : Math.floor(v)) + u; };
+const full = n => (Math.round(+n || 0)).toLocaleString('ko-KR');
+const when = t => t ? new Date(t).toLocaleString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+const parse = s => { try { return s == null ? null : JSON.parse(s); } catch (e) { return null; } };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
+
+async function api(path, method = 'GET', data) {
+  const r = await fetch(AUTH_URL + path, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: data === undefined ? undefined : JSON.stringify(data) });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== '/login') { logout(); throw new Error('로그인이 만료됐어요'); }
+  if (!r.ok) throw new Error(d.error || '서버 오류 (' + r.status + ')');
+  return d;
+}
+
+// ---- 로그인 ----
+$('loginBox').addEventListener('submit', async e => {
+  e.preventDefault(); $('lerr').textContent = '';
+  try {
+    const d = await api('/login', 'POST', { login: $('lid').value, pw: $('lpw').value });
+    token = d.token; meLogin = d.login;
+    await api('/admin/stats');   // 관리자인지 확인
+    sessionStorage.setItem('sgf_admin_token', token); sessionStorage.setItem('sgf_admin_login', meLogin);
+    $('lpw').value = ''; start();
+  } catch (er) {
+    if (token) { api('/logout', 'POST').catch(() => {}); token = ''; }
+    $('lerr').textContent = er.message === '관리자만 쓸 수 있어요' ? '관리자 계정이 아니에요' : er.message;
+  }
+});
+function logout() {
+  if (token) fetch(AUTH_URL + '/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
+  token = ''; sessionStorage.removeItem('sgf_admin_token'); sessionStorage.removeItem('sgf_admin_login');
+  $('app').style.display = 'none'; $('loginBox').style.display = ''; $('logoutBtn').style.display = 'none'; $('who').textContent = '';
+}
+$('logoutBtn').onclick = logout;
+function start() {
+  $('loginBox').style.display = 'none'; $('app').style.display = ''; $('logoutBtn').style.display = ''; $('who').textContent = '👑 ' + meLogin;
+  loadStats(); loadUsers();
+}
+
+// ---- 통계 · 목록 ----
+async function loadStats() {
+  try {
+    const s = await api('/admin/stats');
+    $('stats').innerHTML = [['전체 회원', s.users], ['오늘 가입', s.newToday], ['오늘 접속(저장)', s.activeToday], ['로그인된 기기', s.sessions], ['정지된 계정', s.banned]]
+      .map(([a, b]) => `<div class="stat"><b>${full(b)}</b><span>${a}</span></div>`).join('');
+  } catch (e) { toast(e.message); }
+}
+async function loadUsers() {
+  try {
+    const q = encodeURIComponent($('q').value.trim()), d = await api(`/admin/users?q=${q}&sort=${$('sort').value}&offset=${page * LIM}&limit=${LIM}`);
+    total = d.total; rows = d.rows;
+    $('rows').innerHTML = rows.map((r, i) => {
+      const ty = parse(r.s_tycoon), ends = parse(r.s_end) || [], tp = +parse(r.s_tp) || 0;
+      return `<tr data-i="${i}" class="${cur && cur.uid === r.uid ? 'sel' : ''}">
+        <td><b>${esc(r.login)}</b><br><span class="muted" style="font-size:11px">${esc(r.uid)}</span></td>
+        <td>${r.banned ? '<span class="tag ban">정지</span>' : r.sessions ? `<span class="tag on">로그인 ${r.sessions}</span>` : '<span class="tag">-</span>'}</td>
+        <td class="num" title="${full(parse(r.s_coin))}">${compact(parse(r.s_coin))}</td>
+        <td class="num" title="${full(parse(r.s_debt))}">${compact(parse(r.s_debt))}</td>
+        <td class="num">${compact(parse(r.s_bank))}</td>
+        <td>${tierOf(tp)} <span class="muted">${tp}</span></td>
+        <td class="num">${+parse(r.s_rbest) || 0}</td>
+        <td>${ends.length}/4</td>
+        <td class="num">${ty ? compact(ty.total) : '-'}</td>
+        <td>${when(r.created)}</td><td>${when(r.saved)}</td></tr>`;
+    }).join('') || '<tr><td colspan="11" class="muted">계정이 없어요</td></tr>';
+    $('pinfo').textContent = `${total ? page * LIM + 1 : 0}~${Math.min(total, (page + 1) * LIM)} / ${full(total)}명`;
+    $('prev').disabled = page === 0; $('next').disabled = (page + 1) * LIM >= total;
+  } catch (e) { toast(e.message); }
+}
+$('rows').addEventListener('click', e => { const tr = e.target.closest('tr[data-i]'); if (tr) openUser(rows[+tr.dataset.i].uid); });
+$('searchBtn').onclick = () => { page = 0; loadUsers(); };
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') { page = 0; loadUsers(); } });
+$('sort').onchange = () => { page = 0; loadUsers(); };
+$('reloadBtn').onclick = () => { loadStats(); loadUsers(); if (cur) openUser(cur.uid); };
+$('prev').onclick = () => { if (page > 0) { page--; loadUsers(); } };
+$('next').onclick = () => { page++; loadUsers(); };
+
+// ---- 계정 상세 ----
+// 저장 데이터: { 'sgf_키': 'JSON 문자열' }
+let save = {};
+const getV = k => parse(save[k]);
+const setV = (k, v) => { if (v === undefined) delete save[k]; else save[k] = JSON.stringify(v); };
+async function openUser(uid) {
+  try {
+    const u = await api('/admin/user?uid=' + encodeURIComponent(uid));
+    cur = u; save = { ...(u.save || {}) };
+    $('detail').classList.add('show');
+    $('dname').textContent = u.login;
+    $('dtags').innerHTML = (u.isAdmin ? '<span class="tag adm">관리자</span> ' : '') + (u.banned ? '<span class="tag ban">정지됨</span> ' : '') + (u.sessions ? `<span class="tag on">로그인 기기 ${u.sessions}</span> ` : '') + (u.fails && u.fails.n ? `<span class="tag ban">비번 틀림 ${u.fails.n}회</span>` : '');
+    $('dmeta').textContent = `uid ${u.uid} · 가입 ${when(u.created)} · 최근 저장 ${when(u.saved)}`;
+    $('aBan').textContent = u.banned ? '✅ 정지 풀기' : '⛔ 정지';
+    fillForm(); renderRaw();
+    document.querySelectorAll('#rows tr').forEach(tr => tr.classList.toggle('sel', tr.dataset.i !== undefined && rows[+tr.dataset.i].uid === uid));
+    $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { toast(e.message); }
+}
+const QUICK = { f_coin: 'sgf_coin', f_debt: 'sgf_debt', f_bank: 'sgf_bank', f_debtbase: 'sgf_debtbase', f_tp: 'sgf_tp', f_rbest: 'sgf_rbest' };
+const TYK = ['grade', 'grill', 'rep', 'staff', 'menu', 'shifts', 'total', 'best'];
+function fillForm() {
+  for (const [id, k] of Object.entries(QUICK)) { const v = getV(k); $(id).value = v == null ? '' : v; }
+  $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank'));
+  $('h_tp').textContent = '티어: ' + tierOf(+getV('sgf_tp') || 0);
+  const ends = getV('sgf_end') || [];
+  $('endChecks').innerHTML = ENDINGS.map(([k, n]) => `<label><input type="checkbox" data-end="${k}" ${ends.includes(k) ? 'checked' : ''}> ${n} 엔딩</label>`).join('');
+  $('f_unlock_gold').checked = !!getV('sgf_unlock_금한돈');
+  const ty = getV('sgf_tycoon') || {};
+  TYK.forEach(k => { $('t_' + k).value = ty[k] ?? ''; });
+}
+// 빠른 입력칸 → 저장 데이터에 반영
+function formToSave() {
+  for (const [id, k] of Object.entries(QUICK)) { const v = $(id).value.trim(); if (v === '') delete save[k]; else setV(k, Math.max(0, Math.round(+v || 0))); }
+  setV('sgf_end', [...document.querySelectorAll('[data-end]')].filter(c => c.checked).map(c => c.dataset.end));
+  if ($('f_unlock_gold').checked) setV('sgf_unlock_금한돈', true); else delete save['sgf_unlock_금한돈'];
+  const ty = getV('sgf_tycoon') || {};
+  TYK.forEach(k => { const v = $('t_' + k).value.trim(); if (v !== '') ty[k] = Math.max(0, Math.round(+v || 0)); });
+  if (Object.keys(ty).length) setV('sgf_tycoon', ty);
+}
+$('detail').addEventListener('change', e => { const el = e.target; if (el.tagName !== 'INPUT' || el.closest('#raw')) return; formToSave(); renderRaw(); fillHints(); });
+function fillHints() { $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank')); $('h_tp').textContent = '티어: ' + tierOf(+getV('sgf_tp') || 0); }
+function renderRaw() {
+  $('raw').innerHTML = Object.keys(save).sort().map(k => `<div class="rawrow"><input value="${esc(k)}" data-k="${esc(k)}" class="rk"><textarea data-k="${esc(k)}" class="rv">${esc(save[k])}</textarea><button data-del="${esc(k)}" title="이 칸 지우기">✕</button></div>`).join('') || '<p class="muted">저장 데이터가 없어요</p>';
+}
+$('raw').addEventListener('change', e => {
+  const el = e.target, k = el.dataset.k;
+  if (el.classList.contains('rv')) { if (parse(el.value) === null && el.value.trim() !== 'null') { toast('JSON 형식이 아니에요: ' + k); el.style.borderColor = 'var(--bad)'; return; } el.style.borderColor = ''; save[k] = el.value.trim(); fillForm(); }
+  if (el.classList.contains('rk')) { const nk = el.value.trim(); if (!nk.startsWith('sgf_')) { toast('키는 sgf_ 로 시작해야 해요'); el.value = k; return; } if (nk !== k) { save[nk] = save[k]; delete save[k]; renderRaw(); fillForm(); } }
+});
+$('raw').addEventListener('click', e => { const k = e.target.dataset && e.target.dataset.del; if (k) { delete save[k]; renderRaw(); fillForm(); } });
+$('addKey').onclick = () => { const k = prompt('새 키 이름 (sgf_ 로 시작)', 'sgf_'); if (!k || !k.startsWith('sgf_')) return; save[k] = save[k] || '0'; renderRaw(); };
+$('revertBtn').onclick = () => { if (cur) openUser(cur.uid); };
+$('saveBtn').onclick = async () => {
+  if (!cur) return;
+  for (const el of document.querySelectorAll('#raw .rv')) if (parse(el.value) === null && el.value.trim() !== 'null') { toast('JSON 형식이 아닌 칸이 있어요: ' + el.dataset.k); return; }
+  if (!confirm(`${cur.login} 님의 저장 데이터를 바꿀까요?`)) return;
+  try { await api('/admin/user', 'PUT', { uid: cur.uid, save }); toast('저장했어요'); loadUsers(); openUser(cur.uid); } catch (e) { toast(e.message); }
+};
+
+// ---- 계정 관리 버튼 ----
+const act = async (path, data, msg) => { try { await api(path, 'POST', { uid: cur.uid, ...data }); toast(msg); loadStats(); loadUsers(); openUser(cur.uid); } catch (e) { toast(e.message); } };
+$('aPw').onclick = () => { const pw = prompt(`${cur.login} 님의 새 비밀번호 (영어·숫자·기호 4~64자)`); if (pw) act('/admin/user/password', { pw }, '비밀번호를 바꿨어요 (다른 기기는 로그아웃됨)'); };
+$('aRename').onclick = () => { const login = prompt('새 아이디 (한글·영어·숫자 2~16자)', cur.login); if (login && login !== cur.login) act('/admin/user/rename', { login }, '아이디를 바꿨어요'); };
+$('aLogout').onclick = () => { if (confirm(`${cur.login} 님을 모든 기기에서 로그아웃시킬까요?`)) act('/admin/user/logout', {}, '로그아웃시켰어요'); };
+$('aUnlock').onclick = () => act('/admin/user/unlock', {}, '로그인 잠금을 풀었어요');
+$('aBan').onclick = () => { const b = !cur.banned; if (confirm(b ? `${cur.login} 님을 정지할까요? (바로 로그아웃돼요)` : `${cur.login} 님 정지를 풀까요?`)) act('/admin/user/ban', { banned: b }, b ? '정지했어요' : '정지를 풀었어요'); };
+$('aDel').onclick = async () => {
+  const t = prompt(`정말 지우려면 아이디 "${cur.login}"을(를) 그대로 입력하세요. 되돌릴 수 없어요.`);
+  if (t !== cur.login) { if (t !== null) toast('아이디가 달라서 취소했어요'); return; }
+  try { await api('/admin/user/delete', 'POST', { uid: cur.uid }); toast('계정을 지웠어요'); cur = null; $('detail').classList.remove('show'); loadStats(); loadUsers(); } catch (e) { toast(e.message); }
+};
+
+if (token) start();
+</script>
+</body>
+</html>
