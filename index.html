@@ -1316,6 +1316,7 @@ function freeUpdate(f, o, inp) {
     if (f.weapon) { f.throwKind = f.weapon.kind; f.weapon = null; return startAtk(f, 'throw', THROWDEF); }
     return startAtk(f, 'grab', GRABDEF);
   }
+  if (f.ch.spirit && ((inp.lp && inp.rp) || (inp.bot && !f.standOn))) return standToggle(f);   // I+O 같이 누르면 스탠드 켜기·끄기 (CPU는 늘 켬)
   const b = inp.lp ? 'lp' : inp.rp ? 'rp' : inp.lk ? 'lk' : inp.rk ? 'rk' : null;
   if (b) return startAtk(f, !ground ? (b === 'lp' || b === 'rp' ? 'j_p' : 'j_k') : inp.down ? 'c_' + b : b);
   if (ground) {
@@ -1335,10 +1336,7 @@ function startAtk(f, name, def, chain) {
   const isKick = ['lk', 'rk', 'c_lk', 'c_rk', 'j_k'].includes(name);
   const m = f.atkSpeedMul(isPunch || def.kind === 'punch');
   f.atk = { ...def, name, isPunch, isKick, startup: Math.max(1, Math.round(def.startup * m)), recovery: Math.max(2, Math.round(def.recovery * m)) };
-  if (f.ch.spirit && isPunch) {   // 돼타로: I/O 평타는 뚱타플레티나가 대신 때림 (사거리 조금 길게) + 외침 (오라 소리는 안 남, 겹치지 않게 0.8초 간격)
-    f.atk.range = (f.atk.range || 150) + 45; f.atk.spiritPunch = true;
-    if (gT - (f.summonSndT ?? -999) > 48) { f.summonSndT = gT; smp('ttSummon', { v: 0.9 }); }
-  }
+  if (f.ch.spirit && isPunch && f.standOn) f.atk.spiritPunch = true;   // 돼타로: 스탠드를 꺼내 둔 동안 I/O 평타는 뚱타플레티나가 (스탠드 자리에서) 때림
   f.state = 'attack'; f.af = 0; f.atkHit = false; f.hitsDone = 0; f.lastHitF = 0;
   if (!chain) { f.chain = 0; f.cbuf = null; }
   if (def.rise) f.vy = def.rise;
@@ -1359,6 +1357,7 @@ function attackUpdate(f, o, inp) {
   const a = f.atk; f.af++;
   const ground = f.y >= GROUND;
   // 동시 입력: 먼저 눌린 기본기의 첫 몇 프레임 안에 짝 버튼이 들어오면 커맨드로 바꾼다
+  if (f.ch.spirit && f.af <= 6 && f.chain === 0 && ((a.name.endsWith('lp') && inp.rp) || (a.name.endsWith('rp') && inp.lp))) { endAtk(f); return standToggle(f); }   // I+O 같이: 스탠드 켜기·끄기
   if (f.af <= 6 && !a.skill && !a.grab && f.chain === 0 && ground) {
     if (inp.ult && f.meter >= 100 && (f.cmdT > 0 || inp.cpu || inp.ultD)) return startUlt(f);
     if (inp.grab) return startAtk(f, 'grab', GRABDEF);
@@ -1668,7 +1667,7 @@ function checkHit(a, d) {
   // 몸집이 사거리에 주는 영향을 줄임 (전: 몸집 비례 → 작은 돼지는 헛치고 큰 돼지는 사거리 우위)
   const s = 1 + (a.sc / 1.15 - 1) * 0.35;
   const reach = (at.range || 150) * s + (d.sc - 1.15) * 40 + (a.weapon && !at.skill && !at.grab ? 20 : 0);
-  const dx = (d.x - a.x) * a.facing;
+  const dx = (d.x - (at.spiritPunch && a.spX != null ? a.spX : a.x)) * a.facing;   // 수호령 주먹은 수호령 자리에서 잼
   if (dx < -20 || dx > reach || Math.abs(d.y - a.y) > 110) return;
   if (at.grab) {
     a.atkHit = true;
@@ -4032,6 +4031,7 @@ function startMatch() {
 }
 function startRound() {
   p1.reset(); p2.reset(); timer = ROUND_T; scene = 'intro'; sceneT = 0;
+  p1.standOn = p2.standOn = false; p1.spX = p2.spX = null;   // 라운드마다 스탠드는 넣고 시작
   parts = []; texts = []; objs = []; hitGroups.clear(); hitstop = 0; superFreeze = 0; TSTOP = null;
   temps.fill(0); flareI = -1; flareT = 0; flareNext = 0;
   evT = 60 * 8; blackoutT = 0; saltT = 0; evBannerT = 0; firstHit = false;
@@ -4056,6 +4056,19 @@ function afterRound() {
   if (champ) startCutscene(champ, champ.opp);
   else { round++; startRound(); }
 }
+// 돼타로 스탠드: I+O로 꺼내면 뚱타플레티나가 계속 나와서 상대를 따라감 (돼타로에게서 380px까지)
+function standToggle(f) {
+  f.standOn = !f.standOn; f.vx = 0; f.state = f.y >= GROUND ? 'idle' : 'jump';
+  const k = f.sc / 1.15;
+  if (f.standOn) { f.spX = f.x + f.facing * 62 * k; if (!smp('ttSummon', { v: 0.9 })) SFX.special(); popText(f.x, f.y - 200 * k, '뚱타플레티나!', '#d1c4e9', 26); burst(f.spX, f.y - 100 * k, 16, ['#b388ff', '#e1bee7'], 7); }
+  else { popText(f.x, f.y - 200 * k, '들어가.', '#b39ddb', 22); SFX.whiff(); }
+}
+function standMove(f) {
+  if (!f.ch.spirit || !f.standOn) return;
+  const k = f.sc / 1.15, tgt = clamp(f.opp.x - f.facing * 95 * k, f.x - 380, f.x + 380);
+  if (f.spX == null) f.spX = f.x;
+  f.spX += clamp(tgt - f.spX, -9, 9);
+}
 function updateFighters(frozen) {
   if (TSTOP && (scene !== 'fight' || TSTOP.owner.opp.state !== 'locked')) TSTOP = null;   // 라운드가 끝났거나(KO) 상대가 풀렸으면 시간 정지도 끝
   let i1 = EMPTY, i2 = EMPTY;
@@ -4069,6 +4082,7 @@ function updateFighters(frozen) {
   }
   if (!TSTOP || TSTOP.owner === p1) p1.update(i1, p2);   // 시간 정지: 멈춘 쪽은 아예 안 움직임
   if (!TSTOP || TSTOP.owner === p2) p2.update(i2, p1);
+  standMove(p1); standMove(p2);
   separate(p1, p2);
   if (scene === 'fight') {
     checkHit(p1, p2); checkHit(p2, p1);
@@ -4910,17 +4924,18 @@ function smoothPose(f, p) {
 // 뚱타플레티나 (돼타로): 스킬·필살기 때 앞에 반투명 보라 돼지가 나와서 주먹 연타
 function spiritOn(f) {
   if (!f.ch.spirit) return null;
-  if (f.state === 'attack' && f.atk && f.atk.spiritPunch) { const a = f.atk, af = f.af; return { punching: af >= a.startup && af < a.startup + a.active, t: af, fade: clamp(af / 3), go: 0.25, jab: a.name.endsWith('lp') }; }   // 평타 = 수호령 주먹
+  if (f.state === 'attack' && f.atk && f.atk.spiritPunch) { const a = f.atk, af = f.af; return { punching: af >= a.startup && af < a.startup + a.active, t: af, fade: 1, at: f.spX, jab: a.name.endsWith('lp') }; }   // 평타 = 수호령 주먹
   if (f.state === 'attack' && f.atk && f.atk.spirit) { const a = f.atk, af = f.af, go = af < a.startup ? ease(af / a.startup) : af < a.startup + a.active ? 1 : 1 - ease((af - a.startup - a.active) / a.recovery); return { punching: af >= a.startup && af < a.startup + a.active, t: af, fade: clamp(af / 6), go }; }
   if (f.state === 'ult' && f.ch.ult.type === 'timeStop') { const T = f.uT, go = f.ultHit ? (T < 86 ? ease(T / 10) : 1 - ease((T - 86) / 10)) : ease(T / 16) * (T < 24 ? 1 : 1 - ease((T - 24) / 10)); return { punching: f.ultHit && T >= 12 && T < 86, t: T, fade: clamp(T / 8), go }; }
-  if (TSTOP && TSTOP.owner === f) { const at = f.state === 'attack' && f.atk; return { punching: !!at && f.af >= at.startup && f.af < at.startup + at.active, t: f.t, fade: 1, go: at ? 0.3 : 0 }; }   // 시간 정지 동안 곁에 떠 있다가 같이 때림
+  if (TSTOP && TSTOP.owner === f) { const at = f.state === 'attack' && f.atk; return { punching: !!at && f.af >= at.startup && f.af < at.startup + at.active, t: f.t, fade: 1, go: at ? 0.3 : 0, at: f.standOn ? f.spX : null }; }   // 시간 정지 동안 곁에 떠 있다가 같이 때림
   if (gT - (f.spiritGuardAt ?? -999) < 36) return { guard: true, punching: false, t: f.t, fade: 1, go: 0 };   // 방어해 줄 때
+  if (f.standOn) return { punching: false, t: f.t, fade: 1, at: f.spX };   // 스탠드를 꺼내 둔 동안 계속 보임
   return null;
 }
 function drawSpirit(f, sp) {
   // 수호령은 돼타로 앞에서 나와 상대 바로 앞까지 날아감 (go: 0 = 돼타로 옆, 1 = 상대 앞)
   const k = f.sc / 1.15, home = f.x + f.facing * 62 * k, o = f.opp, dst = o ? o.x - f.facing * 95 * k : home;
-  const x = lerp(home, (dst - home) * f.facing > 0 ? dst : home, sp.go || 0), y = f.y - 24 * k - Math.sin((sp.go || 0) * Math.PI) * 18, T = sp.t;
+  const x = sp.at != null ? sp.at : lerp(home, (dst - home) * f.facing > 0 ? dst : home, sp.go || 0), y = f.y - 24 * k - Math.sin((sp.go || 0) * Math.PI) * 18, T = sp.t;
   if (sp.go > 0.05 && sp.go < 0.95) { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = '#b388ff'; for (let i = 1; i <= 3; i++) { ell(x - f.facing * i * 26 * k, y - 90 * k, 40 * k, 70 * k); ctx.fill(); } ctx.restore(); }   // 날아가는 잔상
   ctx.save(); ctx.globalAlpha = 0.6 * sp.fade; ctx.fillStyle = '#e1bee7';   // 주위에 반짝이는 별
   for (let i = 0; i < 5; i++) { const a = gT * 0.05 + i * 1.257, r = 70 + 10 * Math.sin(gT * 0.1 + i); star(x + Math.cos(a) * r * k, y - 90 * k + Math.sin(a) * r * 0.8 * k, 6 * k, 2.5 * k); ctx.fill(); }
@@ -5030,7 +5045,7 @@ function drawHUD() {
 // ---- 돼타로 필살기 컷신: ① 돼타로 얼굴 클로즈업 → ② 뒤에서 뚱타플레티나 등장 → ③ 시계가 멈추고 화면 반전 ----
 const TS_CUT = 130;
 function tsCutSfx(t) {
-  if (t === 40 && !smp('ttSummon', { v: 1 })) SFX.special();
+  if (t === 40) SFX.special();   // (필살기에선 스타플래티나 외침 안 넣음)
   if (t === 80) smp('ttStop', { v: 1 });
   if (t === 84 || t === 94 || t === 104) SFX.tick();
   if (t === 114) { SFX.bell(); shake = 12; }
@@ -5629,7 +5644,8 @@ else if (VIEW === 'tycoon' || VIEW === 'tylobby') {   // 장사 화면 확인용
   if (VIEW === 'tycoon') { tyStart(); TY.ev = TY_EV[0]; for (let i = 0; i < 700; i++) step(); TY.banner = 0; }
 }
 else if (VIEW === 'select') { mode = 1; selFor = 'run'; scene = 'select'; sel.c1 = CHARS.findIndex(c => c.unlock != null); }
-else if (VIEW === 'jo') { mode = 0; p1.setChar(CHARS.find(c => c.spirit)); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; p1.x = 330; p2.x = 640; if (/punch/.test(location.search)) { startAtk(p1, 'rp'); for (let i = 0; i < 8; i++) step(); } step = () => {}; }   // 돼타로 모습 확인용
+else if (VIEW === 'jo') { mode = 0; p1.setChar(CHARS.find(c => c.spirit)); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; p1.x = 330; p2.x = 640; if (/stand/.test(location.search)) { standToggle(p1); p1.x = 200; p2.x = 700; for (let i = 0; i < 30; i++) { p1.x = 200; step(); } }
+  if (/punch/.test(location.search)) { startAtk(p1, 'rp'); for (let i = 0; i < 8; i++) step(); } step = () => {}; }   // 돼타로 모습 확인용
 else if (VIEW === 'spirit' || VIEW === 'timestop' || VIEW === 'tscut') {   // 돼타로 수호령 확인용
   mode = 0; p1.setChar(CHARS.find(c => c.spirit)); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; p1.x = 330; p2.x = 560;
   if (VIEW === 'spirit') { startSkill(p1); for (let i = 0; i < 16; i++) step(); }
