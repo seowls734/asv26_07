@@ -78,7 +78,14 @@ async function init(db) {
   ready = true;
 }
 async function getConf(db, k, d) { const r = await db.prepare('SELECT v FROM config WHERE k = ?').bind(k).first(); return r ? r.v : d; }
-const setConf = (db, k, v) => db.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run();
+// 공지 · 시즌 · 이벤트 · 선물을 한 번에 읽음 (게임이 10초마다 물어봐서 쿼리 1번으로)
+async function pubConf(db) {
+  const r = (await db.prepare("SELECT k, v FROM config WHERE k IN ('notice', 'season', 'event', 'gift')").all()).results || [];
+  const c = Object.fromEntries(r.map(x => [x.k, x.v]));
+  const pj = s => { try { return JSON.parse(s || 'null'); } catch (e) { return null; } };
+  return { notice: c.notice || '', season: +c.season || 0, event: pj(c.event), gift: pj(c.gift) };
+}
+const setConf = (db, k, v) =>db.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run();
 // 정지: banned=1 이고 ban_until이 0(영구)이거나 아직 안 지났으면 정지 중
 const isBanned = u => !!(u && u.banned && (!u.ban_until || Date.now() < u.ban_until));
 const kst = t => new Date(t + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
@@ -169,15 +176,30 @@ async function admin(req, env, db, path) {
     const f = await db.prepare('SELECT n, t FROM fails WHERE login = ?').bind(u.login).first();
     return json({ ...u, save: u.save ? JSON.parse(u.save) : null, sessions: s.n, fails: f || null, isAdmin: admins.includes(u.login) });
   }
-  if (path === '/admin/config' && req.method === 'GET')
-    return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0, event: JSON.parse(await getConf(db, 'event', 'null')) });
+  if (path === '/admin/config' && req.method === 'GET') return json(await pubConf(db));
   const b = await body(req); if (!b) return err('잘못된 요청이에요');
-  if (path === '/admin/event' && req.method === 'POST') {   // 작은 이벤트: 코인 2배 · TP 2배 · 장사 2배 (+ 안내 문구, 끝나는 시각)
+  if (path === '/admin/event' && req.method === 'POST') {
+    // 이벤트: 승리 코인 ×N · 티어 점수 ×N · 장사 매출 ×N · 잭팟(이기면 N% 확률로 코인 10배) · 룰렛 무료 +N번 · 룰렛 보상 2배 · 출석 보상 2배
+    // (+ 안내 문구, 끝나는 시각). 예전 모양(coin2x 등)도 받음
     const hours = Math.max(0, Math.min(24 * 30, +b.hours || 0));
-    const ev = { coin2x: !!b.coin2x, tp2x: !!b.tp2x, ty2x: !!b.ty2x, msg: String(b.msg || '').trim().slice(0, 60), until: hours ? now + hours * 3600000 : 0 };
-    const on = ev.coin2x || ev.tp2x || ev.ty2x;
+    const mul = (v, old, max) => { const n = Math.round(+v || (old ? 2 : 1)); return Math.max(1, Math.min(max, n)); };
+    const ev = { coin: mul(b.coin, b.coin2x, 10), tp: mul(b.tp, b.tp2x, 5), ty: mul(b.ty, b.ty2x, 10),
+      jackpot: Math.max(0, Math.min(50, Math.round(+b.jackpot || 0))), spins: Math.max(0, Math.min(10, Math.round(+b.spins || 0))),
+      luck: !!b.luck, daily: !!b.daily,
+      msg: String(b.msg || '').trim().slice(0, 60), until: hours ? now + hours * 3600000 : 0, id: now };
+    ev.coin2x = ev.coin > 1; ev.tp2x = ev.tp > 1; ev.ty2x = ev.ty > 1;   // 아직 새로고침 안 한 옛 게임도 알아듣게
+    const on = ev.coin > 1 || ev.tp > 1 || ev.ty > 1 || ev.jackpot > 0 || ev.spins > 0 || ev.luck || ev.daily;
     await setConf(db, 'event', on ? JSON.stringify(ev) : 'null');
     return json({ ok: true, event: on ? ev : null });
+  }
+  if (path === '/admin/gift' && req.method === 'POST') {   // 🎁 선물 뿌리기: 지금 게임을 켜 둔(또는 기간 안에 켜는) 모든 사람이 한 번씩 받음
+    const coins = Math.max(0, Math.min(1e12, Math.round(+b.coins || 0))), spins = Math.max(0, Math.min(20, Math.round(+b.spins || 0)));
+    const items = Math.max(0, Math.min(10, Math.round(+b.items || 0)));
+    const hours = Math.max(1, Math.min(24 * 30, +b.hours || 72));
+    const g = { id: now, coins, spins, items, msg: String(b.msg || '').trim().slice(0, 60), until: now + hours * 3600000 };
+    const on = coins > 0 || spins > 0 || items > 0;
+    await setConf(db, 'gift', on ? JSON.stringify(g) : 'null');
+    return json({ ok: true, gift: on ? g : null });
   }
   if (path === '/admin/notice' && req.method === 'POST') {   // 게임 타이틀에 뜨는 공지 (빈 글이면 공지 없음)
     const t = String(b.text || '').trim().slice(0, 200);
@@ -364,8 +386,16 @@ export default {
     }
 
     // 공지 · 랭킹 시즌 (누구나 읽음, 게임 켤 때 한 번)
-    if (path === '/config' && req.method === 'GET')
-      return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0, event: JSON.parse(await getConf(db, 'event', 'null')) });
+    // 로그인 토큰을 같이 보내면 내 계정 기록이 마지막으로 바뀐 시각(saved · 관리자 수정 시각)도 줌 → 게임이 바뀐 걸 바로 알아채고 받아 감
+    if (path === '/config' && req.method === 'GET') {
+      const c = await pubConf(db);
+      const m = (req.headers.get('Authorization') || '').match(/^Bearer ([0-9a-f]{64})$/);
+      if (m) {
+        const u = await db.prepare('SELECT u.saved, u.admin_edit FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
+        if (u) { c.saved = u.saved || 0; c.adminEdit = u.admin_edit || 0; }
+      }
+      return json(c);
+    }
 
     // 2단계 인증: setup(비밀키 만들기) → on(인증 앱 숫자로 확인하면 켜짐) · off(숫자 확인하고 끄기) · GET 상태
     if (path.startsWith('/2fa')) {
