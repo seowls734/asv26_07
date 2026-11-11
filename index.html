@@ -1335,6 +1335,10 @@ function startAtk(f, name, def, chain) {
   const isKick = ['lk', 'rk', 'c_lk', 'c_rk', 'j_k'].includes(name);
   const m = f.atkSpeedMul(isPunch || def.kind === 'punch');
   f.atk = { ...def, name, isPunch, isKick, startup: Math.max(1, Math.round(def.startup * m)), recovery: Math.max(2, Math.round(def.recovery * m)) };
+  if (f.ch.spirit && isPunch) {   // 돼타로: I/O 평타는 뚱타플레티나가 대신 때림 (사거리 조금 길게) + 외침 (4초에 한 번)
+    f.atk.range = (f.atk.range || 150) + 45; f.atk.spiritPunch = true;
+    if (gT - (f.summonSndT ?? -999) > 240) { f.summonSndT = gT; smp('ttSummon', { v: 0.9 }); }
+  }
   f.state = 'attack'; f.af = 0; f.atkHit = false; f.hitsDone = 0; f.lastHitF = 0;
   if (!chain) { f.chain = 0; f.cbuf = null; }
   if (def.rise) f.vy = def.rise;
@@ -4907,6 +4911,7 @@ function smoothPose(f, p) {
 // 뚱타플레티나 (돼타로): 스킬·필살기 때 앞에 반투명 보라 돼지가 나와서 주먹 연타
 function spiritOn(f) {
   if (!f.ch.spirit) return null;
+  if (f.state === 'attack' && f.atk && f.atk.spiritPunch) { const a = f.atk, af = f.af; return { punching: af >= a.startup && af < a.startup + a.active, t: af, fade: clamp(af / 3), go: 0.25, jab: a.name.endsWith('lp') }; }   // 평타 = 수호령 주먹
   if (f.state === 'attack' && f.atk && f.atk.spirit) { const a = f.atk, af = f.af, go = af < a.startup ? ease(af / a.startup) : af < a.startup + a.active ? 1 : 1 - ease((af - a.startup - a.active) / a.recovery); return { punching: af >= a.startup && af < a.startup + a.active, t: af, fade: clamp(af / 6), go }; }
   if (f.state === 'ult' && f.ch.ult.type === 'timeStop') { const T = f.uT, go = f.ultHit ? (T < 86 ? ease(T / 10) : 1 - ease((T - 86) / 10)) : ease(T / 16) * (T < 24 ? 1 : 1 - ease((T - 24) / 10)); return { punching: f.ultHit && T >= 12 && T < 86, t: T, fade: clamp(T / 8), go }; }
   if (TSTOP && TSTOP.owner === f) { const at = f.state === 'attack' && f.atk; return { punching: !!at && f.af >= at.startup && f.af < at.startup + at.active, t: f.t, fade: 1, go: at ? 0.3 : 0 }; }   // 시간 정지 동안 곁에 떠 있다가 같이 때림
@@ -4921,8 +4926,8 @@ function drawSpirit(f, sp) {
   ctx.save(); ctx.globalAlpha = 0.6 * sp.fade; ctx.fillStyle = '#e1bee7';   // 주위에 반짝이는 별
   for (let i = 0; i < 5; i++) { const a = gT * 0.05 + i * 1.257, r = 70 + 10 * Math.sin(gT * 0.1 + i); star(x + Math.cos(a) * r * k, y - 90 * k + Math.sin(a) * r * 0.8 * k, 6 * k, 2.5 * k); ctx.fill(); }
   ctx.restore();
-  drawPig(x, y, f.facing, SPIRIT, { scale: f.sc * 1.06, t: gT, alpha: 0.78 * sp.fade, aura: '#b388ff', move: sp.guard ? null : T % 6 < 3 ? 'punch' : 'jab', k: sp.punching ? 1 : 0.3, block: sp.guard, backLimb: T % 6 < 3 });
-  if (sp.punching) {   // 잔상 주먹
+  drawPig(x, y, f.facing, SPIRIT, { scale: f.sc * 1.06, t: gT, alpha: 0.78 * sp.fade, aura: '#b388ff', move: sp.guard ? null : sp.jab !== undefined ? (sp.jab ? 'jab' : 'punch') : T % 6 < 3 ? 'punch' : 'jab', k: sp.punching ? 1 : 0.3, block: sp.guard, backLimb: sp.jab === undefined && T % 6 < 3 });
+  if (sp.punching && sp.jab === undefined) {   // 잔상 주먹 (연타일 때만)
     ctx.save(); ctx.globalAlpha = 0.5;
     for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? '#b39ddb' : '#d1c4e9'; ell(x + f.facing * (80 + Math.random() * 80) * k, y - (60 + Math.random() * 90) * k, 13 * k, 11 * k); ctx.fill(); }
     ctx.restore();
@@ -5625,7 +5630,7 @@ else if (VIEW === 'tycoon' || VIEW === 'tylobby') {   // 장사 화면 확인용
   if (VIEW === 'tycoon') { tyStart(); TY.ev = TY_EV[0]; for (let i = 0; i < 700; i++) step(); TY.banner = 0; }
 }
 else if (VIEW === 'select') { mode = 1; selFor = 'run'; scene = 'select'; sel.c1 = CHARS.findIndex(c => c.unlock != null); }
-else if (VIEW === 'jo') { mode = 0; p1.setChar(CHARS.find(c => c.spirit)); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; p1.x = 330; p2.x = 640; step = () => {}; }   // 돼타로 모습 확인용
+else if (VIEW === 'jo') { mode = 0; p1.setChar(CHARS.find(c => c.spirit)); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; p1.x = 330; p2.x = 640; if (/punch/.test(location.search)) { startAtk(p1, 'rp'); for (let i = 0; i < 8; i++) step(); } step = () => {}; }   // 돼타로 모습 확인용
 else if (VIEW === 'spirit' || VIEW === 'timestop' || VIEW === 'tscut') {   // 돼타로 수호령 확인용
   mode = 0; p1.setChar(CHARS.find(c => c.spirit)); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; p1.x = 330; p2.x = 560;
   if (VIEW === 'spirit') { startSkill(p1); for (let i = 0; i < 16; i++) step(); }
