@@ -72,7 +72,48 @@ async function init(db) {
   try { await db.prepare('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0').run(); } catch (e) {}   // 계정 정지 칸 (이미 있으면 무시)
   try { await db.prepare('ALTER TABLE users ADD COLUMN google TEXT').run(); } catch (e) {}   // 연결된 구글 계정 고유번호
   await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS users_google ON users(google)').run();
+  for (const c of ['ban_until INTEGER DEFAULT 0', 'ban_reason TEXT', 'totp TEXT', 'totp_on INTEGER DEFAULT 0'])   // 정지 기간·사유, 2단계 인증
+    try { await db.prepare('ALTER TABLE users ADD COLUMN ' + c).run(); } catch (e) {}
+  await db.prepare('CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT)').run();   // 공지 · 랭킹 시즌 번호
   ready = true;
+}
+async function getConf(db, k, d) { const r = await db.prepare('SELECT v FROM config WHERE k = ?').bind(k).first(); return r ? r.v : d; }
+const setConf = (db, k, v) => db.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run();
+// 정지: banned=1 이고 ban_until이 0(영구)이거나 아직 안 지났으면 정지 중
+const isBanned = u => !!(u && u.banned && (!u.ban_until || Date.now() < u.ban_until));
+const kst = t => new Date(t + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+const banMsg = u => `정지된 계정이에요 (${u.ban_until ? kst(u.ban_until) + '까지' : '영구 정지'})${u.ban_reason ? ' · 사유: ' + u.ban_reason : ''}`;
+
+// ---- 2단계 인증 (TOTP: 구글 OTP 같은 인증 앱의 6자리 숫자, 30초마다 바뀜) ----
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function b32dec(s) {
+  let bits = 0, val = 0; const out = [];
+  for (const ch of s.replace(/=+$/, '').toUpperCase()) { const i = B32.indexOf(ch); if (i < 0) continue; val = (val << 5) | i; bits += 5; if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; } }
+  return new Uint8Array(out);
+}
+function b32enc(bytes) { let bits = 0, val = 0, s = ''; for (const b of bytes) { val = (val << 8) | b; bits += 8; while (bits >= 5) { s += B32[(val >>> (bits - 5)) & 31]; bits -= 5; } } if (bits) s += B32[(val << (5 - bits)) & 31]; return s; }
+async function totpAt(secret, step) {
+  const key = await crypto.subtle.importKey('raw', b32dec(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const msg = new Uint8Array(8); let x = step; for (let i = 7; i >= 0; i--) { msg[i] = x & 255; x = Math.floor(x / 256); }
+  const h = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg)), o = h[19] & 15;
+  return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0');
+}
+async function totpOk(secret, code) {   // 앞뒤 30초까지 봐 줌 (폰 시계가 조금 틀려도 됨)
+  code = String(code || '').replace(/\D/g, ''); if (!secret || code.length !== 6) return false;
+  const st = Math.floor(Date.now() / 30000);
+  for (const d of [0, -1, 1]) if (await totpAt(secret, st + d) === code) return true;
+  return false;
+}
+// 로그인할 때 2단계 인증 확인: 코드가 없으면 { need2fa } 답, 틀리면 실패 횟수에 넣음 / 통과하면 null
+async function check2fa(db, u, code) {
+  if (!u.totp_on) return null;
+  if (!code) return json({ need2fa: true });
+  const now = Date.now(), f = await db.prepare('SELECT n, t FROM fails WHERE login = ?').bind(u.login).first();
+  if (f && f.n >= FAIL_MAX && now - f.t < FAIL_WIN) return err('너무 많이 틀렸어요. 10분 뒤에 다시 해 주세요', 429);
+  if (await totpOk(u.totp, code)) return null;
+  const n = f && now - f.t < FAIL_WIN ? f.n + 1 : 1;
+  await db.prepare('INSERT INTO fails (login, n, t) VALUES (?, ?, ?) ON CONFLICT(login) DO UPDATE SET n = excluded.n, t = excluded.t').bind(u.login, n, now).run();
+  return err('인증 코드가 틀렸어요. 인증 앱의 지금 숫자를 넣어 주세요', 401);
 }
 async function body(req) { try { return await req.json(); } catch (e) { return null; } }
 async function newSession(db, uid) {
@@ -83,7 +124,7 @@ async function newSession(db, uid) {
 async function who(db, req) {
   const m = (req.headers.get('Authorization') || '').match(/^Bearer ([0-9a-f]{64})$/);
   if (!m) return null;
-  return db.prepare('SELECT u.uid, u.login, u.save, u.saved, u.banned, u.google, u.hash FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
+  return db.prepare('SELECT u.uid, u.login, u.save, u.saved, u.banned, u.ban_until, u.ban_reason, u.google, u.hash, u.totp, u.totp_on FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
 }
 function checkSave(s) {
   if (s === undefined || s === null) return { ok: true, v: null };
@@ -103,12 +144,12 @@ async function admin(req, env, db, path) {
   const admins = adminList(env);
   if (!admins.includes(me.login)) return err('관리자만 쓸 수 있어요', 403);
   const url = new URL(req.url), now = Date.now();
-  const target = async uid => uid ? db.prepare('SELECT uid, login, created, save, saved, banned, google IS NOT NULL AS g FROM users WHERE uid = ?').bind(String(uid)).first() : null;
+  const target = async uid => uid ? db.prepare('SELECT uid, login, created, save, saved, banned, ban_until, ban_reason, totp_on, google IS NOT NULL AS g FROM users WHERE uid = ?').bind(String(uid)).first() : null;
 
   if (path === '/admin/stats' && req.method === 'GET') {
     const day = now - 86400000;
     const [a, b, c, d, e] = await Promise.all([
-      db.prepare('SELECT COUNT(*) n FROM users').first(), db.prepare('SELECT COUNT(*) n FROM users WHERE banned = 1').first(),
+      db.prepare('SELECT COUNT(*) n FROM users').first(), db.prepare('SELECT COUNT(*) n FROM users WHERE banned = 1 AND (ban_until IS NULL OR ban_until = 0 OR ban_until > ?)').bind(now).first(),
       db.prepare('SELECT COUNT(*) n FROM users WHERE created > ?').bind(day).first(), db.prepare('SELECT COUNT(*) n FROM users WHERE saved > ?').bind(day).first(),
       db.prepare('SELECT COUNT(*) n FROM sessions').first()]);
     return json({ users: a.n, banned: b.n, newToday: c.n, activeToday: d.n, sessions: e.n, admins });
@@ -118,7 +159,7 @@ async function admin(req, env, db, path) {
     const order = { created: 'created DESC', saved: 'saved DESC', login: 'login ASC' }[url.searchParams.get('sort')] || 'created DESC';
     const where = q ? 'WHERE login LIKE ? OR uid = ?' : '';
     const args = q ? [`%${q}%`, q] : [];
-    const rows = (await db.prepare(`SELECT uid, login, created, saved, banned, google IS NOT NULL AS g, ${sumCols}, (SELECT COUNT(*) FROM sessions s WHERE s.uid = users.uid) AS sessions FROM users ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).bind(...args, lim, off).all()).results;
+    const rows = (await db.prepare(`SELECT uid, login, created, saved, banned, ban_until, ban_reason, totp_on, google IS NOT NULL AS g, ${sumCols}, (SELECT COUNT(*) FROM sessions s WHERE s.uid = users.uid) AS sessions FROM users ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).bind(...args, lim, off).all()).results;
     const total = (await db.prepare(`SELECT COUNT(*) n FROM users ${where}`).bind(...args).first()).n;
     return json({ total, rows });
   }
@@ -128,7 +169,22 @@ async function admin(req, env, db, path) {
     const f = await db.prepare('SELECT n, t FROM fails WHERE login = ?').bind(u.login).first();
     return json({ ...u, save: u.save ? JSON.parse(u.save) : null, sessions: s.n, fails: f || null, isAdmin: admins.includes(u.login) });
   }
+  if (path === '/admin/config' && req.method === 'GET')
+    return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0 });
   const b = await body(req); if (!b) return err('잘못된 요청이에요');
+  if (path === '/admin/notice' && req.method === 'POST') {   // 게임 타이틀에 뜨는 공지 (빈 글이면 공지 없음)
+    const t = String(b.text || '').trim().slice(0, 200);
+    await setConf(db, 'notice', t); await setConf(db, 'noticeT', now);
+    return json({ ok: true, notice: t });
+  }
+  if (path === '/admin/season' && req.method === 'POST') {
+    // 랭킹 시즌 초기화: 시즌 번호를 올리고 모든 회원 저장의 티어 점수·최고 연승·랭크전 기록을 0으로.
+    // 게임은 켤 때 시즌 번호가 바뀐 걸 보면 이 기기 기록도 같이 지움 (게스트 포함). 랭킹 서버 기록은 관리자 페이지가 따로 지움.
+    const season = (+(await getConf(db, 'season', 0)) || 0) + 1;
+    await setConf(db, 'season', season);
+    const r = await db.prepare(`UPDATE users SET save = json_set(save, '$.sgf_tp', '0', '$.sgf_rbest', '0', '$.sgf_ranked', 'false', '$.sgf_rank', '[]', '$.sgf_rkpending', 'false', '$.sgf_promo', 'null', '$.sgf_season', ?), saved = ? WHERE save IS NOT NULL AND json_valid(save)`).bind(String(season), now).run();
+    return json({ ok: true, season, users: r.meta && r.meta.changes });
+  }
   const u = await target(b.uid); if (!u) return err('없는 계정이에요', 404);
   const protectedAdmin = admins.includes(u.login) && u.uid !== me.uid;   // 다른 관리자는 정지·삭제 못 함
   if (path === '/admin/user' && req.method === 'PUT') {   // 저장 데이터 고치기 (saved를 지금으로 → 그 사람이 다음에 게임을 켜면 이 값으로 받아감)
@@ -146,10 +202,16 @@ async function admin(req, env, db, path) {
   }
   if (path === '/admin/user/ban') {
     if (protectedAdmin || u.uid === me.uid) return err('관리자 계정은 정지할 수 없어요', 403);
-    const ban = b.banned ? 1 : 0;
-    await db.prepare('UPDATE users SET banned = ? WHERE uid = ?').bind(ban, u.uid).run();
+    // days: 정지 일수 (0이면 영구), reason: 정지 사유 (정지당한 사람이 로그인할 때 보임)
+    const ban = b.banned ? 1 : 0, days = Math.max(0, Math.min(3650, +b.days || 0));
+    const until = ban && days ? now + days * 86400000 : 0, reason = ban ? String(b.reason || '').trim().slice(0, 100) : '';
+    await db.prepare('UPDATE users SET banned = ?, ban_until = ?, ban_reason = ? WHERE uid = ?').bind(ban, until, reason || null, u.uid).run();
     if (ban) await db.prepare('DELETE FROM sessions WHERE uid = ?').bind(u.uid).run();
-    return json({ ok: true, banned: ban });
+    return json({ ok: true, banned: ban, ban_until: until, ban_reason: reason });
+  }
+  if (path === '/admin/user/2fa-off') {   // 폰을 잃어버린 사람: 2단계 인증 끄기
+    await db.prepare('UPDATE users SET totp_on = 0, totp = NULL WHERE uid = ?').bind(u.uid).run();
+    return json({ ok: true });
   }
   if (path === '/admin/user/logout') {
     await db.prepare('DELETE FROM sessions WHERE uid = ? AND uid != ?').bind(u.uid, me.uid).run();
@@ -205,14 +267,15 @@ export default {
       const now = Date.now();
       const f = await db.prepare('SELECT n, t FROM fails WHERE login = ?').bind(login).first();
       if (f && f.n >= FAIL_MAX && now - f.t < FAIL_WIN) return err('비밀번호를 너무 많이 틀렸어요. 10분 뒤에 다시 해 주세요', 429);
-      const u = await db.prepare('SELECT uid, login, salt, hash, save, saved, banned, google FROM users WHERE login = ?').bind(login).first();
+      const u = await db.prepare('SELECT uid, login, salt, hash, save, saved, banned, ban_until, ban_reason, google, totp, totp_on FROM users WHERE login = ?').bind(login).first();
       if (!u || !same(await pbkdf2(pw, u.salt), u.hash)) {
         const n = f && now - f.t < FAIL_WIN ? f.n + 1 : 1;
         await db.prepare('INSERT INTO fails (login, n, t) VALUES (?, ?, ?) ON CONFLICT(login) DO UPDATE SET n = excluded.n, t = excluded.t').bind(login, n, now).run();
         return err('아이디 또는 비밀번호가 틀렸어요', 401);
       }
+      if (isBanned(u)) return err(banMsg(u), 403);
+      const t2 = await check2fa(db, u, b.code); if (t2) return t2;   // 2단계 인증 켠 계정은 인증 앱 숫자까지 맞아야 함
       if (f) await db.prepare('DELETE FROM fails WHERE login = ?').bind(login).run();
-      if (u.banned) return err('정지된 계정이에요. 관리자에게 문의하세요', 403);
       return json({ token: await newSession(db, u.uid), uid: u.uid, login: u.login, save: u.save ? JSON.parse(u.save) : null, saved: u.saved || 0, google: !!u.google });
     }
 
@@ -220,9 +283,10 @@ export default {
       const b = await body(req); if (!b) return err('잘못된 요청이에요');
       const g = await googleSub(b.credential, env);
       if (!g) return err('구글 로그인을 확인하지 못했어요. 다시 해 주세요', 401);
-      const u = await db.prepare('SELECT uid, login, save, saved, banned FROM users WHERE google = ?').bind(g.sub).first();
+      const u = await db.prepare('SELECT uid, login, save, saved, banned, ban_until, ban_reason, totp, totp_on FROM users WHERE google = ?').bind(g.sub).first();
       if (u) {   // 이미 연결된 계정 → 로그인
-        if (u.banned) return err('정지된 계정이에요. 관리자에게 문의하세요', 403);
+        if (isBanned(u)) return err(banMsg(u), 403);
+        const t2 = await check2fa(db, u, b.code); if (t2) return t2;
         return json({ token: await newSession(db, u.uid), uid: u.uid, login: u.login, save: u.save ? JSON.parse(u.save) : null, saved: u.saved || 0, google: true, existed: true });
       }
       if (b.login === undefined) return json({ need: 'name', suggest: g.name.slice(0, 16) });   // 처음 온 구글 계정 → 닉네임 정하기
@@ -241,7 +305,7 @@ export default {
       if (req.method !== 'POST') return err('없는 주소예요', 404);
       const u = await who(db, req);
       if (!u) return err('로그인이 만료됐어요', 401);
-      if (u.banned) return err('정지된 계정이에요', 403);
+      if (isBanned(u)) return err(banMsg(u), 403);
       if (path === '/google/unlink') {
         if (!u.hash) return err('구글로 가입한 계정은 연결을 끊을 수 없어요 (비밀번호가 없어요)');
         await db.prepare('UPDATE users SET google = NULL WHERE uid = ?').bind(u.uid).run();
@@ -259,7 +323,7 @@ export default {
     if (path === '/save') {
       const u = await who(db, req);
       if (!u) return err('로그인이 만료됐어요', 401);
-      if (u.banned) return err('정지된 계정이에요', 403);
+      if (isBanned(u)) return err(banMsg(u), 403);
       if (req.method === 'GET') return json({ uid: u.uid, login: u.login, save: u.save ? JSON.parse(u.save) : null, saved: u.saved || 0 });
       if (req.method === 'PUT') {
         const b = await body(req); if (!b) return err('잘못된 요청이에요');
@@ -268,6 +332,40 @@ export default {
         await db.prepare('UPDATE users SET save = ?, saved = ? WHERE uid = ?').bind(s.v, now, u.uid).run();
         return json({ saved: now });
       }
+    }
+
+    // 공지 · 랭킹 시즌 (누구나 읽음, 게임 켤 때 한 번)
+    if (path === '/config' && req.method === 'GET')
+      return json({ notice: await getConf(db, 'notice', ''), season: +(await getConf(db, 'season', 0)) || 0 });
+
+    // 2단계 인증: setup(비밀키 만들기) → on(인증 앱 숫자로 확인하면 켜짐) · off(숫자 확인하고 끄기) · GET 상태
+    if (path.startsWith('/2fa')) {
+      const u = await who(db, req);
+      if (!u) return err('로그인이 만료됐어요', 401);
+      if (isBanned(u)) return err(banMsg(u), 403);
+      if (path === '/2fa' && req.method === 'GET') return json({ on: !!u.totp_on });
+      if (req.method !== 'POST') return err('없는 주소예요', 404);
+      const b = (await body(req)) || {};
+      if (path === '/2fa/setup') {
+        if (u.totp_on) return err('이미 2단계 인증이 켜져 있어요');
+        const secret = b32enc(crypto.getRandomValues(new Uint8Array(20)));
+        await db.prepare('UPDATE users SET totp = ? WHERE uid = ?').bind(secret, u.uid).run();
+        const label = encodeURIComponent('삼겹살 파이터:' + u.login);
+        return json({ secret, uri: `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent('삼겹살 파이터')}&digits=6&period=30` });
+      }
+      if (path === '/2fa/on') {
+        if (u.totp_on) return json({ ok: true, on: true });
+        if (!(await totpOk(u.totp, b.code))) return err('숫자가 틀렸어요. 인증 앱에 지금 보이는 6자리를 넣어 주세요');
+        await db.prepare('UPDATE users SET totp_on = 1 WHERE uid = ?').bind(u.uid).run();
+        return json({ ok: true, on: true });
+      }
+      if (path === '/2fa/off') {
+        if (!u.totp_on) return json({ ok: true, on: false });
+        if (!(await totpOk(u.totp, b.code))) return err('숫자가 틀렸어요. 인증 앱에 지금 보이는 6자리를 넣어 주세요');
+        await db.prepare('UPDATE users SET totp_on = 0, totp = NULL WHERE uid = ?').bind(u.uid).run();
+        return json({ ok: true, on: false });
+      }
+      return err('없는 주소예요', 404);
     }
 
     if (path === '/logout' && req.method === 'POST') {

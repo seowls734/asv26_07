@@ -45,7 +45,8 @@ canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-sha
 <div id="pad"></div>
 <script>
 'use strict';
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const cv = document.getElementById('c');
+let ctx = cv.getContext('2d');   // let: 돼지에 색 효과를 줄 때 잠깐 작은 캔버스로 바꿔 그림 (drawPigFx)
 const W = 960, H = 540, GROUND = 460, ROUND_T = 60 * 60, GRAV = 0.75;
 const FONT = "'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
 const TOUCH = ('ontouchstart' in window) || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
@@ -569,16 +570,31 @@ function cloudPush(keepalive) {
   if (!isMember() || AUTH_TEST) return Promise.resolve();
   return authFetch('/save', 'PUT', { save: collectSave() }, keepalive ? { keepalive: true } : {})
     .then(d => setAuth({ ...auth, syncT: d.saved }))
-    .catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403); });
+    .catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403, e.message); });
 }
 // 다른 기기에서 더 최근에 저장했으면 그 기록을 받아 옴 (게임 시작할 때)
 function cloudPull() {
   if (!isMember() || AUTH_TEST) return;
   authFetch('/save').then(d => {
     if (d.save && d.saved > (auth.syncT || 0)) { applySave(d.save); setAuth({ ...auth, syncT: d.saved }); location.reload(); }
-  }).catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403); });
+  }).catch(e => { if (e.status === 401 || e.status === 403) authExpired(e.status === 403, e.message); });
 }
-function authExpired(banned) { setAuth({ guest: true }); toast(banned ? '⛔ 정지된 계정이에요. 관리자에게 문의하세요' : '🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
+function authExpired(banned, msg) { setAuth({ guest: true }); toast(banned ? '⛔ ' + (msg || '정지된 계정이에요. 관리자에게 문의하세요') : '🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
+// 공지 · 랭킹 시즌: 관리자가 시즌을 초기화하면 시즌 번호가 올라감 → 이 기기의 티어·연승 기록도 지움 (게스트 포함)
+let notice = '';
+function fetchConfig() {
+  if (AUTH_TEST) return;
+  fetch(AUTH_URL + '/config').then(r => r.json()).then(d => {
+    notice = String(d.notice || '');
+    const s = +d.season || 0;
+    if (s > lsGet('sgf_season', 0)) {
+      const had = tp > 0 || lsGet('sgf_rbest', 0) > 0;
+      tp = 0; promo = null;
+      for (const [k, v] of [['sgf_tp', 0], ['sgf_rbest', 0], ['sgf_ranked', false], ['sgf_rank', []], ['sgf_promo', null], ['sgf_rkpending', false], ['sgf_season', s]]) lsSet(k, v);
+      if (had) toast('🏆 새 랭킹 시즌 시작! 티어와 연승 기록이 초기화됐어요');
+    }
+  }).catch(() => {});
+}
 document.addEventListener('visibilitychange', () => { if (document.hidden && cloudTimer) cloudPush(true); });   // 앱을 내리거나 닫을 때 바로 저장
 // 닉네임: 회원은 회원가입 때 정한 아이디 그대로(바꿀 수 없음), 게스트는 N으로 정한 이름 또는 '돼지123'
 let playerName = isMember() ? auth.login : (lsGet('sgf_name', null) || ('돼지' + (100 + Math.random() * 900 | 0)));
@@ -721,7 +737,27 @@ function limb(x1, y1, x2, y2, w, C, hc, hr) {
 }
 const KICKS = { lowkick: [0.25, 36], highkick: [-0.7, 38], sweep: [0.02, 48] };
 
+// 색 효과(맞을 때 번쩍·잠긴 돼지 실루엣·얼음·화상 등)가 있는 돼지: 큰 화면에 filter를 걸면 아주 느려서(한 번에 150ms 넘게)
+// 작은 캔버스에 효과 없이 그린 뒤, 그 그림만 filter를 걸어 붙임
+const pigFxC = document.createElement('canvas'), pigFxX = pigFxC.getContext('2d');
+const PFX = { w: 600, h: 540, ox: 300, oy: 440 };   // 돼지 하나가 들어가는 상자 (돼지 기준 좌표)
+function drawPigFx(x, y, face, C, p, filt) {
+  const s = p.scale || 1, m = ctx.getTransform(), R = clamp(s * Math.hypot(m.a, m.b), 0.3, 2);   // 화면 픽셀 / 돼지 좌표 1칸
+  const cw = Math.ceil(PFX.w * R), ch = Math.ceil(PFX.h * R);
+  if (pigFxC.width < cw || pigFxC.height < ch) { pigFxC.width = Math.max(pigFxC.width, cw); pigFxC.height = Math.max(pigFxC.height, ch); }
+  const main = ctx; ctx = pigFxX;
+  try {
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = 'none'; ctx.clearRect(0, 0, cw, ch);
+    ctx.setTransform(R / s, 0, 0, R / s, 0, 0);
+    drawPig(PFX.ox * s, PFX.oy * s, face, C, { ...p, filter: '', flash: false, alpha: undefined });
+  } finally { ctx = main; }
+  ctx.save(); if (p.alpha !== undefined) ctx.globalAlpha *= p.alpha;
+  ctx.filter = filt; ctx.drawImage(pigFxC, 0, 0, cw, ch, x - PFX.ox * s, y - PFX.oy * s, PFX.w * s, PFX.h * s);
+  ctx.restore();
+}
 function drawPig(x, y, face, C, p = {}) {
+  const fx = ((p.flash ? 'brightness(2.5) ' : '') + (p.filter || '')).trim();
+  if (fx && ctx !== pigFxX) return drawPigFx(x, y, face, C, p, fx);
   const s = p.scale || 1, t = p.t || 0, acc = C.acc || [], mv = p.move, k = p.k || 0, bw = C.bw || 1;
   ctx.save(); ctx.translate(x, y); ctx.scale(face * s, s);
   if (p.alpha !== undefined) ctx.globalAlpha *= p.alpha;
@@ -2389,13 +2425,37 @@ const TY_UP = [
   { id: 'grade', name: '🥩 고기 등급', max: 15, cost: l => Math.round(500 * 2.6 ** l), desc: l => `판매가 ×${fmtN(2 ** l)} → ×${fmtN(2 ** (l + 1))}` },
   { id: 'grill', name: '🔥 불판 늘리기', max: 3, cost: l => 800 * 3 ** l, desc: l => `불판 ${3 + l}칸 → ${4 + l}칸` },
   { id: 'rep', name: '📣 가게 소문', max: 6, cost: l => 1000 * 3 ** l, desc: () => '손님이 더 자주 오고 더 오래 기다려요' },
-  { id: 'staff', name: '🐷 알바 고용', max: 2, cost: l => [5000, 60000][l], desc: l => l === 0 ? '알바가 손님에게 알아서 서빙 (알바비 있음)' : '알바가 고기도 알아서 굽고 집어요 (알바비↑)' },
-  { id: 'menu', name: '📜 새 메뉴: 항정살', max: 1, cost: () => 20000, desc: () => '비싼 항정살 주문이 들어와요 (1개 70×등급)' }
+  { id: 'staff', name: '🐷 알바 고용', max: 5, cost: l => [5000, 60000, 400000, 2500000, 15000000][l],
+    desc: l => ['알바가 손님에게 알아서 서빙 (알바비 있음)', '알바가 고기도 알아서 굽고 집어요', '사이드 담당: 찌개·계란찜·냉면을 알아서 만들어요', '숙련 알바: 알바들이 2배 빨라져요', '매니저: 손님이 25% 더 오래 기다리고 팁↑'][l] },
+  { id: 'menu', name: '📜 새 메뉴: 항정살', max: 1, cost: () => 20000, desc: () => '비싼 항정살 주문이 들어와요 (1개 70×등급)' },
+  { id: 'side', name: '🍲 사이드 메뉴', max: 4, cost: l => [3000, 20000, 80000, 300000][l], desc: l => `${Object.values(TY_SIDE)[l].icon} ${Object.values(TY_SIDE)[l].name} 추가 · 고기랑 같이 주문하면 더 벌어요` },
+  { id: 'deco', name: '🪑 인테리어', max: 5, cost: l => 20000 * 4 ** l, desc: () => '손님이 더 오래 기다리고 VIP가 더 자주 와요' },
+  { id: 'chain', name: '🏢 체인점 열기', max: 12, cost: l => 1e8 * 2 ** l, desc: l => `${l}곳 → ${l + 1}곳 · 영업 끝날 때마다 체인점마다 그날 매출의 40%` }
 ];
+// 사이드 메뉴: 음료는 바로 나가고, 찌개·계란찜·냉면은 냄비에서 만들어서(다 되면 탭) 고기랑 같이 서빙
+const TY_SIDE = {
+  drink: { name: '소주·음료', icon: '🍺', base: 12, cook: 0, key: '' },
+  stew: { name: '된장찌개', icon: '🍲', base: 30, cook: 360, key: 'Z' },
+  egg: { name: '계란찜', icon: '🥚', base: 22, cook: 260, key: 'X' },
+  noodle: { name: '냉면', icon: '🍜', base: 45, cook: 200, key: 'C' }
+};
+const tySides = () => Object.keys(TY_SIDE).slice(0, tyU.side);
+const tyPots = () => tySides().filter(k => TY_SIDE[k].cook);
+const tySidePrice = k => Math.round(TY_SIDE[k].base * 2 ** tyU.grade);
+// 그날의 사건 (영업 시작 때 가끔)
+const TY_EV = [
+  { id: 'rain', name: '☔ 비 오는 날', desc: '손님은 적지만 찌개·음료를 많이 찾아요', spawn: 1.3, side: 0.85 },
+  { id: 'party', name: '🎉 회식 단체 손님', desc: '손님이 훨씬 많이 오고 많이 시켜요', spawn: 0.65, more: 1 },
+  { id: 'tv', name: '📺 맛집 방송 촬영', desc: 'VIP 손님이 3배 자주 와요', vip: 3 },
+  { id: 'payday', name: '💰 월급날', desc: '손님들이 팁을 2배로 줘요', tip: 2 },
+  { id: 'inspect', name: '🧽 위생 점검', desc: '고기를 태우면 벌금! 조심하세요', fine: true }
+];
+const TY_TOWN = ['강남', '홍대', '부산 서면', '대구 동성로', '제주', '인천 송도', '대전 둔산', '광주 충장로', '수원', '전주 한옥마을', '강릉', '울산', '판교', '여의도', '잠실', '해운대'];
 // 가게 등급: 지금까지 번 돈(총매출)으로 올라감
 const TY_RANK = [['🏮 길거리 포장마차', 0], ['🍖 작은 고깃집', 50000], ['🏠 동네 맛집', 1000000], ['⭐ 소문난 맛집', 10000000], ['🏢 고깃집 프랜차이즈', 100000000], ['👑 전국 1등 고기 체인', 1000000000]];
 const TY_SHIFT = 60 * 90;
-let tyU = Object.assign({ grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false }, lsGet('sgf_tycoon', {}));
+const TYU0 = () => ({ grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, side: 0, deco: 0, chain: 0, chains: [], rating: 3, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false });
+let tyU = Object.assign(TYU0(), lsGet('sgf_tycoon', {}));
 const saveTyU = () => lsSet('sgf_tycoon', tyU);
 const TY = { phase: 'lobby', sel: 0, t: 0, left: 0, slots: [], meat: 's', tray: { s: [], m: [], h: [] }, cust: [], earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 0, combo: 0, wage: null, autoT: 0, banner: 0 };
 const tyPrice = k => TY_MEAT[k].base * 2 ** tyU.grade;
@@ -2405,22 +2465,32 @@ const tySlotXY = i => [340 + (i % 3) * 132, 318 + (i / 3 | 0) * 96];
 const tySeatX = s => 150 + s * 220;
 // 알바비: 알바 1명당 매출의 8% + 손님 1명당 수고비, 점장(자동 영업)은 매출의 10% 더. 영업을 할수록 경력이 쌓여 최대 50%까지 인상
 const tyRaise = () => 1 + 0.02 * Math.min(25, tyU.shifts);
+const TY_STAFF_PCT = [0, 0.08, 0.15, 0.2, 0.24, 0.27];   // 알바 수에 따른 알바비 (매출 대비)
 function tyWage(earned, served) {
-  const staff = Math.round(tyU.staff * (earned * 0.08 + served * 2 * 2 ** tyU.grade) * tyRaise());
+  const staff = Math.round((earned * TY_STAFF_PCT[tyU.staff] + tyU.staff * served * 2 * 2 ** tyU.grade) * tyRaise());
   const boss = tyU.auto ? Math.round(earned * 0.1 * tyRaise()) : 0;
   return { staff, boss, total: staff + boss };
 }
 function openTycoon() { TY.phase = 'lobby'; TY.sel = 0; TY.autoT = 180; scene = 'tycoon'; }
 function tyStart() {
   Object.assign(TY, { phase: 'play', t: 0, left: TY_SHIFT, slots: Array(3 + tyU.grill).fill(null), meat: 's', tray: { s: [], m: [], h: [] }, cust: [],
-    earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 40, combo: 0, wage: null, autoT: 0, banner: 120 });
+    earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 40, combo: 0, wage: null, autoT: 0, banner: 150,
+    pots: {}, sideStock: { stew: 0, egg: 0, noodle: 0 }, stars: [], fines: 0, chainInc: 0, bonus: 0,
+    ev: tyU.shifts >= 2 && Math.random() < 0.5 ? pick(TY_EV) : null,   // 3일차부터 가끔 사건
+    goal: Math.round(Math.max(800 * 2 ** tyU.grade, tyU.best * 0.9) / 10) * 10 });   // 오늘의 목표 매출
   SFX.confirm();
 }
+// 별점(1~5): 빨리·잘 구워서 줄수록 높음, 그냥 가 버리면 1점. 가게 별점이 높으면 손님이 더 자주 옴
+const tyStarAvg = () => TY.stars.length ? TY.stars.reduce((a, b) => a + b, 0) / TY.stars.length : tyU.rating;
 function tyEnd() {
   const w = tyWage(TY.earned, TY.served), pay = Math.min(coins, w.total);
   addCoins(-pay); TY.wage = { ...w, paid: pay };
-  tyU.shifts++; tyU.best = Math.max(tyU.best, TY.earned); tyU.total += TY.earned; tyU.cust += TY.served;
-  tyU.hist = (tyU.hist || []).concat([TY.earned - pay]).slice(-7); saveTyU();
+  TY.chainInc = Math.round(TY.earned * 0.4 * tyU.chain);   // 체인점 수익
+  TY.bonus = TY.earned >= TY.goal ? Math.round(TY.goal * 0.2) : 0;   // 목표 달성 보너스
+  addCoins(TY.chainInc + TY.bonus);
+  if (TY.stars.length) tyU.rating = Math.round((tyU.rating * 0.6 + tyStarAvg() * 0.4) * 10) / 10;
+  tyU.shifts++; tyU.best = Math.max(tyU.best, TY.earned); tyU.total += TY.earned + TY.chainInc; tyU.cust += TY.served;
+  tyU.hist = (tyU.hist || []).concat([TY.earned - pay + TY.chainInc + TY.bonus - TY.fines]).slice(-7); saveTyU();
   TY.phase = 'result'; TY.autoT = 240; SFX.bell();
 }
 function tyBuy(u) {
@@ -2428,7 +2498,13 @@ function tyBuy(u) {
   if (l >= u.max) { SFX.block(); toast('이미 최고 단계예요'); return; }
   const c = u.cost(l);
   if (coins < c) { SFX.block(); toast(`코인이 부족해요 (${fmtN(c)} 필요)`); return; }
-  addCoins(-c); tyU[u.id]++; saveTyU(); SFX.coin(); toast(`${u.name} ${tyU[u.id]}단계!`);
+  addCoins(-c); tyU[u.id]++;
+  if (u.id === 'chain') {   // 체인점 이름은 아직 없는 동네로
+    const left = TY_TOWN.filter(t => !(tyU.chains || []).includes(t)), town = left.length ? pick(left) : `${tyU.chain}호`;
+    tyU.chains = (tyU.chains || []).concat([town]); saveTyU(); SFX.bell(); burst(W / 2, H / 2, 40, ['#ffd740', '#fff'], 12);
+    toast(`🏢 꿀꿀 포차 ${town}점 오픈! (체인점 ${tyU.chain}곳)`); return;
+  }
+  saveTyU(); SFX.coin(); toast(`${u.name} ${tyU[u.id]}단계!`);
 }
 function tyToggleAuto() { tyU.auto = !tyU.auto; saveTyU(); SFX.select(); toast(tyU.auto ? '🤖 자동 영업 켬: 점장이 굽고·집고·서빙하고 다음 영업도 알아서 시작해요 (점장 월급 있음)' : '🤖 자동 영업 끔');
   if (tyU.auto && TY.phase === 'lobby') tyStart();   // 켜면 바로 영업 시작
@@ -2443,19 +2519,31 @@ function tySlot(i) {
   const q = tyQual(c.p);
   if (q === null) { SFX.block(); popText(x, y - 30, '아직 덜 익었어요', '#fff', 18); return; }
   s[i] = null;
-  if (q < 0) { TY.burnt++; smokePuff(x, y); popText(x, y - 30, '탔다! 버림', '#bbb', 20); return; }
+  if (q < 0) {
+    TY.burnt++; smokePuff(x, y); popText(x, y - 30, '탔다! 버림', '#bbb', 20);
+    if (TY.ev && TY.ev.fine) { const f = Math.min(coins, tyPrice('s') * 3); addCoins(-f); TY.fines += f; popText(x, y - 56, `🧽 위생 벌금 -${fmtN(f)}`, '#ff8a80', 18); }
+    return;
+  }
   const tr = TY.tray[c.k];
   if (tr.length >= 12) { s[i] = c; SFX.block(); toast('접시가 꽉 찼어요! 손님에게 먼저 서빙하세요'); return; }
   tr.push(q); tr.sort((a, b) => b - a); SFX.select();
   popText(x, y - 30, q > 1.2 ? '✨ 완벽!' : q < 1 ? '덜 익음' : '좋아!', q > 1.2 ? '#ffd740' : '#fff', 20);
 }
+// 사이드가 준비됐나 (음료는 언제나 OK)
+const tySideOk = c => !c.side || c.side === 'drink' || TY.sideStock[c.side] > 0;
+const tyReady = c => TY.tray[c.k].length >= c.n && tySideOk(c);
 function tyServe(j) {
   const c = TY.cust[j]; if (!c) return;
   const tr = TY.tray[c.k];
   if (tr.length < c.n) { SFX.block(); toast(`${TY_MEAT[c.k].name} ${c.n}개가 필요해요 (접시에 ${tr.length}개)`); return; }
-  const qs = tr.splice(0, c.n), pay = qs.reduce((s, q) => s + tyPrice(c.k) * q, 0) * (c.vip ? 3 : 1);
+  if (!tySideOk(c)) { SFX.block(); toast(`${TY_SIDE[c.side].icon} ${TY_SIDE[c.side].name}도 같이 시켰어요! 냄비에서 만들어 주세요`); return; }
+  if (c.side && c.side !== 'drink') TY.sideStock[c.side]--;
+  const qs = tr.splice(0, c.n), pay = (qs.reduce((s, q) => s + tyPrice(c.k) * q, 0) + (c.side ? tySidePrice(c.side) : 0)) * (c.vip ? 3 : 1);
   TY.combo = Math.min(5, TY.combo + 1);
-  const total = Math.round((pay + pay * 0.5 * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)));   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
+  const tip = 0.5 * (TY.ev && TY.ev.tip || 1) * (tyU.staff >= 5 ? 1.2 : 1);
+  const total = Math.round((pay + pay * tip * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)));   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
+  const avgQ = qs.reduce((a, b) => a + b, 0) / qs.length;
+  TY.stars.push(clamp(2 + 3 * (c.pat / c.max) + (avgQ > 1.2 ? 0.5 : avgQ < 1 ? -0.5 : 0), 1, 5));
   addCoins(total); TY.earned += total; TY.served++; if (c.vip) TY.vip++; TY.cust.splice(j, 1); SFX.coin();
   popText(tySeatX(c.seat), 120, `${c.vip ? '👑 ' : ''}+${fmtN(total)}${TY.combo > 1 ? ` (${TY.combo}연속!)` : ''}`, '#ffd740', c.vip ? 28 : 24);
   burst(tySeatX(c.seat), 150, c.vip ? 18 : 8, ['#ffd740', '#fff8e1'], 6);
@@ -2469,8 +2557,25 @@ function tyBotPick() {
   if (i >= 0) { tySlot(i); return true; } return false;
 }
 function tyBotServe() {
-  const ok = TY.cust.map((c, j) => [c, j]).filter(([c]) => TY.tray[c.k].length >= c.n).sort((a, b) => b[0].vip - a[0].vip || a[0].pat - b[0].pat)[0];
+  const ok = TY.cust.map((c, j) => [c, j]).filter(([c]) => tyReady(c)).sort((a, b) => b[0].vip - a[0].vip || a[0].pat - b[0].pat)[0];
   if (ok) { tyServe(ok[1]); return true; } return false;
+}
+// 사이드 냄비: 비었으면 끓이기 시작 → 다 되면(1) 탭해서 그릇에 담기 → 너무 오래 두면(2.2) 넘쳐서 버림
+function tyPot(k) {
+  const p = TY.pots[k], i = tyPots().indexOf(k); if (i < 0) return;
+  const x = 714, y = 308 + i * 62;
+  if (!p) { TY.pots[k] = { p: 0 }; SFX.select(); return; }
+  if (p.p < 1) { SFX.block(); popText(x, y - 20, '아직이에요', '#fff', 15); return; }
+  if (TY.sideStock[k] >= 6) { SFX.block(); toast('그릇이 꽉 찼어요! 먼저 서빙하세요'); return; }
+  TY.pots[k] = null; TY.sideStock[k]++; SFX.coin(); popText(x, y - 20, `${TY_SIDE[k].icon} 완성!`, '#ffd740', 16);
+}
+function tyBotSide() {
+  for (const k of tyPots()) { const p = TY.pots[k]; if (p && p.p >= 1 && TY.sideStock[k] < 6) { tyPot(k); return true; } }
+  for (const k of tyPots()) {
+    const want = TY.cust.filter(c => c.side === k).length;
+    if (!TY.pots[k] && (TY.sideStock[k] < want || TY.sideStock[k] < 1)) { tyPot(k); return true; }
+  }
+  return false;
 }
 function tyBotPlace() { const e = TY.slots.findIndex(c => !c); if (e >= 0) { tyPlaceBest(e); return true; } return false; }
 function updateTycoon() {
@@ -2497,6 +2602,12 @@ function updateTycoon() {
   if (pressed.KeyQ) TY.meat = 's'; if (pressed.KeyE) TY.meat = 'm'; if (pressed.KeyW && tyU.menu) TY.meat = 'h';
   ['KeyA', 'KeyS', 'KeyD', 'KeyF'].forEach((k, s) => { if (pressed[k]) { const j = TY.cust.findIndex(c => c.seat === s); if (j >= 0) tyServe(j); } });
   if (pressed.KeyR) tyToggleAuto();
+  tyPots().forEach(k => { if (pressed['Key' + TY_SIDE[k].key]) tyPot(k); });   // Z·X·C: 사이드 냄비
+  for (const k of tyPots()) {   // 냄비 끓이기 (너무 오래 두면 넘침)
+    const p = TY.pots[k]; if (!p) continue;
+    p.p += 1 / TY_SIDE[k].cook;
+    if (p.p >= 2.2) { TY.pots[k] = null; TY.burnt++; popText(714, 308 + tyPots().indexOf(k) * 62 - 20, '넘쳤다!', '#bbb', 15); }
+  }
   for (let i = 0; i < TY.slots.length; i++) {
     const c = TY.slots[i]; if (!c) continue;
     c.p += 1 / TY_MEAT[c.k].cook;
@@ -2504,24 +2615,29 @@ function updateTycoon() {
     if (c.p > 1.35 && gT % 10 === 0) smoke(x + rand(-20, 20), y - 10, c.p > 1.6 ? '60,60,60' : '200,200,200');
   }
   if (--TY.spawn <= 0 && TY.left > 240) {   // 손님 등장 (빈자리가 있을 때)
-    TY.spawn = Math.max(70, 250 - 28 * tyU.rep) * (0.7 + Math.random() * 0.6) | 0;
+    const ev = TY.ev || {}, rate = 0.85 + 0.075 * (tyU.rating - 3);   // 별점이 높을수록 손님이 자주 옴
+    TY.spawn = Math.max(55, 250 - 28 * tyU.rep) * (ev.spawn || 1) / rate * (0.7 + Math.random() * 0.6) | 0;
     const used = TY.cust.map(c => c.seat), free = [0, 1, 2, 3].filter(s => !used.includes(s));
     if (free.length) {
-      const vip = Math.random() < 0.08, mx = ((1000 + 160 * tyU.rep) * (vip ? 0.6 : 1)) | 0, ch = CHARS[Math.random() * CHARS.length | 0];
+      const vip = Math.random() < (0.08 + 0.02 * tyU.deco) * (ev.vip || 1), ch = CHARS[Math.random() * CHARS.length | 0];
+      const mx = ((1000 + 160 * tyU.rep) * (1 + 0.12 * tyU.deco) * (tyU.staff >= 5 ? 1.25 : 1) * (vip ? 0.6 : 1)) | 0;   // 기다려 주는 시간
       const r = Math.random(), k = tyU.menu && r < 0.22 ? 'h' : r < 0.6 ? 's' : 'm';
-      TY.cust.push({ seat: pick(free), k, n: 1 + (Math.random() < 0.5 ? 0 : Math.random() < 0.6 ? 1 : 2), pat: mx, max: mx, look: ch.look, t: 0, vip });
+      const sides = tySides(), side = sides.length && Math.random() < (ev.side || 0.45) ? pick(sides) : null;
+      TY.cust.push({ seat: pick(free), k, n: Math.min(4, 1 + (Math.random() < 0.5 ? 0 : Math.random() < 0.6 ? 1 : 2) + (ev.more || 0)), side, pat: mx, max: mx, look: ch.look, t: 0, vip });
       if (vip) popText(tySeatX(TY.cust[TY.cust.length - 1].seat), 90, '👑 VIP 손님! (3배)', '#ffd740', 20);
     }
   }
   for (let j = TY.cust.length - 1; j >= 0; j--) {
     const c = TY.cust[j]; c.t++;
-    if (--c.pat <= 0) { TY.cust.splice(j, 1); TY.missed++; TY.combo = 0; SFX.block(); popText(tySeatX(c.seat), 120, '😡 그냥 갈래!', '#ff8a80', 22); }
+    if (--c.pat <= 0) { TY.cust.splice(j, 1); TY.missed++; TY.stars.push(1); TY.combo = 0; SFX.block(); popText(tySeatX(c.seat), 120, '😡 그냥 갈래!', '#ff8a80', 22); }
   }
   if (tyU.auto) {   // 🤖 점장: 고기 집기 → 서빙 → 빈 불판에 올리기 (사람보다 조금 느림)
-    if (TY.t % 14 === 0) tyBotPick() || tyBotServe() || tyBotPlace();
+    if (TY.t % 14 === 0) tyBotPick() || tyBotServe() || tyBotSide() || tyBotPlace();
   } else {
-    if (tyU.staff >= 1 && TY.t % 50 === 0) tyBotServe();               // 알바 1: 서빙
-    if (tyU.staff >= 2 && TY.t % 25 === 0) tyBotPick() || tyBotPlace();   // 알바 2: 굽기·집기
+    const sp = tyU.staff >= 4 ? 2 : 1;   // 숙련 알바: 2배 빠름
+    if (tyU.staff >= 1 && TY.t % (50 / sp | 0) === 0) tyBotServe();               // 알바 1: 서빙
+    if (tyU.staff >= 2 && TY.t % (26 / sp | 0) === 0) tyBotPick() || tyBotPlace();   // 알바 2: 굽기·집기
+    if (tyU.staff >= 3 && TY.t % (34 / sp | 0) === 0) tyBotSide();                 // 알바 3: 사이드
   }
   if (TY.left <= 0) tyEnd();
   else if (pressed.Escape) { if (tyU.auto) tyToggleAuto(); tyEnd(); }
@@ -2575,18 +2691,23 @@ function drawTycoon() {
     // 알바비 안내
     const ex = tyWage(1000 * 2 ** tyU.grade, 20);
     txt(`💸 알바비: 알바 ${tyU.staff}명${tyU.auto ? ' + 점장' : ''} · 경력 인상 +${Math.round((tyRaise() - 1) * 100)}%`, 40, 404, 13, '#ffab91', null, 0, 'left');
+    const chs = tyU.chains || [];
+    txt(`⭐ 가게 별점 ${tyU.rating.toFixed(1)}  ·  🏢 체인점 ${tyU.chain}곳  ·  🐷 알바 ${tyU.staff}명`, 40, 452, 14, '#ffe082', null, 0, 'left');
+    const chTxt = chs.length ? chs.map(t => t + '점').join(' · ') : '체인점이 아직 없어요 (1억부터 열 수 있어요)';
+    txt(chTxt, 40, 474, fitSize(chTxt, 12, 380), chs.length ? '#ce93d8' : '#888', null, 0, 'left');
+    if (tyU.chain) txt(`체인점 수익: 영업마다 그날 매출 × ${(tyU.chain * 0.4).toFixed(1)}`, 40, 496, 12, '#b39ddb', null, 0, 'left');
     txt(`손님이 많을수록 알바비도 올라요 (예: 매출 ${fmtN(1000 * 2 ** tyU.grade)}·손님 20명 → ${fmtN(ex.total)})`, 40, 424, fitSize(`손님이 많을수록 알바비도 올라요 (예: 매출 ${fmtN(1000 * 2 ** tyU.grade)}·손님 20명 → ${fmtN(ex.total)})`, 12, 380), '#ccc', null, 0, 'left');
     // 오른쪽: 영업 시작 · 업그레이드 · 자동 영업
     const rows = [['🔔 영업 시작! (90초)', `1개당 ${tyKinds().map(k => `${TY_MEAT[k].name} ${fmtN(tyPrice(k))}`).join(' · ')}`, null]]
       .concat(TY_UP.map(u => { const l = tyU[u.id]; return [`${u.name}  Lv.${l}/${u.max}`, l >= u.max ? '최고 단계!' : u.desc(l), l >= u.max ? null : u.cost(l)]; }))
       .concat([[`🤖 자동 영업 ${tyU.auto ? 'ON' : 'OFF'} ${TOUCH ? '' : '[R]'}`, '점장이 다 하고 영업도 계속 이어서 (점장 월급: 매출의 10%)', null]]);
     rows.forEach(([a, b, c], i) => {
-      const y = 80 + i * 64, on = TY.sel === i, x = 456, last = i === rows.length - 1;
-      ctx.fillStyle = on ? (i === 0 ? '#e53935' : 'rgba(255,145,0,0.5)') : last && tyU.auto ? 'rgba(67,160,71,0.55)' : 'rgba(255,255,255,0.08)'; rr(x, y, 484, 56, 12); ctx.fill();
-      if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 484, 56, 12); ctx.stroke(); }
-      txt(a, x + 16, y + 19, 16, '#fff', null, 0, 'left'); txt(b, x + 16, y + 40, fitSize(b, 12, c !== null ? 340 : 450), '#ddd', null, 0, 'left');
-      if (c !== null) txt(`${fmtN(c)}`, x + 470, y + 28, 17, coins >= c ? '#69f0ae' : '#ff8a80', null, 0, 'right');
-      addHot(x, y, 484, 56, () => { TY.sel = i; pressed.Enter = true; });
+      const y = 76 + i * 45, on = TY.sel === i, x = 456, last = i === rows.length - 1;
+      ctx.fillStyle = on ? (i === 0 ? '#e53935' : 'rgba(255,145,0,0.5)') : last && tyU.auto ? 'rgba(67,160,71,0.55)' : 'rgba(255,255,255,0.08)'; rr(x, y, 484, 41, 10); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 484, 41, 10); ctx.stroke(); }
+      txt(a, x + 14, y + 13, 14, '#fff', null, 0, 'left'); txt(b, x + 14, y + 30, fitSize(b, 11, c !== null ? 340 : 450), '#ddd', null, 0, 'left');
+      if (c !== null) txt(`${fmtN(c)}`, x + 470, y + 21, 16, coins >= c ? '#69f0ae' : '#ff8a80', null, 0, 'right');
+      addHot(x, y, 484, 41, () => { TY.sel = i; pressed.Enter = true; });
     });
     txt(TOUCH ? '탭해서 시작·업그레이드' : 'W/S 고르기 · Enter 시작/구매 · R 자동 영업 · Esc 시장으로', 690, 530, 12, '#aaa', null);
     if (tyU.auto) txt(`🤖 자동 영업 ON: ${Math.ceil(Math.max(0, TY.autoT) / 60)}초 뒤 점장이 영업을 시작해요`, W / 2, 30, 16, '#69f0ae', '#000', 4);
@@ -2594,13 +2715,17 @@ function drawTycoon() {
   }
   if (TY.phase === 'result') {
     const w = TY.wage || { staff: 0, boss: 0, paid: 0 };
-    txt(`🏮 ${tyU.shifts}일차 영업 끝!`, W / 2, 110, 38, '#ffcc80', '#000', 7);
-    txt(`매출 +${fmtN(TY.earned)}`, W / 2, 170, 26, '#ffd740', '#000', 5);
-    txt(`💸 알바비 -${fmtN(w.staff)}${w.boss ? ` · 점장 월급 -${fmtN(w.boss)}` : ''}`, W / 2, 208, 18, '#ff8a80', '#000', 4);
-    txt(`순이익 ${fmtN(TY.earned - w.paid)}`, W / 2, 248, 30, TY.earned - w.paid >= 0 ? '#69f0ae' : '#ff8a80', '#000', 5);
-    txt(`서빙 ${TY.served}명${TY.vip ? ` (👑VIP ${TY.vip})` : ''} · 놓친 손님 ${TY.missed}명 · 태운 고기 ${TY.burnt}개`, W / 2, 292, 16, '#fff', null);
-    if (TY.earned >= tyU.best && TY.earned > 0) txt('🏆 최고 매출 갱신!', W / 2, 322, 18, '#69f0ae', '#000', 4);
-    txt(`가게 등급 ${TY_RANK[tyRank()][0]} · 남은 사채 ${fmtN(Math.max(0, debt))} (🏦 은행에서 갚기)`, W / 2, 352, 14, '#ffab91', null);
+    const net = TY.earned - w.paid + TY.chainInc + TY.bonus - TY.fines;
+    txt(`🏮 ${tyU.shifts}일차 영업 끝!`, W / 2, 96, 36, '#ffcc80', '#000', 7);
+    if (TY.ev) txt(`오늘의 사건: ${TY.ev.name}`, W / 2, 128, 14, '#b3e5fc', null);
+    txt(`매출 +${fmtN(TY.earned)}${TY.chainInc ? `  ·  🏢 체인점 ${tyU.chain}곳 +${fmtN(TY.chainInc)}` : ''}`, W / 2, 156, 22, '#ffd740', '#000', 5);
+    txt(`🎯 목표 ${fmtN(TY.goal)} ${TY.bonus ? `달성! 보너스 +${fmtN(TY.bonus)}` : '못 넘었어요'}`, W / 2, 186, 15, TY.bonus ? '#69f0ae' : '#bbb', null);
+    txt(`💸 알바비 -${fmtN(w.staff)}${w.boss ? ` · 점장 월급 -${fmtN(w.boss)}` : ''}${TY.fines ? ` · 🧽 벌금 -${fmtN(TY.fines)}` : ''}`, W / 2, 212, 16, '#ff8a80', '#000', 4);
+    txt(`순이익 ${fmtN(net)}`, W / 2, 250, 30, net >= 0 ? '#69f0ae' : '#ff8a80', '#000', 5);
+    txt(`서빙 ${TY.served}명${TY.vip ? ` (👑VIP ${TY.vip})` : ''} · 놓친 손님 ${TY.missed}명 · 태운 것 ${TY.burnt}개`, W / 2, 290, 15, '#fff', null);
+    txt(`⭐ 오늘 별점 ${tyStarAvg().toFixed(1)} → 가게 별점 ${tyU.rating.toFixed(1)}`, W / 2, 314, 15, '#ffe082', null);
+    if (TY.earned >= tyU.best && TY.earned > 0) txt('🏆 최고 매출 갱신!', W / 2, 340, 17, '#69f0ae', '#000', 4);
+    txt(`가게 등급 ${TY_RANK[tyRank()][0]} · 남은 사채 ${fmtN(Math.max(0, debt))} (🏦 은행에서 갚기)`, W / 2, 364, 13, '#ffab91', null);
     ctx.fillStyle = '#e53935'; rr(W / 2 - 120, 380, 240, 50, 12); ctx.fill(); txt('확인', W / 2, 405, 20, '#fff', null);
     addHot(W / 2 - 120, 380, 240, 50, () => { pressed.Enter = true; });
     if (tyU.auto) txt(`🤖 자동 영업: ${Math.ceil(TY.autoT / 60)}초 뒤 다음 영업 시작 · Esc로 자동 끄기`, W / 2, 458, 14, '#69f0ae', null);
@@ -2609,7 +2734,9 @@ function drawTycoon() {
   // ---- 영업 중 화면 ----
   const sec = Math.ceil(TY.left / 60);
   txt(`⏰ ${sec}초 · ${tyU.shifts + 1}일차`, 20, 50, 18, sec <= 10 && gT % 30 < 15 ? '#ff5252' : '#fff', '#000', 4, 'left');
-  txt(`오늘 매출 ${fmtN(TY.earned)}${TY.combo > 1 ? ` · 🔥${TY.combo}연속` : ''}`, W / 2, 50, 18, '#ffd740', '#000', 4);
+  txt(`오늘 매출 ${fmtN(TY.earned)} / 🎯${fmtN(TY.goal)}${TY.earned >= TY.goal ? ' ✅' : ''}${TY.combo > 1 ? ` · 🔥${TY.combo}연속` : ''}`, W / 2, 50, 17, TY.earned >= TY.goal ? '#69f0ae' : '#ffd740', '#000', 4);
+  ctx.fillStyle = '#333'; ctx.fillRect(W / 2 - 110, 62, 220, 4); ctx.fillStyle = TY.earned >= TY.goal ? '#69f0ae' : '#ffd740'; ctx.fillRect(W / 2 - 110, 62, 220 * clamp(TY.earned / TY.goal), 4);
+  if (TY.ev) txt(TY.ev.name, 20, 72, 12, '#b3e5fc', '#000', 3, 'left');
   ctx.fillStyle = tyU.auto ? '#43a047' : 'rgba(255,255,255,0.15)'; rr(W - 250, 36, 110, 28, 8); ctx.fill();
   txt(`🤖 자동 ${tyU.auto ? 'ON' : 'OFF'}`, W - 195, 50, 13, '#fff', null);
   addHot(W - 250, 36, 110, 28, () => { pressed.KeyR = true; });
@@ -2617,13 +2744,14 @@ function drawTycoon() {
   // 손님 자리 4개 (새 손님은 오른쪽에서 걸어 들어옴)
   for (let s = 0; s < 4; s++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; rr(tySeatX(s) - 95, 70, 190, 180, 14); ctx.fill(); }
   TY.cust.forEach((c, j) => {
-    const x = tySeatX(c.seat) + (1 - clamp(c.t / 30)) * 260, k = c.pat / c.max, ready = TY.tray[c.k].length >= c.n;
+    const x = tySeatX(c.seat) + (1 - clamp(c.t / 30)) * 260, k = c.pat / c.max, ready = tyReady(c);
     drawPig(x - 40, 238, 1, c.look, { scale: 0.42, t: gT + c.seat * 20, hurt: k < 0.25 && gT % 40 < 20, walk: c.t < 30, aura: c.vip ? '#ffd700' : null });
     if (c.vip) txt('👑', x - 40, 158, 22, '#fff', null);
     ctx.fillStyle = ready ? '#fffde7' : '#fff'; rr(x - 10, 82, 100, 74, 10); ctx.fill();
     if (ready || c.vip) { ctx.strokeStyle = c.vip ? '#ffb300' : '#43a047'; ctx.lineWidth = 3; rr(x - 10, 82, 100, 74, 10); ctx.stroke(); }
     tyDrawMeat(c.k, 1.1, x + 40, 106, 0.5);
     txt(`${TY_MEAT[c.k].name} ×${c.n}`, x + 40, 138, 14, '#3e2723', null);
+    if (c.side) { ctx.globalAlpha = tySideOk(c) ? 1 : 0.45; txt(`+${TY_SIDE[c.side].icon}`, x + 74, 96, 17, '#000', null); ctx.globalAlpha = 1; }
     ctx.fillStyle = '#333'; ctx.fillRect(x - 80, 252, 160, 8);
     ctx.fillStyle = k > 0.5 ? '#66bb6a' : k > 0.25 ? '#ffca28' : '#ef5350'; ctx.fillRect(x - 80, 252, 160 * k, 8);
     if (!TOUCH) txt(['A', 'S', 'D', 'F'][c.seat], tySeatX(c.seat) + 80, 76, 12, '#aaa', null);
@@ -2659,6 +2787,26 @@ function drawTycoon() {
     if (!TOUCH) txt(String(i + 1), x - 50, y - 30, 11, '#999', null);
     addHot(x - 60, y - 40, 120, 84, () => tySlot(i));
   });
+  // 불판 오른쪽: 사이드 메뉴 칸 (냄비 · 음료 냉장고)
+  const sx0 = 672, sw0 = 84;
+  if (!tyU.side) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; rr(sx0, 280, sw0, 244, 10); ctx.fill(); txt('🔒', sx0 + 42, 380, 22, '#fff', null); txt('사이드 메뉴', sx0 + 42, 410, 11, '#aaa', null); txt('업그레이드', sx0 + 42, 426, 11, '#aaa', null); }
+  tyPots().forEach((k, i) => {
+    const s = TY_SIDE[k], p = TY.pots[k], y = 280 + i * 62, cx = sx0 + sw0 / 2, done = p && p.p >= 1, over = p && p.p > 1.8;
+    ctx.fillStyle = done && gT % 20 < 10 ? '#5d4037' : '#3e2723'; rr(sx0, y, sw0, 56, 10); ctx.fill();
+    ctx.fillStyle = '#9e9e9e'; ell(cx, y + 26, 26, 14); ctx.fill();   // 냄비
+    if (p) {
+      ctx.fillStyle = { stew: '#a1662f', egg: '#ffe082', noodle: '#8d6e63' }[k]; ell(cx, y + 24, 21, 10); ctx.fill();
+      if (gT % 12 < 6) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; ell(cx - 8 + (gT % 24) / 2, y + 22, 3, 2); ctx.fill(); }   // 보글보글
+      if (gT % 8 === 0) smoke(cx + rand(-10, 10), y + 10, over ? '90,90,90' : '230,230,230');
+      ctx.fillStyle = '#111'; ctx.fillRect(sx0 + 6, y + 46, sw0 - 12, 5);
+      ctx.fillStyle = over ? '#ef5350' : done ? '#69f0ae' : '#ff8a65'; ctx.fillRect(sx0 + 6, y + 46, (sw0 - 12) * clamp(p.p / 2.2), 5);
+      if (done) txt(over ? '넘친다!' : '다 됐다!', cx, y + 8, 11, over ? '#ff8a80' : '#69f0ae', '#000', 3);
+    } else txt('+ 끓이기', cx, y + 26, 10, 'rgba(255,255,255,0.6)', null);
+    txt(`${s.icon}${TY.sideStock[k]}`, sx0 + 6, y + 9, 12, '#fff', '#000', 3, 'left');
+    if (!TOUCH) txt(s.key, sx0 + sw0 - 8, y + 9, 10, '#999', null);
+    addHot(sx0, y, sw0, 56, () => tyPot(k));
+  });
+  if (tyU.side) { const y = 280 + tyPots().length * 62; ctx.fillStyle = 'rgba(33,150,243,0.25)'; rr(sx0, y, sw0, 40, 10); ctx.fill(); txt('🍺 음료', sx0 + 42, y + 13, 12, '#fff', null); txt('바로 나가요', sx0 + 42, y + 29, 10, '#bbdefb', null); }
   // 오른쪽: 올릴 고기 고르기
   const bh = ks.length === 3 ? 58 : 80;
   ks.forEach((k, r) => {
@@ -2672,9 +2820,11 @@ function drawTycoon() {
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(780, 484, 160, 40, 10); ctx.fill(); txt('영업 끝내기', 860, 504, 14, '#fff', null);
   addHot(780, 484, 160, 40, () => { pressed.Escape = true; });
   if (TY.banner > 0) {   // 영업 시작 안내
-    ctx.globalAlpha = clamp(TY.banner / 30); ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 220, 150, 440, 70, 14); ctx.fill();
-    txt(`☀️ ${tyU.shifts + 1}일차 영업 시작!`, W / 2, 176, 26, '#ffd740', '#000', 5);
-    txt(tyU.auto ? '🤖 점장이 알아서 장사해요' : '고기를 굽고, 익으면 집고, 손님을 눌러 서빙!', W / 2, 204, 13, '#fff', null);
+    ctx.globalAlpha = clamp(TY.banner / 30); ctx.fillStyle = 'rgba(0,0,0,0.75)'; rr(W / 2 - 240, 140, 480, TY.ev ? 104 : 80, 14); ctx.fill();
+    txt(`☀️ ${tyU.shifts + 1}일차 영업 시작!`, W / 2, 166, 26, '#ffd740', '#000', 5);
+    txt(`🎯 오늘 목표 ${fmtN(TY.goal)} · 넘기면 보너스!`, W / 2, 194, 13, '#69f0ae', null);
+    txt(tyU.auto ? '🤖 점장이 알아서 장사해요' : '고기를 굽고, 익으면 집고, 손님을 눌러 서빙!', W / 2, 214, 13, '#fff', null);
+    if (TY.ev) txt(`${TY.ev.name}: ${TY.ev.desc}`, W / 2, 234, 14, '#b3e5fc', null);
     ctx.globalAlpha = 1;
   }
   drawParts();
@@ -3116,7 +3266,7 @@ function drawTitle() {
   drawPig(150, 470, 1, withCos(CHARS[i]).look, { t: gT, scale: CHARS[i].scale * 1.1 });
   drawPig(810, 470, -1, CHARS[(i + 5) % CHARS.length].look, { t: gT + 30, scale: CHARS[(i + 5) % CHARS.length].scale * 1.1 });
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(60, 482, 840, 50, 10); ctx.fill();
-  const hl = TOUCH ? '왼쪽 조이스틱: 이동·점프·앉기 (뒤로 끌면 막기) · 오른쪽 버튼: 공격·스킬·업어치기·필살기' : '이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y (↓→ 같은 커맨드도 됨)'; txt(hl, W / 2, 497, fitSize(hl, 13, 900), '#ffd6df', null);   // 길면 글자를 줄여서 한 줄에
+  const hl = notice ? `📢 공지: ${notice}` : TOUCH ? '왼쪽 조이스틱: 이동·점프·앉기 (뒤로 끌면 막기) · 오른쪽 버튼: 공격·스킬·업어치기·필살기' : '이동 A/D · 점프 W · 앉기 S · 막기=뒤로 · 펀치 I/O · 킥 K/L · 업어치기 J · 스킬 U · 필살 Y (↓→ 같은 커맨드도 됨)'; txt(hl, W / 2, 497, fitSize(hl, 13, 900), notice ? '#ffe57f' : '#ffd6df', null);   // 길면 글자를 줄여서 한 줄에
   txt(TOUCH ? '📱 버튼으로 조작 · 메뉴는 탭!' : 'W/S 메뉴 이동 · Enter 선택 · 숫자키 바로가기 · M 배경음', W / 2, 518, 12, '#80d8ff', null);
   txt(`🔊 ${musicMuted ? '꺼짐' : '켜짐'}`, W - 16, 20, 13, '#ccc', '#000', 3, 'right');
   addHot(W - 90, 6, 84, 28, () => { toggleMute(); });
@@ -4680,6 +4830,7 @@ function drawHUD() {
   rr(W / 2 - 38, 12, 76, 54, 10); ctx.fill(); ctx.stroke();
   txt(String(Math.max(0, Math.ceil(timer / 60))), W / 2, 40, 36, timer < 600 ? '#ff5252' : '#fff', null);
   if (mode === 1) txt(`${ranked ? "랭크전 · " : ""}${streak}연승 중`, W / 2, 82, 15, '#ffeb3b', '#000', 4);
+  if (mode === 1 && (scene === 'fight' || scene === 'intro')) drawQuitBtn(W / 2 - 60, 94, 120, 28);   // 모바일에서도 그만둘 수 있게
   if (mode === 4) {
     txt(bet4.stake ? `🎲 ${(bet4.side ? p2 : p1).base}에 ${fmtN(bet4.stake)}코인` : '👀 구경 중', W / 2, 82, 14, '#ffd740', '#000', 4);
     ctx.fillStyle = bet4.fast ? '#ff9100' : 'rgba(0,0,0,0.55)'; rr(W / 2 - 64, 136, 128, 26, 8); ctx.fill();
@@ -4814,6 +4965,16 @@ function drawSelect() {
   txt(`업어치기 [${TOUCH ? '업어치기 버튼 · ↓←+공격' : 'J · I+K'}]: 메치고 연타로 다지기`, x + 20, 476, 14, '#e1bee7', null, 0, 'left');
   txt(`필살기 [${TOUCH ? '필살기 버튼 · →→+공격' : 'Y · A+D→K+O'}]: ${c.ult.name} — ${c.ult.desc}`, x + 20, 500, 14, '#ffab91', null, 0, 'left');
 }
+// 그만하기 버튼 (랭크전 싸움 도중엔 패배 처리라서 한 번 더 눌러야 나감)
+let quitAskT = 0;
+function drawQuitBtn(x, y, w, h) {
+  const risky = ranked && scene !== 'vs';
+  if (quitAskT > 0) quitAskT--;
+  const ask = risky && quitAskT > 0;
+  ctx.fillStyle = ask ? 'rgba(198,40,40,0.9)' : 'rgba(0,0,0,0.5)'; rr(x, y, w, h, 8); ctx.fill();
+  txt(ask ? '한 번 더: 패배로 나가기' : '그만하기', x + w / 2, y + h / 2, fitSize(ask ? '한 번 더: 패배로 나가기' : '그만하기', 14, w - 8), '#fff', null);
+  addHot(x, y, w, h, () => { if (risky && quitAskT <= 0) { quitAskT = 150; SFX.select(); } else { quitAskT = 0; pressed.Escape = true; } });
+}
 function drawVs() {
   const k = ease(sceneT / 20);
   ctx.fillStyle = '#b71c1c'; poly([[0, 0], [W / 2 + 60, 0], [W / 2 - 60, H], [0, H]]); ctx.fill();
@@ -4856,6 +5017,7 @@ function drawVs() {
     });
     txt(TOUCH ? '고른 칸을 한 번 더 탭하면 시작' : '1/2/3 또는 ←→ 선택 · Enter 시작', W / 2, 190, 13, '#ccc', null);
   } else addHot(0, 0, W, H, () => { pressed.Enter = true; });
+  if (mode === 1) drawQuitBtn(W - 134, 10, 120, 34);
 }
 function draw() {
   hot = []; syncPad(); if (AC) setMusic(trackFor(scene));
@@ -4889,6 +5051,23 @@ function draw() {
 }
 
 // ================= autotest (?autotest) =================
+// 성능 측정 (?view=perf): 화면마다 그리기·진행에 걸리는 시간 (getImageData로 실제로 다 그릴 때까지 기다림)
+function perfRun() {
+  const out = [], fl = () => ctx.getImageData(0, 0, 1, 1), time = (name, setup) => {
+    setup(); for (let i = 0; i < 20; i++) { step(); draw(); }
+    let s = 0, d = 0;
+    for (let i = 0; i < 150; i++) { const a = performance.now(); step(); const b = performance.now(); draw(); fl(); d += performance.now() - b; s += b - a; }
+    out.push(`${name}: draw ${(d / 150).toFixed(2)}ms · step ${(s / 150).toFixed(2)}ms`);
+  };
+  time('title', () => { scene = 'title'; });
+  time('fight', () => { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; });
+  time('fight+효과', () => { p1.slowT = 9999; p2.drunkT = 9999; p2.flash = 9999; });
+  time('tycoon', () => { tyU = { ...TYU0(), side: 4, grill: 3, menu: 1, staff: 3 }; openTycoon(); tyStart(); });
+  time('market', () => { openMarket(); });
+  time('select', () => { mode = 1; selFor = 'run'; scene = 'select'; });
+  time('bank', () => { scene = 'bank'; });
+  const pre = document.createElement('pre'); pre.id = 'r'; pre.textContent = out.join('\n'); document.body.appendChild(pre);
+}
 if (/autotest/.test(location.search)) {
   const out = [];
   const qs = new URLSearchParams(location.search), from = +(qs.get('from') || 0), cnt = +(qs.get('n') || CHARS.length), every = +(qs.get('draw') || 30);
@@ -4965,7 +5144,7 @@ if (/autotest/.test(location.search)) {
     openMarket(); draw(); const c0 = coins; sellDish(0); out.push(`market: sold +${coins - c0}, fridge=${fridge.length}`); mk.tab = 1; draw();
     coins = 2000; for (let i = 0; i < SHOP.length; i++) shopAct(i);
     // 포장마차 장사: 영업 한 판 (불판·서빙·알바·업그레이드)
-    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); tyU.staff = 0; tyU.auto = false; TY.phase = 'lobby'; tyToggleAuto(); const aph = TY.phase; for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) step(); const asv = TY.served; for (let n = 0; n < 400 && TY.phase === 'result'; n++) step(); out.push(`tycoon auto: start=${aph} served=${asv} next=${TY.phase}`); if (!(aph === 'play' && asv > 0 && TY.phase === 'play')) throw new Error('자동 영업 실패'); tyU.auto = false; coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); draw(); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = { grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false }; saveTyU(); }
+    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); tyU.staff = 0; tyU.side = 4; tyU.deco = 2; tyU.auto = false; TY.phase = 'lobby'; tyToggleAuto(); TY.ev = TY_EV[1]; const aph = TY.phase; for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) step(); const asv = TY.served; for (let n = 0; n < 400 && TY.phase === 'result'; n++) step(); out.push(`tycoon auto: start=${aph} served=${asv} next=${TY.phase} rating=${tyU.rating} sides=${JSON.stringify(TY.sideStock)}`); if (!isFinite(tyU.total) || !isFinite(tyU.rating)) throw new Error('장사 숫자 오류'); if (!(aph === 'play' && asv > 0 && TY.phase === 'play')) throw new Error('자동 영업 실패'); tyU.auto = false; coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); coins = 3e8; tyBuy(TY_UP.find(u => u.id === 'chain')); draw(); if (tyU.chain !== 1 || tyU.chains.length !== 1) throw new Error('체인점 실패'); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = TYU0(); saveTyU(); }
     out.push('shop: own=' + Object.keys(inv.own).join(',') + ' use=' + JSON.stringify(inv.use) + ' coins=' + coins);
     scene = 'title'; draw(); p1.setChar(withCos(CHARS[0])); scene = 'fight'; draw(); scene = 'betpick'; draw();
     // 스토리 · 은행 · 티어 · 랭킹
@@ -5018,11 +5197,12 @@ function onGoogle(cred) {
       .catch(authFail);
     return;
   }
-  gCred = cred; authBusy(true, '구글 계정 확인 중...');
+  gCred = cred; pend2fa = { credential: cred }; authBusy(true, '구글 계정 확인 중...');
   authFetch('/google', 'POST', { credential: cred })
-    .then(d => d.need ? openAuth('gname', d.suggest) : authDone(d, 'login'))
+    .then(d => authDone(d, 'login'))
     .catch(authFail);
 }
+let pend2fa = null;   // 2단계 인증 숫자를 기다리는 로그인 (아이디·비번 또는 구글 토큰)
 function openAuth(page, arg) {
   authShown = true; authPage = page; authEl.style.display = 'flex';
   for (const k in keys) keys[k] = false;
@@ -5048,18 +5228,32 @@ function openAuth(page, arg) {
     <small>닉네임은 랭킹에 보이고, 나중에 바꿀 수 없어요.<br>지금까지 하던 기록은 이 계정으로 그대로 옮겨져요.</small>`;
   else if (page === 'account') h = `<h2>👤 ${escH(auth.login)}</h2><p>로그인 중 · 기록이 계정에 자동 저장돼요</p>
     ${!GOOGLE_CLIENT_ID ? '' : auth.google ? '<p class="gok">✅ 구글 계정 연결됨 · 구글로도 로그인돼요</p>' : '<div id="gbtn"></div><div class="err"></div><small>구글 계정을 연결하면 다음부터 비밀번호 없이 구글로 로그인돼요</small>'}
+    <button class="sub" data-go="tfa">🔐 2단계 인증 설정</button>
     <button data-logout>🚪 로그아웃</button><button class="sub" data-back>닫기</button>
     <small>로그아웃하면 이 기기의 기록은 지워지고 게스트로 바뀌어요. (계정 기록은 서버에 남아 있어요)</small>`;
+  else if (page === '2fa') h = `<h2>🔐 2단계 인증</h2><p>인증 앱(구글 OTP 등)에 보이는 6자리 숫자를 넣어 주세요</p>
+    <input id="a_code" inputmode="numeric" autocomplete="one-time-code" placeholder="6자리 숫자" maxlength="6">
+    <div class="err"></div><button data-ok>확인</button><button class="sub" data-back>뒤로</button>
+    <small>폰을 잃어버렸으면 관리자에게 2단계 인증을 꺼 달라고 하세요.</small>`;
+  else if (page === 'tfa') { h = `<h2>🔐 2단계 인증</h2><div class="err">불러오는 중...</div><div id="tfa"></div><button class="sub" data-back>뒤로</button>`; setTimeout(tfaLoad); }
   // 처음 선택 화면이 아니면 닫을 수 있게
   if (page === 'choose' && auth) h += '<button class="sub" data-back>닫기</button>';
   authEl.innerHTML = `<div class="box">${h}</div>`;
-  const f = authEl.querySelector('#a_id');
+  const f = authEl.querySelector('#a_id') || authEl.querySelector('#a_code');
   if (f && page === 'gname') f.value = String(arg || '').normalize('NFC').toLowerCase().replace(/[^a-z0-9_가-힣]/g, '').slice(0, 16);   // 구글 이름을 닉네임 후보로
   if (f && !TOUCH) f.focus();
   if (GOOGLE_CLIENT_ID && !AUTH_TEST) renderGoogle();
 }
 function authBusy(on, msg) { authEl.querySelectorAll('button').forEach(b => b.disabled = on); const e = authEl.querySelector('.err'); if (e) e.textContent = msg || ''; }
 function authSubmit() {
+  if (authPage === '2fa') {   // 2단계 인증 숫자 넣고 다시 로그인
+    const code = authEl.querySelector('#a_code').value.replace(/\D/g, '');
+    if (code.length !== 6) return authBusy(false, '6자리 숫자를 넣어 주세요');
+    if (!pend2fa) return openAuth('choose');
+    authBusy(true, '확인 중...');
+    return authFetch(pend2fa.credential ? '/google' : '/login', 'POST', { ...pend2fa, code }).then(d => authDone(d, 'login')).catch(authFail);
+  }
+  if (authPage === 'tfa') { const b = authEl.querySelector('[data-tfa]'); if (b) b.click(); return; }
   const page = authPage, id = authEl.querySelector('#a_id').value.trim().normalize('NFC').toLowerCase();
   if (!/^[a-z0-9_가-힣]{2,16}$/.test(id)) return authBusy(false, /[ㄱ-ㅎㅏ-ㅣ]/.test(id) ? '아이디에 낱자(ㄱ, ㅏ 등)는 못 써요' : '아이디는 한글·영어·숫자 2~16자예요 (띄어쓰기·특수문자 안 돼요)');
   if (page === 'gname') {   // 구글로 처음 가입: 닉네임만 정하면 끝
@@ -5070,12 +5264,16 @@ function authSubmit() {
   if (!/^[!-~]{4,64}$/.test(pw)) return authBusy(false, /[^\x00-\x7f]/.test(pw) ? '비밀번호는 영어로 써 주세요 (한글 자판이 켜져 있어요)' : /\s/.test(pw) ? '비밀번호에 띄어쓰기는 못 써요' : '비밀번호는 4자 이상이에요');
   if (page === 'signup' && pw !== authEl.querySelector('#a_pw2').value) return authBusy(false, '비밀번호 확인이 달라요');
   authBusy(true, '잠시만요...');
+  if (page === 'login') pend2fa = { login: id, pw };
   const req = page === 'signup' ? authFetch('/signup', 'POST', { login: id, pw, save: collectSave() }) :authFetch('/login', 'POST', { login: id, pw });
   req.then(d => authDone(d, page)).catch(authFail);
 }
 function authFail(e) { authBusy(false, e.status ? e.message : '서버에 연결하지 못했어요 (인터넷 확인)'); }
 // 로그인·가입 성공 (아이디/비밀번호와 구글 둘 다 여기로)
 function authDone(d, page) {
+  if (d.need2fa) { openAuth('2fa'); return; }   // 2단계 인증 켠 계정 → 인증 앱 숫자 입력
+  if (d.need === 'name') { openAuth('gname', d.suggest); return; }   // 처음 온 구글 계정 → 닉네임 정하기
+  pend2fa = null;
   playerName = d.login;   // 회원 닉네임 = 아이디
   setAuth({ uid: d.uid, login: d.login, token: d.token, syncT: d.saved || 0, google: !!d.google });
   dropLegacyRank();
@@ -5098,13 +5296,42 @@ function authLogout() {
   };
   cloudPush().then(() => authFetch('/logout', 'POST')).catch(() => {}).finally(done);
 }
+// ---- 2단계 인증 설정 (내 계정 → 🔐) ----
+let qrP = null;
+const loadQr = () => qrP || (qrP = new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload = ok; s.onerror = () => { qrP = null; no(); }; document.head.appendChild(s); }));
+const tfaBox = html => { const el = authEl.querySelector('#tfa'); if (el) el.innerHTML = html; authBusy(false, ''); };
+const codeIn = '<input id="a_code" inputmode="numeric" autocomplete="one-time-code" placeholder="인증 앱의 6자리 숫자" maxlength="6">';
+function tfaLoad() {
+  authFetch('/2fa').then(d => tfaBox(d.on
+    ? `<p class="gok">✅ 2단계 인증이 켜져 있어요</p><small>로그인할 때 비밀번호(또는 구글) 다음에 인증 앱 숫자를 한 번 더 넣어요.</small>${codeIn}<button data-tfa="off">2단계 인증 끄기</button>`
+    : `<p>로그인할 때 <b>폰 인증 앱의 숫자</b>까지 확인해서, 비밀번호가 새어 나가도 계정을 지켜 줘요.</p><button data-tfa="setup">🔐 2단계 인증 켜기</button>`))
+    .catch(authFail);
+}
+function tfaAct(a) {
+  const code = (authEl.querySelector('#a_code') || {}).value || '';
+  if (a === 'setup') {
+    authBusy(true, '준비 중...');
+    authFetch('/2fa/setup', 'POST', {}).then(d => {
+      tfaBox(`<small>① 폰에 <b>Google OTP</b>(Google Authenticator) 같은 인증 앱을 깔아요<br>② 앱에서 아래 QR을 찍어요 (이 폰이면 '앱에 바로 추가')<br>③ 앱에 나온 6자리 숫자를 넣어요</small>
+        <div id="qr" style="display:flex;justify-content:center;margin:8px 0;background:#fff;padding:8px;border-radius:10px"></div>
+        <a href="${escH(d.uri)}" style="display:block;color:#80d8ff;margin:4px 0">📲 인증 앱에 바로 추가</a>
+        <small>직접 입력할 키: <b style="user-select:all;letter-spacing:1px">${d.secret.replace(/(.{4})/g, '$1 ').trim()}</b></small>${codeIn}<button data-tfa="on">확인하고 켜기</button>`);
+      loadQr().then(() => { const q = authEl.querySelector('#qr'); if (q) new QRCode(q, { text: d.uri, width: 168, height: 168 }); }).catch(() => { const q = authEl.querySelector('#qr'); if (q) q.outerHTML = '<small>QR을 못 불러왔어요. 위 키를 앱에 직접 넣어 주세요</small>'; });
+    }).catch(authFail);
+  } else if (a === 'on' || a === 'off') {
+    if (code.replace(/\D/g, '').length !== 6) return authBusy(false, '인증 앱의 6자리 숫자를 넣어 주세요');
+    authBusy(true, '확인 중...');
+    authFetch('/2fa/' + a, 'POST', { code }).then(() => { SFX.confirm(); toast(a === 'on' ? '🔐 2단계 인증을 켰어요! 다음 로그인부터 숫자를 물어봐요' : '2단계 인증을 껐어요'); openAuth('tfa'); }).catch(authFail);
+  }
+}
 authEl.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   if (b.dataset.go) openAuth(b.dataset.go);
   else if ('guest' in b.dataset) { if (!auth) setAuth({ guest: true }); dropLegacyRank(); closeAuth(); toast('👤 게스트로 시작! 랭킹에는 오르지 않아요'); }
   else if ('ok' in b.dataset) authSubmit();
   else if ('logout' in b.dataset) authLogout();
-  else if ('back' in b.dataset) ['login', 'signup', 'gname'].includes(authPage) ? openAuth('choose') : closeAuth();
+  else if ('tfa' in b.dataset) tfaAct(b.dataset.tfa);
+  else if ('back' in b.dataset) ['login', 'signup', 'gname', '2fa'].includes(authPage) ? openAuth('choose') : authPage === 'tfa' ? openAuth('account') : closeAuth();
 });
 authEl.addEventListener('keydown', e => {   // 입력칸에서 친 키는 게임으로 안 넘어가게
   e.stopPropagation();
@@ -5118,11 +5345,18 @@ else if (VIEW === 'betpick') openBet();
 else if (VIEW === 'market') { if (!fridge.length) { addDish(makeDish(MEATS[5].opts[0]), '갈비', 5); addDish(makeDish(MEATS[2].opts[0]), '등심', 4); addDish(makeDish(MEATS[4].opts[0]), '족', 3); } openMarket(); }
 else if (VIEW === 'shop') { openMarket(); mk.tab = 1; }
 else if (VIEW === 'bank') { scene = 'bank'; }
+else if (VIEW === 'tycoon' || VIEW === 'tylobby') {   // 장사 화면 확인용
+  tyU = { ...TYU0(), side: 4, grill: 3, menu: 1, staff: 3, deco: 2, chain: 2, chains: ['강남', '홍대'], rating: 4.2, shifts: 5, hist: [1200, -300, 2500] }; openTycoon();
+  if (VIEW === 'tycoon') { tyStart(); TY.ev = TY_EV[0]; for (let i = 0; i < 700; i++) step(); TY.banner = 0; }
+}
+else if (VIEW === 'select') { mode = 1; selFor = 'run'; scene = 'select'; sel.c1 = CHARS.findIndex(c => c.unlock != null); }
+else if (VIEW === 'fx') { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[6]); startMatch(); scene = 'fight'; p1.slowT = 600; p2.drunkT = 600; p2.flash = 999; }
 else if (VIEW && VIEW.startsWith('story')) { startStory('intro'); story.i = +(VIEW.slice(5) || 0); story.t = 400; }
 if (NETTEST) { sel.c1 = NETTEST === 'host' ? 3 : 7; playerName = NETTEST; NET.code = new URLSearchParams(location.search).get('code') || '4321'; scene = 'online'; if (NETTEST === 'host') netHost(); else setTimeout(netJoin, 6000); setInterval(() => console.log('NETSTATUS ' + NET.status + ' | ' + NET.err + ' | f=' + NET.f), 5000); }
 if (!location.search && !lsGet('sgf_story_seen', false)) startStory('intro');
 else if (!auth && !AUTH_TEST) openAuth('choose');   // 오프닝은 봤지만 아직 게스트/회원을 고르지 않은 사람 (기존 플레이어)
 cloudPull();   // 회원: 다른 기기에서 더 최근에 한 기록이 있으면 받아 옴
+fetchConfig();   // 공지 · 랭킹 시즌
 try { const m = sessionStorage.getItem('sgf_msg'); if (m) { sessionStorage.removeItem('sgf_msg'); toast(m); } } catch (e) {}
 if (!/autotest|view=|shot=|nettest/i.test(location.search)) rankedForfeit();   // 지난번 랭크전 판을 끝내지 않고 창을 닫았으면 패배 처리
 let last = performance.now(), acc = 0;
@@ -5147,6 +5381,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+if (new URLSearchParams(location.search).get('view') === 'perf') perfRun();
 </script>
 </body>
 </html>
