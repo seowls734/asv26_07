@@ -366,7 +366,7 @@ const SAMPLES = {
   blizzard: { file: 'dragon-studio-blizzard-transition-463210.mp3', off: 0.3 },     // 눈보라 휘몰아침 → 얼음이 필살기·얼음 변신
   ttSummon: { file: 'tt-summon.mp3', off: 0 },      // 돼타로: 뚱타플레티나 부르는 외침 → 필살기 컷신
   ttStop:   { file: 'tt-timestop.mp3', off: 0 },    // 돼타로: 시간 정지 외침 → 컷신 시계 장면
-  ttRush:   { file: 'tt-rush.mp3', off: 0 },        // 돼타로: 연타 기합 → 뚱타플레티나 러시 · 시간 정지 동안
+  ttRush:   { file: 'tt-rush.mp3', off: 0 },        // 돼타로: 연타 기합 → 뚱타플레티나 러시에서만
   ttWin:    { file: 'tt-win.mp3', off: 0 },         // 돼타로: 이겼을 때 한마디
 };
 const BUF = {};
@@ -1335,9 +1335,9 @@ function startAtk(f, name, def, chain) {
   const isKick = ['lk', 'rk', 'c_lk', 'c_rk', 'j_k'].includes(name);
   const m = f.atkSpeedMul(isPunch || def.kind === 'punch');
   f.atk = { ...def, name, isPunch, isKick, startup: Math.max(1, Math.round(def.startup * m)), recovery: Math.max(2, Math.round(def.recovery * m)) };
-  if (f.ch.spirit && isPunch) {   // 돼타로: I/O 평타는 뚱타플레티나가 대신 때림 (사거리 조금 길게) + 외침 (4초에 한 번)
+  if (f.ch.spirit && isPunch) {   // 돼타로: I/O 평타는 뚱타플레티나가 대신 때림 (사거리 조금 길게) + 외침 (오라 소리는 안 남, 겹치지 않게 0.8초 간격)
     f.atk.range = (f.atk.range || 150) + 45; f.atk.spiritPunch = true;
-    if (gT - (f.summonSndT ?? -999) > 240) { f.summonSndT = gT; smp('ttSummon', { v: 0.9 }); }
+    if (gT - (f.summonSndT ?? -999) > 48) { f.summonSndT = gT; smp('ttSummon', { v: 0.9 }); }
   }
   f.state = 'attack'; f.af = 0; f.atkHit = false; f.hitsDone = 0; f.lastHitF = 0;
   if (!chain) { f.chain = 0; f.cbuf = null; }
@@ -1877,7 +1877,6 @@ function ultUpdate(f, o) {
           const maxS = mode !== 3 && f === p1 && tierOf(tp) >= TIER_SP ? 7 : 5;   // 온라인은 두 화면이 같아야 해서 5초까지
           const D = Math.round(srand(3, maxS) * 60);
           TSTOP = { owner: f, left: D, max: D, dmg: 0 };
-          smp('ttRush', { v: 0.9, dur: Math.min(5.5, D / 60) });   // 멈춘 동안 연타 기합
           popText(f.x, f.y - 200 * s, `시간 정지! ${(D / 60).toFixed(1)}초`, '#d1c4e9', 30);
         }
         f.state = 'idle'; f.ultInv = false; f.ultArmor = false;   // 이제 마음대로 움직임
