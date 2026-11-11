@@ -5,6 +5,9 @@
 //   GET  /save    (Authorization: Bearer 토큰) → { uid, login, save, saved }
 //   PUT  /save    (Bearer) { save }     → { saved }
 //   POST /logout  (Bearer)              → { ok }
+// 구글 로그인 (Google Identity Services의 ID 토큰을 credential로 받음, 구글 서버에 물어서 진짜인지 확인):
+//   POST /google  { credential, login?, save? } → 연결된 계정이 있으면 로그인 결과 / 없으면 { need: 'name' } → login(닉네임)을 붙여 다시 보내면 가입
+//   POST /google/link   (Bearer) { credential } → 지금 계정에 구글 연결 · POST /google/unlink (Bearer) → 연결 해제 (비밀번호가 있는 계정만)
 // 관리자 (관리자 아이디로 로그인한 토큰만, admin.html에서 씀): 관리자 아이디는 환경변수 ADMINS(쉼표로 여러 명) 또는 기본값
 //   GET  /admin/stats · GET /admin/users?q=&offset=&sort= · GET /admin/user?uid=
 //   PUT  /admin/user { uid, save }  · POST /admin/user/{password,ban,logout,unlock,rename,delete} { uid, ... }
@@ -33,6 +36,18 @@ const normLogin = v => String(v || '').trim().normalize('NFC').toLowerCase();
 // 관리자 아이디 (Cloudflare 환경변수 ADMINS에 쉼표로 넣으면 그걸 씀)
 const DEFAULT_ADMINS = '정우쮝';
 const adminList = env => String(env.ADMINS || DEFAULT_ADMINS).split(',').map(normLogin).filter(Boolean);
+// 구글 OAuth 클라이언트 ID (공개값이라 코드에 둬도 됨. 환경변수 GOOGLE_CLIENT_ID가 있으면 그걸 씀) — index.html의 GOOGLE_CLIENT_ID와 같아야 함
+const DEFAULT_GOOGLE_CLIENT_ID = '';
+// 구글 ID 토큰 확인 → 구글 계정 고유번호(sub) / 실패하면 null
+async function googleSub(cred, env) {
+  const cid = env.GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID;
+  if (!cid || typeof cred !== 'string' || cred.length > 4096) return null;
+  const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(cred));
+  if (!r.ok) return null;
+  const t = await r.json().catch(() => null);
+  if (!t || t.aud !== cid || !['accounts.google.com', 'https://accounts.google.com'].includes(t.iss) || !(+t.exp * 1000 > Date.now()) || !t.sub) return null;
+  return { sub: String(t.sub), name: String(t.given_name || t.name || '') };
+}
 
 const enc = new TextEncoder();
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -55,6 +70,8 @@ async function init(db) {
     db.prepare('CREATE TABLE IF NOT EXISTS fails (login TEXT PRIMARY KEY, n INTEGER, t INTEGER)')
   ]);
   try { await db.prepare('ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0').run(); } catch (e) {}   // 계정 정지 칸 (이미 있으면 무시)
+  try { await db.prepare('ALTER TABLE users ADD COLUMN google TEXT').run(); } catch (e) {}   // 연결된 구글 계정 고유번호
+  await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS users_google ON users(google)').run();
   ready = true;
 }
 async function body(req) { try { return await req.json(); } catch (e) { return null; } }
@@ -66,7 +83,7 @@ async function newSession(db, uid) {
 async function who(db, req) {
   const m = (req.headers.get('Authorization') || '').match(/^Bearer ([0-9a-f]{64})$/);
   if (!m) return null;
-  return db.prepare('SELECT u.uid, u.login, u.save, u.saved, u.banned FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
+  return db.prepare('SELECT u.uid, u.login, u.save, u.saved, u.banned, u.google, u.hash FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
 }
 function checkSave(s) {
   if (s === undefined || s === null) return { ok: true, v: null };
@@ -86,7 +103,7 @@ async function admin(req, env, db, path) {
   const admins = adminList(env);
   if (!admins.includes(me.login)) return err('관리자만 쓸 수 있어요', 403);
   const url = new URL(req.url), now = Date.now();
-  const target = async uid => uid ? db.prepare('SELECT uid, login, created, save, saved, banned FROM users WHERE uid = ?').bind(String(uid)).first() : null;
+  const target = async uid => uid ? db.prepare('SELECT uid, login, created, save, saved, banned, google IS NOT NULL AS g FROM users WHERE uid = ?').bind(String(uid)).first() : null;
 
   if (path === '/admin/stats' && req.method === 'GET') {
     const day = now - 86400000;
@@ -101,7 +118,7 @@ async function admin(req, env, db, path) {
     const order = { created: 'created DESC', saved: 'saved DESC', login: 'login ASC' }[url.searchParams.get('sort')] || 'created DESC';
     const where = q ? 'WHERE login LIKE ? OR uid = ?' : '';
     const args = q ? [`%${q}%`, q] : [];
-    const rows = (await db.prepare(`SELECT uid, login, created, saved, banned, ${sumCols}, (SELECT COUNT(*) FROM sessions s WHERE s.uid = users.uid) AS sessions FROM users ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).bind(...args, lim, off).all()).results;
+    const rows = (await db.prepare(`SELECT uid, login, created, saved, banned, google IS NOT NULL AS g, ${sumCols}, (SELECT COUNT(*) FROM sessions s WHERE s.uid = users.uid) AS sessions FROM users ${where} ORDER BY ${order} LIMIT ? OFFSET ?`).bind(...args, lim, off).all()).results;
     const total = (await db.prepare(`SELECT COUNT(*) n FROM users ${where}`).bind(...args).first()).n;
     return json({ total, rows });
   }
@@ -188,7 +205,7 @@ export default {
       const now = Date.now();
       const f = await db.prepare('SELECT n, t FROM fails WHERE login = ?').bind(login).first();
       if (f && f.n >= FAIL_MAX && now - f.t < FAIL_WIN) return err('비밀번호를 너무 많이 틀렸어요. 10분 뒤에 다시 해 주세요', 429);
-      const u = await db.prepare('SELECT uid, login, salt, hash, save, saved, banned FROM users WHERE login = ?').bind(login).first();
+      const u = await db.prepare('SELECT uid, login, salt, hash, save, saved, banned, google FROM users WHERE login = ?').bind(login).first();
       if (!u || !same(await pbkdf2(pw, u.salt), u.hash)) {
         const n = f && now - f.t < FAIL_WIN ? f.n + 1 : 1;
         await db.prepare('INSERT INTO fails (login, n, t) VALUES (?, ?, ?) ON CONFLICT(login) DO UPDATE SET n = excluded.n, t = excluded.t').bind(login, n, now).run();
@@ -196,7 +213,47 @@ export default {
       }
       if (f) await db.prepare('DELETE FROM fails WHERE login = ?').bind(login).run();
       if (u.banned) return err('정지된 계정이에요. 관리자에게 문의하세요', 403);
-      return json({ token: await newSession(db, u.uid), uid: u.uid, login: u.login, save: u.save ? JSON.parse(u.save) : null, saved: u.saved || 0 });
+      return json({ token: await newSession(db, u.uid), uid: u.uid, login: u.login, save: u.save ? JSON.parse(u.save) : null, saved: u.saved || 0, google: !!u.google });
+    }
+
+    if (path === '/google' && req.method === 'POST') {
+      const b = await body(req); if (!b) return err('잘못된 요청이에요');
+      const g = await googleSub(b.credential, env);
+      if (!g) return err('구글 로그인을 확인하지 못했어요. 다시 해 주세요', 401);
+      const u = await db.prepare('SELECT uid, login, save, saved, banned FROM users WHERE google = ?').bind(g.sub).first();
+      if (u) {   // 이미 연결된 계정 → 로그인
+        if (u.banned) return err('정지된 계정이에요. 관리자에게 문의하세요', 403);
+        return json({ token: await newSession(db, u.uid), uid: u.uid, login: u.login, save: u.save ? JSON.parse(u.save) : null, saved: u.saved || 0, google: true, existed: true });
+      }
+      if (b.login === undefined) return json({ need: 'name', suggest: g.name.slice(0, 16) });   // 처음 온 구글 계정 → 닉네임 정하기
+      const login = normLogin(b.login);
+      if (!LOGIN_RE.test(login)) return err('아이디는 한글·영어·숫자 2~16자예요 (띄어쓰기·특수문자 안 돼요)');
+      const s = checkSave(b.save); if (!s.ok) return err(s.msg || '저장 데이터 형식이 이상해요');
+      if (await db.prepare('SELECT 1 FROM users WHERE login = ?').bind(login).first()) return err('이미 있는 아이디예요', 409);
+      const uid = newUid(), now = Date.now();
+      try {   // 구글로만 가입한 계정은 비밀번호가 없음 (hash가 빈 값이라 비밀번호 로그인은 절대 안 맞음)
+        await db.prepare('INSERT INTO users (uid, login, salt, hash, created, save, saved, google) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+          .bind(uid, login, rndHex(16), '', now, s.v, s.v ? now : 0, g.sub).run();
+      } catch (e) { return err('이미 있는 아이디이거나 이미 가입한 구글 계정이에요', 409); }
+      return json({ token: await newSession(db, uid), uid, login, saved: s.v ? now : 0, google: true });
+    }
+    if (path === '/google/link' || path === '/google/unlink') {
+      if (req.method !== 'POST') return err('없는 주소예요', 404);
+      const u = await who(db, req);
+      if (!u) return err('로그인이 만료됐어요', 401);
+      if (u.banned) return err('정지된 계정이에요', 403);
+      if (path === '/google/unlink') {
+        if (!u.hash) return err('구글로 가입한 계정은 연결을 끊을 수 없어요 (비밀번호가 없어요)');
+        await db.prepare('UPDATE users SET google = NULL WHERE uid = ?').bind(u.uid).run();
+        return json({ ok: true, google: false });
+      }
+      const b = await body(req); if (!b) return err('잘못된 요청이에요');
+      const g = await googleSub(b.credential, env);
+      if (!g) return err('구글 로그인을 확인하지 못했어요. 다시 해 주세요', 401);
+      const o = await db.prepare('SELECT uid FROM users WHERE google = ?').bind(g.sub).first();
+      if (o && o.uid !== u.uid) return err('이 구글 계정은 이미 다른 아이디에 연결돼 있어요', 409);
+      await db.prepare('UPDATE users SET google = ? WHERE uid = ?').bind(g.sub, u.uid).run();
+      return json({ ok: true, google: true });
     }
 
     if (path === '/save') {

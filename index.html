@@ -33,6 +33,9 @@ canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);box-sha
 #auth button{display:block;width:100%;margin:8px 0 0;padding:12px;border:0;border-radius:12px;background:#ff5c8a;color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit}
 #auth button.sub{background:rgba(255,255,255,.14);font-weight:700}
 #auth button:disabled{opacity:.5}
+#auth #gbtn{display:flex;justify-content:center;min-height:44px;margin:4px 0}
+#auth .or{margin:6px 0 -2px;font-size:12px;color:#d7b8c4}
+#auth .gok{color:#a5d6a7}
 #auth .err{min-height:18px;margin-top:6px;font-size:13px;color:#ff8a80}
 #joyk{position:absolute;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(255,255,255,.38);border:2px solid rgba(255,255,255,.6);pointer-events:none}
 </style>
@@ -534,6 +537,8 @@ function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch
 // 회원 정보와 게임 진행 상황은 랭킹 서버와 따로, 회원 서버(Cloudflare Workers + D1)에 저장함.
 // 회원은 기록이 바뀌면 몇 초 뒤 자동으로 계정에 저장 → 다른 기기에서 로그인해도 이어서 할 수 있음. 게스트는 이 기기에만 저장, 랭킹에 안 오름.
 const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
+// 구글 로그인용 OAuth 클라이언트 ID (공개값). 비어 있으면 구글 버튼을 안 보여 줌. server/auth-worker.js의 DEFAULT_GOOGLE_CLIENT_ID와 같아야 함
+const GOOGLE_CLIENT_ID = '';
 const AUTH_TEST = /autotest|view=|shot=|nettest/i.test(location.search);   // 자동 테스트에서는 회원 서버에 저장 안 함
 const SAVE_SKIP = ['sgf_auth', 'sgf_pid', 'sgf_homeTip', 'sgf_pidDropped'];   // 기기마다 다른 값 → 계정 저장에서 뺌
 let auth = lsGet('sgf_auth', null);   // null: 아직 선택 안 함 · { guest: true } · { uid, login, token, syncT }
@@ -4980,12 +4985,44 @@ const authEl = document.createElement('div'); authEl.id = 'auth'; document.body.
 let authShown = false, authPage = '';
 const escH = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function closeAuth() { authShown = false; authEl.style.display = 'none'; authEl.innerHTML = ''; for (const k in keys) keys[k] = false; }
-function openAuth(page) {
+// ---- 구글 로그인 (Google Identity Services) ----
+// 구글이 준 ID 토큰을 회원 서버(/google)로 보내면 서버가 구글에 확인하고 계정을 찾거나 만듦. 처음 온 구글 계정은 닉네임만 정하면 가입.
+let gsiP = null, gCred = '';
+function loadGsi() {
+  return gsiP || (gsiP = new Promise((ok, no) => {
+    const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = ok; s.onerror = () => { gsiP = null; no(); }; document.head.appendChild(s);
+  }));
+}
+function renderGoogle() {
+  const el = authEl.querySelector('#gbtn'); if (!el) return;
+  loadGsi().then(() => {
+    if (!authEl.contains(el)) return;
+    google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: r => onGoogle(r.credential), ux_mode: 'popup', auto_select: false });
+    google.accounts.id.renderButton(el, { theme: 'filled_black', size: 'large', shape: 'pill', text: authPage === 'account' ? 'signin_with' : 'continue_with', locale: 'ko', width: Math.min(300, el.clientWidth || 280) });
+  }).catch(() => { el.textContent = '구글 로그인을 불러오지 못했어요 (인터넷 확인)'; });
+}
+function onGoogle(cred) {
+  if (!cred) return;
+  if (authPage === 'account') {   // 로그인한 계정에 구글 연결
+    authBusy(true, '구글 계정 연결 중...');
+    authFetch('/google/link', 'POST', { credential: cred })
+      .then(() => { setAuth({ ...auth, google: true }); openAuth('account'); SFX.confirm(); toast('✅ 구글 계정을 연결했어요! 다음부터 구글로 바로 로그인돼요'); })
+      .catch(authFail);
+    return;
+  }
+  gCred = cred; authBusy(true, '구글 계정 확인 중...');
+  authFetch('/google', 'POST', { credential: cred })
+    .then(d => d.need ? openAuth('gname', d.suggest) : authDone(d, 'login'))
+    .catch(authFail);
+}
+function openAuth(page, arg) {
   authShown = true; authPage = page; authEl.style.display = 'flex';
   for (const k in keys) keys[k] = false;
   const idIn = ph => `<input id="a_id" placeholder="${ph}" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="16">`;
   let h = '';
   if (page === 'choose') h = `<h2>🐷 삼겹살 파이터</h2><p>어떻게 시작할까요?</p>
+    ${GOOGLE_CLIENT_ID ? '<div id="gbtn"></div><div class="err"></div><div class="or">또는</div>' : ''}
     <button data-go="login">🔑 로그인</button><button data-go="signup">✨ 회원가입</button>
     ${auth ? '' : '<button class="sub" data-guest>👤 게스트로 하기</button>'}
     <small>게스트는 랭킹에 오르지 않고, 기록은 이 기기에만 저장돼요.<br>나중에 타이틀 화면 왼쪽 위에서 언제든 로그인·회원가입할 수 있어요.</small>`;
@@ -4998,35 +5035,51 @@ function openAuth(page) {
     <input id="a_pw2" type="password" placeholder="비밀번호 확인" autocomplete="new-password" maxlength="64">
     <div class="err"></div><button data-ok>가입하기</button><button class="sub" data-back>뒤로</button>
     <small>지금까지 하던 기록(코인·티어 등)은 새 계정으로 그대로 옮겨져요.<br>다른 사이트에서 쓰는 비밀번호는 쓰지 마세요.</small>`;
+  else if (page === 'gname') h = `<h2>🐷 닉네임 정하기</h2><p>처음 오셨네요! 게임에서 쓸 닉네임을 정해 주세요</p>
+    ${idIn('닉네임 (한글·영어·숫자 2~16자)')}
+    <div class="err"></div><button data-ok>시작하기</button><button class="sub" data-back>뒤로</button>
+    <small>닉네임은 랭킹에 보이고, 나중에 바꿀 수 없어요.<br>지금까지 하던 기록은 이 계정으로 그대로 옮겨져요.</small>`;
   else if (page === 'account') h = `<h2>👤 ${escH(auth.login)}</h2><p>로그인 중 · 기록이 계정에 자동 저장돼요</p>
+    ${!GOOGLE_CLIENT_ID ? '' : auth.google ? '<p class="gok">✅ 구글 계정 연결됨 · 구글로도 로그인돼요</p>' : '<div id="gbtn"></div><div class="err"></div><small>구글 계정을 연결하면 다음부터 비밀번호 없이 구글로 로그인돼요</small>'}
     <button data-logout>🚪 로그아웃</button><button class="sub" data-back>닫기</button>
     <small>로그아웃하면 이 기기의 기록은 지워지고 게스트로 바뀌어요. (계정 기록은 서버에 남아 있어요)</small>`;
   // 처음 선택 화면이 아니면 닫을 수 있게
   if (page === 'choose' && auth) h += '<button class="sub" data-back>닫기</button>';
   authEl.innerHTML = `<div class="box">${h}</div>`;
-  const f = authEl.querySelector('#a_id'); if (f && !TOUCH) f.focus();
+  const f = authEl.querySelector('#a_id');
+  if (f && page === 'gname') f.value = String(arg || '').normalize('NFC').toLowerCase().replace(/[^a-z0-9_가-힣]/g, '').slice(0, 16);   // 구글 이름을 닉네임 후보로
+  if (f && !TOUCH) f.focus();
+  if (GOOGLE_CLIENT_ID && !AUTH_TEST) renderGoogle();
 }
 function authBusy(on, msg) { authEl.querySelectorAll('button').forEach(b => b.disabled = on); const e = authEl.querySelector('.err'); if (e) e.textContent = msg || ''; }
 function authSubmit() {
-  const page = authPage, id = authEl.querySelector('#a_id').value.trim().normalize('NFC').toLowerCase(), pw = authEl.querySelector('#a_pw').value;
+  const page = authPage, id = authEl.querySelector('#a_id').value.trim().normalize('NFC').toLowerCase();
   if (!/^[a-z0-9_가-힣]{2,16}$/.test(id)) return authBusy(false, /[ㄱ-ㅎㅏ-ㅣ]/.test(id) ? '아이디에 낱자(ㄱ, ㅏ 등)는 못 써요' : '아이디는 한글·영어·숫자 2~16자예요 (띄어쓰기·특수문자 안 돼요)');
+  if (page === 'gname') {   // 구글로 처음 가입: 닉네임만 정하면 끝
+    authBusy(true, '잠시만요...');
+    return authFetch('/google', 'POST', { credential: gCred, login: id, save: collectSave() }).then(d => authDone(d, 'signup')).catch(authFail);
+  }
+  const pw = authEl.querySelector('#a_pw').value;
   if (!/^[!-~]{4,64}$/.test(pw)) return authBusy(false, /[^\x00-\x7f]/.test(pw) ? '비밀번호는 영어로 써 주세요 (한글 자판이 켜져 있어요)' : /\s/.test(pw) ? '비밀번호에 띄어쓰기는 못 써요' : '비밀번호는 4자 이상이에요');
   if (page === 'signup' && pw !== authEl.querySelector('#a_pw2').value) return authBusy(false, '비밀번호 확인이 달라요');
   authBusy(true, '잠시만요...');
   const req = page === 'signup' ? authFetch('/signup', 'POST', { login: id, pw, save: collectSave() }) :authFetch('/login', 'POST', { login: id, pw });
-  req.then(d => {
-    playerName = d.login;   // 회원 닉네임 = 아이디
-    setAuth({ uid: d.uid, login: d.login, token: d.token, syncT: d.saved || 0 });
-    dropLegacyRank();
-    if (page === 'login' && d.save) {   // 계정에 저장된 기록으로 바꾸고 다시 시작
-      applySave(d.save);
-      try { sessionStorage.setItem('sgf_msg', `🔑 ${d.login}님 로그인! 계정 기록을 불러왔어요`); } catch (e) {}
-      location.reload(); return;
-    }
-    if (page === 'login') cloudPush();   // 계정에 저장된 기록이 없으면 지금 기록을 올림
-    closeAuth(); uploadRank(); SFX.confirm();
-    toast(page === 'signup' ? `✨ 가입 완료! ${d.login}님 환영해요` : `🔑 ${d.login}님 로그인!`);
-  }).catch(e => authBusy(false, e.status ? e.message : '서버에 연결하지 못했어요 (인터넷 확인)'));
+  req.then(d => authDone(d, page)).catch(authFail);
+}
+function authFail(e) { authBusy(false, e.status ? e.message : '서버에 연결하지 못했어요 (인터넷 확인)'); }
+// 로그인·가입 성공 (아이디/비밀번호와 구글 둘 다 여기로)
+function authDone(d, page) {
+  playerName = d.login;   // 회원 닉네임 = 아이디
+  setAuth({ uid: d.uid, login: d.login, token: d.token, syncT: d.saved || 0, google: !!d.google });
+  dropLegacyRank();
+  if (page === 'login' && d.save) {   // 계정에 저장된 기록으로 바꾸고 다시 시작
+    applySave(d.save);
+    try { sessionStorage.setItem('sgf_msg', `🔑 ${d.login}님 로그인! 계정 기록을 불러왔어요`); } catch (e) {}
+    location.reload(); return;
+  }
+  if (page === 'login') cloudPush();   // 계정에 저장된 기록이 없으면 지금 기록을 올림
+  closeAuth(); uploadRank(); SFX.confirm();
+  toast(page === 'signup' ? `✨ 가입 완료! ${d.login}님 환영해요` : `🔑 ${d.login}님 로그인!`);
 }
 function authLogout() {
   authBusy(true, '저장하고 로그아웃 중...');
@@ -5044,7 +5097,7 @@ authEl.addEventListener('click', e => {
   else if ('guest' in b.dataset) { if (!auth) setAuth({ guest: true }); dropLegacyRank(); closeAuth(); toast('👤 게스트로 시작! 랭킹에는 오르지 않아요'); }
   else if ('ok' in b.dataset) authSubmit();
   else if ('logout' in b.dataset) authLogout();
-  else if ('back' in b.dataset) (authPage === 'login' || authPage === 'signup') ? openAuth('choose') : closeAuth();
+  else if ('back' in b.dataset) ['login', 'signup', 'gname'].includes(authPage) ? openAuth('choose') : closeAuth();
 });
 authEl.addEventListener('keydown', e => {   // 입력칸에서 친 키는 게임으로 안 넘어가게
   e.stopPropagation();

@@ -232,7 +232,7 @@ async function loadUsers() {
       const ty = parse(r.s_tycoon), ends = parse(r.s_end) || [], tp = +parse(r.s_tp) || 0;
       return `<tr data-i="${i}" class="${cur && cur.uid === r.uid ? 'sel' : ''}">
         <td><b>${esc(r.login)}</b><br><span class="muted" style="font-size:11px">${esc(r.uid)}</span></td>
-        <td>${r.banned ? '<span class="tag ban">정지</span>' : r.sessions ? `<span class="tag on">로그인 ${r.sessions}</span>` : '<span class="tag">-</span>'}</td>
+        <td>${r.g ? '<span class="tag on">G</span> ' : ''}${r.banned ? '<span class="tag ban">정지</span>' : r.sessions ? `<span class="tag on">로그인 ${r.sessions}</span>` : '<span class="tag">-</span>'}</td>
         <td class="num" title="${full(parse(r.s_coin))}">${compact(parse(r.s_coin))}</td>
         <td class="num" title="${full(parse(r.s_debt))}">${compact(parse(r.s_debt))}</td>
         <td class="num">${compact(parse(r.s_bank))}</td>
@@ -265,7 +265,7 @@ async function openUser(uid) {
     cur = u; save = { ...(u.save || {}) };
     $('detail').classList.add('show');
     $('dname').textContent = u.login;
-    $('dtags').innerHTML = (u.isAdmin ? '<span class="tag adm">관리자</span> ' : '') + (u.banned ? '<span class="tag ban">정지됨</span> ' : '') + (u.sessions ? `<span class="tag on">로그인 기기 ${u.sessions}</span> ` : '') + (u.fails && u.fails.n ? `<span class="tag ban">비번 틀림 ${u.fails.n}회</span>` : '');
+    $('dtags').innerHTML = (u.isAdmin ? '<span class="tag adm">관리자</span> ' : '') + (u.g ? '<span class="tag on">G 구글 연결</span> ' : '') + (u.banned ? '<span class="tag ban">정지됨</span> ' : '') + (u.sessions ? `<span class="tag on">로그인 기기 ${u.sessions}</span> ` : '') + (u.fails && u.fails.n ? `<span class="tag ban">비번 틀림 ${u.fails.n}회</span>` : '');
     $('dmeta').textContent = `uid ${u.uid} · 가입 ${when(u.created)} · 최근 저장 ${when(u.saved)}`;
     $('aBan').textContent = u.banned ? '✅ 정지 풀기' : '⛔ 정지';
     fillForm(); renderRaw();
