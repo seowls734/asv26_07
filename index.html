@@ -2410,7 +2410,7 @@ function tyWage(earned, served) {
   const boss = tyU.auto ? Math.round(earned * 0.1 * tyRaise()) : 0;
   return { staff, boss, total: staff + boss };
 }
-function openTycoon() { TY.phase = 'lobby'; TY.sel = 0; scene = 'tycoon'; }
+function openTycoon() { TY.phase = 'lobby'; TY.sel = 0; TY.autoT = 180; scene = 'tycoon'; }
 function tyStart() {
   Object.assign(TY, { phase: 'play', t: 0, left: TY_SHIFT, slots: Array(3 + tyU.grill).fill(null), meat: 's', tray: { s: [], m: [], h: [] }, cust: [],
     earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 40, combo: 0, wage: null, autoT: 0, banner: 120 });
@@ -2430,7 +2430,10 @@ function tyBuy(u) {
   if (coins < c) { SFX.block(); toast(`코인이 부족해요 (${fmtN(c)} 필요)`); return; }
   addCoins(-c); tyU[u.id]++; saveTyU(); SFX.coin(); toast(`${u.name} ${tyU[u.id]}단계!`);
 }
-function tyToggleAuto() { tyU.auto = !tyU.auto; saveTyU(); SFX.select(); toast(tyU.auto ? '🤖 자동 영업 켬: 점장이 굽고·집고·서빙하고 다음 영업도 알아서 시작해요 (점장 월급 있음)' : '🤖 자동 영업 끔'); }
+function tyToggleAuto() { tyU.auto = !tyU.auto; saveTyU(); SFX.select(); toast(tyU.auto ? '🤖 자동 영업 켬: 점장이 굽고·집고·서빙하고 다음 영업도 알아서 시작해요 (점장 월급 있음)' : '🤖 자동 영업 끔');
+  if (tyU.auto && TY.phase === 'lobby') tyStart();   // 켜면 바로 영업 시작
+  else if (tyU.auto && TY.phase === 'result') TY.autoT = Math.min(TY.autoT, 90);
+}
 // 익힘 정도 → 품질: 덜 익음 0.7 · 잘 익음 1 · 완벽 1.25 · 탐 -1(버림)
 const tyQual = p => p < 0.75 ? null : p < 1 ? 0.7 : p <= 1.35 ? 1.25 : p <= 1.6 ? 1 : -1;
 function tySlot(i) {
@@ -2477,12 +2480,14 @@ function updateTycoon() {
     if (pressed.KeyS || pressed.ArrowDown) { TY.sel = (TY.sel + 1) % n; SFX.select(); }
     if (pressed.Enter || pressed.Space || pressed.KeyI) { if (TY.sel === 0) tyStart(); else if (TY.sel === n - 1) tyToggleAuto(); else tyBuy(TY_UP[TY.sel - 1]); }
     if (pressed.KeyR) tyToggleAuto();
-    if (pressed.Escape) openMarket();
+    if (pressed.Escape) { openMarket(); return; }
+    if (Object.keys(pressed).some(k => pressed[k])) TY.autoT = Math.max(TY.autoT, 300);   // 업그레이드 고르는 중엔 자동 시작 미룸
+    if (tyU.auto && TY.phase === 'lobby' && --TY.autoT <= 0) tyStart();   // 자동 영업 켜진 채로 들어오면 잠깐 뒤 시작
     return;
   }
   if (TY.phase === 'result') {
     if (pressed.Escape && tyU.auto) { tyToggleAuto(); return; }
-    if (pressed.Enter || pressed.Space || pressed.KeyI || pressed.Escape) { TY.phase = 'lobby'; TY.sel = 0; return; }
+    if (pressed.Enter || pressed.Space || pressed.KeyI || pressed.Escape) { TY.phase = 'lobby'; TY.sel = 0; TY.autoT = 300; return; }
     if (tyU.auto && --TY.autoT <= 0) tyStart();   // 자동 영업: 잠깐 쉬고 다음 영업
     return;
   }
@@ -2584,6 +2589,7 @@ function drawTycoon() {
       addHot(x, y, 484, 56, () => { TY.sel = i; pressed.Enter = true; });
     });
     txt(TOUCH ? '탭해서 시작·업그레이드' : 'W/S 고르기 · Enter 시작/구매 · R 자동 영업 · Esc 시장으로', 690, 530, 12, '#aaa', null);
+    if (tyU.auto) txt(`🤖 자동 영업 ON: ${Math.ceil(Math.max(0, TY.autoT) / 60)}초 뒤 점장이 영업을 시작해요`, W / 2, 30, 16, '#69f0ae', '#000', 4);
     return;
   }
   if (TY.phase === 'result') {
@@ -2607,6 +2613,7 @@ function drawTycoon() {
   ctx.fillStyle = tyU.auto ? '#43a047' : 'rgba(255,255,255,0.15)'; rr(W - 250, 36, 110, 28, 8); ctx.fill();
   txt(`🤖 자동 ${tyU.auto ? 'ON' : 'OFF'}`, W - 195, 50, 13, '#fff', null);
   addHot(W - 250, 36, 110, 28, () => { pressed.KeyR = true; });
+  if (tyU.auto) txt('🤖 점장이 굽고·집고·서빙하는 중 (그냥 보고 있어도 돼요)', W / 2, 22, 13, gT % 60 < 40 ? '#69f0ae' : '#2e7d32', '#000', 3);
   // 손님 자리 4개 (새 손님은 오른쪽에서 걸어 들어옴)
   for (let s = 0; s < 4; s++) { ctx.fillStyle = 'rgba(255,255,255,0.05)'; rr(tySeatX(s) - 95, 70, 190, 180, 14); ctx.fill(); }
   TY.cust.forEach((c, j) => {
@@ -4958,7 +4965,7 @@ if (/autotest/.test(location.search)) {
     openMarket(); draw(); const c0 = coins; sellDish(0); out.push(`market: sold +${coins - c0}, fridge=${fridge.length}`); mk.tab = 1; draw();
     coins = 2000; for (let i = 0; i < SHOP.length; i++) shopAct(i);
     // 포장마차 장사: 영업 한 판 (불판·서빙·알바·업그레이드)
-    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); draw(); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = { grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false }; saveTyU(); }
+    { const c0 = coins; openTycoon(); draw(); tyU.staff = 2; tyStart(); for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) { if (n % 60 === 0) { tySlot(0); tySlot(1); } step(); if (n % 120 === 0) draw(); } draw(); out.push(`tycoon: phase=${TY.phase} served=${TY.served} missed=${TY.missed} earned=${TY.earned} coins+${coins - c0}`); tyU.staff = 0; tyU.auto = false; TY.phase = 'lobby'; tyToggleAuto(); const aph = TY.phase; for (let n = 0; n < TY_SHIFT + 5 && TY.phase === 'play'; n++) step(); const asv = TY.served; for (let n = 0; n < 400 && TY.phase === 'result'; n++) step(); out.push(`tycoon auto: start=${aph} served=${asv} next=${TY.phase}`); if (!(aph === 'play' && asv > 0 && TY.phase === 'play')) throw new Error('자동 영업 실패'); tyU.auto = false; coins = 1e6; TY.phase = 'lobby'; for (const u of TY_UP) tyBuy(u); draw(); out.push('tycoon up: ' + JSON.stringify(tyU)); tyU = { grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false }; saveTyU(); }
     out.push('shop: own=' + Object.keys(inv.own).join(',') + ' use=' + JSON.stringify(inv.use) + ' coins=' + coins);
     scene = 'title'; draw(); p1.setChar(withCos(CHARS[0])); scene = 'fight'; draw(); scene = 'betpick'; draw();
     // 스토리 · 은행 · 티어 · 랭킹
