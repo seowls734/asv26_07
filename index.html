@@ -2600,7 +2600,7 @@ const TY_UP = [
   { id: 'side', name: '🍲 사이드 메뉴', max: 4, cost: l => [3000, 20000, 80000, 300000][l], desc: l => `${Object.values(TY_SIDE)[l].icon} ${Object.values(TY_SIDE)[l].name} 추가 · 고기랑 같이 주문하면 더 벌어요` },
   { id: 'deco', name: '🪑 인테리어', max: 5, cost: l => 20000 * 4 ** l, desc: () => '손님이 더 오래 기다리고 VIP가 더 자주 와요' },
   { id: 'chain', name: '🏢 체인점 열기', max: 12, cost: l => 1e8 * 2 ** l, desc: l => `${l}곳 → ${l + 1}곳 · 영업 끝날 때마다 체인점마다 그날 매출의 40%` },
-  { id: 'idle', name: '🌙 무인 영업', max: 1, cost: () => 1e12, desc: () => '자동 영업을 켜 두면 게임을 꺼 두거나 유튜브를 봐도 영업이 계속 돼요' },
+  { id: 'idle', name: '🌙 무인 영업', max: 1, cost: () => 1e10, desc: () => '자동 영업을 켜 두면 게임을 꺼 두거나 유튜브를 봐도 영업이 계속 돼요' },
 ];
 // 사이드 메뉴: 음료는 바로 나가고, 찌개·계란찜·냉면은 냄비에서 만들어서(다 되면 탭) 고기랑 같이 서빙
 const TY_SIDE = {
@@ -3436,7 +3436,7 @@ function drawTitle() {
   const evT = evText();   // 이벤트 중이면 부제 자리에 이벤트 안내
   if (evT) txt(evT, W / 2, 112, fitSize(evT, 18, W - 80), gT % 40 < 28 ? '#ffd740' : '#fff59d', '#000', 5);
   else txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
-  const best = getRank().filter(r => r.name === playerName).reduce((m, r) => Math.max(m, r.streak), 0);
+  const best = Math.max(lsGet('sgf_rbest', 0), getRank().filter(r => r.name === playerName).reduce((m, r) => Math.max(m, r.streak), 0));   // 랭킹과 같게: 랭크전 최고 연승도 같이 봄
   // 티어 배지 + 상태 줄을 한 덩어리로 가운데 정렬 (숫자가 길어져도 배지와 겹치지 않게, 너무 길면 글자를 줄임)
   const stat = `👤 ${playerName}${isMember() ? '' : ' [N]'}  ·🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`;
   ctx.font = `900 12px ${FONT}`; const bw = ctx.measureText(`🏅 ${TIERS[tierOf(tp)][0]}`).width + 16;
