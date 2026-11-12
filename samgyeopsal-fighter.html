@@ -878,6 +878,24 @@ const KICKS = { lowkick: [0.25, 36], highkick: [-0.7, 38], sweep: [0.02, 48] };
 // 색 효과(맞을 때 번쩍·잠긴 돼지 실루엣·얼음·화상 등)가 있는 돼지: 큰 화면에 filter를 걸면 아주 느려서(한 번에 150ms 넘게)
 // 작은 캔버스에 효과 없이 그린 뒤, 그 그림만 filter를 걸어 붙임
 const pigFxC = document.createElement('canvas'), pigFxX = pigFxC.getContext('2d');
+// 🟦 픽셀 아트로 그리기 (돼이비드만): 작은 캔버스에 낮은 해상도로 그린 뒤 부드럽게 하지 않고 크게 늘림 → 도트 그림처럼
+// x0,y0,w,h: 지금 좌표계에서 그릴 범위 · fn: 그 안에 그리는 함수
+const pxC = document.createElement('canvas'), pxX = pxC.getContext('2d'); let pxOn = false;
+function pixelate(x0, y0, w, h, fn, dot = 3.6) {
+  if (pxOn) return fn();
+  const m = ctx.getTransform(), pts = [[x0, y0], [x0 + w, y0], [x0, y0 + h], [x0 + w, y0 + h]].map(([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f]);
+  const bx = Math.floor(Math.min(...pts.map(p => p[0]))), by = Math.floor(Math.min(...pts.map(p => p[1]))), bw = Math.ceil(Math.max(...pts.map(p => p[0]))) - bx, bh = Math.ceil(Math.max(...pts.map(p => p[1]))) - by;
+  const P = Math.max(2, dot * Math.hypot(m.a, m.b));   // 도트 한 칸 = 화면 픽셀 몇 개
+  const cw = Math.max(1, Math.ceil(bw / P)), ch = Math.max(1, Math.ceil(bh / P));
+  if (cw > 1200 || ch > 1200) return fn();
+  if (pxC.width < cw || pxC.height < ch) { pxC.width = Math.max(pxC.width, cw); pxC.height = Math.max(pxC.height, ch); }
+  pxX.setTransform(1, 0, 0, 1, 0, 0); pxX.clearRect(0, 0, pxC.width, pxC.height); pxX.globalAlpha = 1;
+  pxX.setTransform(m.a / P, m.b / P, m.c / P, m.d / P, (m.e - bx) / P, (m.f - by) / P);
+  const main = ctx; ctx = pxX; pxOn = true;
+  try { fn(); } finally { ctx = main; pxOn = false; }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(pxC, 0, 0, cw, ch, bx, by, cw * P, ch * P); ctx.restore();
+}
 const FILTER_OK = typeof pigFxX.filter === 'string' && !/nofilter/.test(location.search);   // 캔버스 filter 지원 (옛날 아이폰 Safari는 없음)
 const PFX = { w: 600, h: 540, ox: 300, oy: 440 };   // 돼지 하나가 들어가는 상자 (돼지 기준 좌표)
 function drawPigFx(x, y, face, C, p, filt) {
@@ -901,6 +919,7 @@ function drawPigFx(x, y, face, C, p, filt) {
   ctx.restore();
 }
 function drawPig(x, y, face, C, p = {}) {
+  if (C.pixel && !pxOn) { const s = (p.scale || 1); return pixelate(x - 150 * s, y - 300 * s, 300 * s, 340 * s, () => drawPig(x, y, face, C, p)); }   // 돼이비드: 도트 그림
   const fx = ((p.flash ? 'brightness(2.5) ' : '') + (p.filter || '')).trim();
   if (fx && ctx !== pigFxX) return drawPigFx(x, y, face, C, p, fx);
   const s = p.scale || 1, t = p.t || 0, acc = C.acc || [], mv = p.move, k = p.k || 0, bw = C.bw || 1;
@@ -3718,6 +3737,7 @@ function drawKeys() {
 const RELEASE_T = Date.parse('2026-11-12T15:40:00+09:00');
 const isReleased = () => Date.now() >= RELEASE_T || /newchars/.test(location.search);
 const NEW_CHARS = ['돼이비드', '돼루토'];
+{ const c = CHARS.find(x => x.name === '돼이비드'); if (c) c.look.pixel = true; }   // 돼이비드만 도트 그림
 // 스킬 고르기: 여러 스킬이 있는 돼지는 U만 = 1번, ↓+U = 2번, 앞(→)+U = 3번
 function pickSkill(f) {
   const ss = f.ch.skills; if (!ss) return f.ch.skill;
@@ -3866,6 +3886,10 @@ function drawCyberFront(f, a = 1) {
   ctx.restore();
 }
 function drawCyberSkel(f, a = 1) { drawCyberBack(f, a); drawCyberFront(f, a); }
+// 외골격도 도트 그림으로 (돼이비드는 전부 픽셀 아트)
+const cyBackRaw = drawCyberBack, cyFrontRaw = drawCyberFront;
+drawCyberBack = (f, a = 1) => { const s = f.sc * 0.82; pixelate(f.x - 280 * s, f.y - 330 * s, 560 * s, 380 * s, () => cyBackRaw(f, a)); };
+drawCyberFront = (f, a = 1) => { const s = f.sc * 0.82; pixelate(f.x - 280 * s, f.y - 330 * s, 560 * s, 380 * s, () => cyFrontRaw(f, a)); };
 function drawTail(x, y, ang, len, t, a) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang + Math.sin(t * 0.08 + ang * 3) * 0.12);
   const g = ctx.createLinearGradient(0, 0, len, 0); g.addColorStop(0, `rgba(255,109,0,${0.85 * a})`); g.addColorStop(1, `rgba(255,209,128,${0.2 * a})`);
@@ -3886,7 +3910,6 @@ function drawNewBack(f) {
 function drawNewFront(f) {
   const s = f.sc / 1.15;
   if (f.cyberT > 0) { drawCyberFront(f, Math.min(1, f.cyberT / 60)); if (f.cyberT < 180) txt(`외골격 ${Math.ceil(f.cyberT / 60)}초`, f.x, f.y - 230 * s, 16, '#00e5ff', '#000', 4); }
-  if (f.ch.name === '돼이비드' && f.state !== 'ko') { ctx.strokeStyle = `rgba(0,229,255,${0.5 + 0.3 * Math.sin(gT * 0.2)})`; ctx.lineWidth = 3; line(f.x - f.facing * 50 * s, f.y - 140 * s, f.x - f.facing * 40 * s, f.y - 70 * s); }   // 등의 임플란트 불빛
   if (f.state === 'attack' && f.atk && f.atk.rasen && f.af < f.atk.startup + f.atk.active + 4) {   // 회오리 구슬
     const hx = f.x + f.facing * 75 * s, hy = f.y - 95 * s, r = 16 + Math.min(14, f.af);
     const g = ctx.createRadialGradient(hx, hy, 2, hx, hy, r); g.addColorStop(0, '#fff'); g.addColorStop(0.5, '#4fc3f7'); g.addColorStop(1, 'rgba(41,121,255,0)');
@@ -3989,7 +4012,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-6';
+const BUILD = '20261112-7';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
