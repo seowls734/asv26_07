@@ -81,10 +81,10 @@ async function init(db) {
 async function getConf(db, k, d) { const r = await db.prepare('SELECT v FROM config WHERE k = ?').bind(k).first(); return r ? r.v : d; }
 // 공지 · 시즌 · 이벤트 · 선물을 한 번에 읽음 (게임이 10초마다 물어봐서 쿼리 1번으로)
 async function pubConf(db) {
-  const r = (await db.prepare("SELECT k, v FROM config WHERE k IN ('notice', 'season', 'event', 'gift', 'bal')").all()).results || [];
+  const r = (await db.prepare("SELECT k, v FROM config WHERE k IN ('notice', 'season', 'event', 'gift', 'bal', 'mreset')").all()).results || [];
   const c = Object.fromEntries(r.map(x => [x.k, x.v]));
   const pj = s => { try { return JSON.parse(s || 'null'); } catch (e) { return null; } };
-  return { notice: c.notice || '', season: +c.season || 0, event: pj(c.event), gift: pj(c.gift), bal: pj(c.bal) };
+  return { notice: c.notice || '', season: +c.season || 0, event: pj(c.event), gift: pj(c.gift), bal: pj(c.bal), mreset: +c.mreset || 0 };
 }
 const setConf = (db, k, v) =>db.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run();
 // 정지: banned=1 이고 ban_until이 0(영구)이거나 아직 안 지났으면 정지 중
@@ -205,6 +205,9 @@ async function admin(req, env, db, path) {
     const on = coins > 0 || spins > 0 || items > 0 || !!item || !!ch;
     await setConf(db, 'gift', on ? JSON.stringify(g) : 'null');
     return json({ ok: true, gift: on ? g : null });
+  }
+  if (path === '/admin/mreset' && req.method === 'POST') {   // 🎯 일일 미션 초기화: 모두의 오늘 미션을 새로 뽑고 진행·받기도 처음부터 (게임이 10초 안에 받아 감)
+    await setConf(db, 'mreset', now); return json({ ok: true, mreset: now });
   }
   if (path === '/admin/balance' && req.method === 'POST') {   // 캐릭터 밸런스 패치: { 이름: { hp, power, speed, ultRate, cd } } (100 = 그대로, %)
     const bal = {}; const lim = v => Math.max(30, Math.min(300, Math.round(+v || 100)));

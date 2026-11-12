@@ -704,6 +704,7 @@ function fetchConfig() {
   authFetch('/config' + ping).then(d => {
     applyBal(d.bal);
     IS_ADMIN = !!d.admin;
+    if (+d.mreset && +d.mreset !== (RW.mReset || 0)) { const today = dayKey(+d.mreset) === dayKey(); RW.mReset = +d.mreset; if (today) { RW.mDay = ''; rwMissions(); } rwSave(); if (today) toast('🎯 관리자가 일일 미션을 새로 바꿨어요! 🎁 보상 센터에서 확인'); }   // 관리자 미션 초기화
     notice = String(d.notice || '');
     const old = EVT; EVT = d.event || null;
     if (EVT && evLive() && (!old || old.id !== EVT.id) && lsGet('sgf_evseen', 0) !== (EVT.id || EVT.until || 1)) {   // 새 이벤트 시작 → 축하 팝업 (한 번만)
@@ -797,7 +798,7 @@ const SKILLDEF = {
   monowire:      { startup: 8, active: 18, recovery: 16, dmg: 5, hits: 3, hitEvery: 6, range: 290, height: 'mid', kb: 4, stun: 18, pose: 'punch', kind: 'skill', wire: true, txt: ['찌릿!', '슥!', '촤악!'] },
   cyberDash:     { startup: 3, active: 14, recovery: 14, dmg: 14, range: 150, height: 'mid', kb: 16, stun: 30, launch: -8, dash: 22, invuln: true, invulnF: 10, pose: 'dash', hitstop: 10, shake: 10, txt: ['찰칵!', '쾅!'] },
   kageClone:     { startup: 6, active: 1, recovery: 10, pose: 'counter', buff: true },
-  rasen:         { startup: 6, active: 42, recovery: 18, dmg: 20, range: 150, height: 'mid', kb: 20, launch: -11, stun: 42, dash: 15, pose: 'punch', hitstop: 14, shake: 14, rasen: true, txt: ['회오리 구슬!!'] },
+  rasen:         { startup: 6, active: 42, recovery: 18, dmg: 20, range: 150, height: 'mid', kb: 20, launch: -11, stun: 42, dash: 15, pose: 'punch', hitstop: 14, shake: 14, rasen: true, sfx: 'rasenHit', txt: ['회오리 구슬!!'] },
   kunai:         { startup: 8, active: 1, recovery: 14, proj: { kind: 'kunai', spread: 3, flat: true, speed: 13, dmg: 4, height: 'mid', g: 0, life: 70, w: 30, h: 14 }, pose: 'throw' },
   boomerang:     { startup: 12, active: 1, recovery: 20, proj: { kind: 'slice', speed: 11, back: 0.4, dmg: 7, height: 'mid', multi: 16, maxHits: 2, life: 95, w: 52, h: 36 }, pose: 'throw' },   // 냉삼 부메랑: 날아갔다 돌아오며 두 번 맞힘
   uppercut:      { startup: 3,  active: 10, recovery: 20, dmg: 18, range: 150, dash: 4, height: 'mid', kb: 4, stun: 40, launch: -17, rise: -13, invuln: true, invulnF: 8, pose: 'uppercut', kind: 'punch', txt: ['어퍼!!'] }
@@ -2692,6 +2693,8 @@ function castPunch() {
 }
 // 스킬마다 다른 소리: 바람(쉬익)·땅울림 노이즈 + 펀치 녹음을 높낮이 바꿔서
 const SKILL_SFX = {
+  kageClone() { for (const at of [0, 0.13]) nz(0.28, { v: 0.42, freq: 1400, f2: 180, type: 'bandpass', q: 0.7, at, atk: 0.01 }); tone(1200, 0.22, 'sine', 0.08, 2400); setTimeout(() => tone(1800, 0.2, 'triangle', 0.06, 900), 130); },   // 분신술: 펑·펑 연기 + 반짝
+  rasen() { nz(1.15, { v: 0.34, freq: 200, f2: 3800, type: 'bandpass', q: 3, atk: 0.9 }); tone(110, 1.1, 'sawtooth', 0.05, 440); whoosh(0.5, 0.22, 400, 2600, 0.6); },   // 회오리 구슬: 바람이 빨려 들며 위로 차오르는 소리
   spiritRush() { if (!smp('ttRush', { v: 1 })) { for (let i = 0; i < 40; i++) knock(1.1 + i * 0.03, 0.5, i * 0.08); } },   // 연타 기합 (파일 없으면 펀치 6번)
   dash() { const b = bus(0, 0.25); nz(0.5, { v: 0.4, freq: 90, f2: 500, atk: 0.25, out: b }); whoosh(0.3, 0.3, 250, 2200, 0.15); thump(0.75, 0.6, 0.3, { lp: 2200 }); },   // 우르르릉 → 휙 → 쿵
   armorShoulder() { const b = bus(0, 0.35); nz(0.45, { v: 0.45, freq: 120, f2: 400, atk: 0.15, out: b }); thump(0.65, 0.75, 0.05, { lp: 1800 }); nz(0.05, { v: 0.3, freq: 1500, type: 'bandpass', q: 1.5, at: 0.08, out: b }); },   // 쿠웅 + 철컥
@@ -3786,12 +3789,12 @@ function pickSkill(f) {
 // 스킬을 쓸 때 특별한 효과
 function newSkillStart(f, s) {
   const k = f.sc / 1.15;
-  if (s.type === 'rasen') { superFreeze = RASEN_CUT; superOwner = f; superKind = 'rasen'; SFX.special(); }   // 회오리 구슬: 모으는 컷신 뒤에 날림
+  if (s.type === 'rasen') { superFreeze = RASEN_CUT; superOwner = f; superKind = 'rasen'; }   // 회오리 구슬: 모으는 컷신 뒤에 날림
   if (s.type === 'sande') { f.sandT = 240; SFX.special(); burst(f.x, f.y - 90 * k, 24, ['#00e5ff', '#76ff03', '#fff'], 9); popText(f.x, f.y - 230 * k, '세상이 느려진다...', '#76ff03', 22); }
   if (s.type === 'kageClone') {
     for (const o of objs) if (o.kind === 'pclone' && o.owner === f) o.life = 0;
     for (let i = 0; i < 2; i++) { smokePuff(f.x + (i ? 1 : -1) * 70, f.y - 70); addObj({ owner: f, kind: 'pclone', x: clamp(f.x + (i ? 1 : -1) * 70, 40, W - 40), y: GROUND, w: 70, h: 140, life: 600, dmg: 0, face: f.facing, cd: 20 + i * 22, hop: 0 }); }
-    popText(f.x, f.y - 230 * k, '분신술!!', '#ffab40', 30); SFX.whiff();
+    popText(f.x, f.y - 230 * k, '분신술!!', '#ffab40', 30);
   }
 }
 // 분신: 상대에게 걸어가서 때림. 상대 공격이 닿거나(한 대) 상대가 분신을 맞히면 둘 다 펑
@@ -3836,6 +3839,7 @@ function newUltUpdate(f, o, T) {
 const NEW_ULT_CUT = 100;   // 필살기 컷신 길이 (프레임)
 // ---- 🌀 회오리 구슬 컷신: 손바닥 위에서 바람이 빨려 들며 구슬이 커지고, 마지막에 번쩍 ----
 const RASEN_CUT = 70;
+SFX.rasenHit = () => { SFX.boom(); nz(0.7, { v: 0.4, freq: 3200, f2: 260, type: 'bandpass', q: 1 }); tone(880, 0.4, 'sine', 0.08, 110); };   // 회오리 구슬 맞을 때: 쾅 + 바람 터짐
 function drawRasenCut(f) {
   const T = RASEN_CUT - superFreeze, k = Math.min(1, T / 50);
   const g = ctx.createRadialGradient(W * 0.62, H / 2, 10, W * 0.62, H / 2, 600); g.addColorStop(0, '#0d47a1'); g.addColorStop(1, '#020814'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -4073,7 +4077,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-12';
+const BUILD = '20261112-13';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4243,7 +4247,7 @@ const MIS_POOL = [
 function rwMissions() {
   const d = dayKey();
   if (RW.mDay !== d) {
-    let h = hashStr('mis' + d); const pool = MIS_POOL.slice(), mis = [];
+    let h = hashStr('mis' + d + (RW.mReset || '')); const pool = MIS_POOL.slice(), mis = [];   // 관리자가 초기화하면 다른 미션이 나옴
     for (let i = 0; i < 3; i++) { const j = h % pool.length; h = Math.imul(h ^ (h >>> 13), 2654435761) >>> 0; const m = pool.splice(j, 1)[0]; mis.push({ id: m.id, goal: m.g[h % 2], n: 0, got: false }); }
     RW.mDay = d; RW.mis = mis; RW.mAll = false; rwSave();
   }
@@ -5285,7 +5289,7 @@ function step() {
     if (sceneT === 75) { SFX.bell(); speak('파이트!', 1.4); }
     if (sceneT >= 120) scene = 'fight';
   } else if (scene === 'fight') {
-    if (superFreeze > 0) { superFreeze--; if (superKind === 'rasen' && superFreeze % 6 === 0) SFX.whiff(); if (superKind === 'ult' && superOwner && superOwner.ch.ult.type === 'timeStop') tsCutSfx(TS_CUT - superFreeze); }
+    if (superFreeze > 0) { superFreeze--; if (superKind === 'rasen' && superFreeze === 1) SFX.special(); if (superKind === 'ult' && superOwner && superOwner.ch.ult.type === 'timeStop') tsCutSfx(TS_CUT - superFreeze); }
     else if (hitstop > 0) hitstop--;
     else {
       updateFighters(false);

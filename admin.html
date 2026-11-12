@@ -97,7 +97,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
         <h3 style="margin:0 0 8px">📢 공지</h3>
         <p class="muted" style="margin:0 0 6px">게임 타이틀 화면 아래에 떠요. 비우고 저장하면 공지가 없어져요.</p>
         <textarea id="noticeTxt" rows="2" maxlength="200" style="width:100%" placeholder="예: 오늘 밤 10시에 서버 점검이 있어요"></textarea>
-        <div class="actions" style="margin-top:6px"><button id="noticeBtn" class="primary">공지 저장</button></div>
+        <div class="actions" style="margin-top:6px"><button id="noticeBtn" class="primary">공지 저장</button><button id="mresetBtn">🎯 일일 미션 초기화 (모두)</button></div>
       </section>
       <section class="card">
         <h3 style="margin:0 0 8px">🎉 이벤트</h3>
@@ -501,6 +501,10 @@ $('giftOff').onclick = async () => {
 };
 $('evOff').onclick = async () => {
   try { await api('/admin/event', 'POST', {}); showEvent(null); toast('이벤트를 껐어요'); } catch (e) { toast(e.message); }
+};
+$('mresetBtn').onclick = async () => {
+  if (!confirm('모든 사람의 오늘 일일 미션을 새로 뽑고, 진행·받은 것도 처음부터 할까요?')) return;
+  try { await api('/admin/mreset', 'POST', {}); toast('일일 미션을 초기화했어요 (켜 둔 사람은 10초 안에)'); } catch (e) { toast(e.message); }
 };
 $('noticeBtn').onclick = async () => {
   try { const d = await api('/admin/notice', 'POST', { text: $('noticeTxt').value }); toast(d.notice ? '공지를 올렸어요 (10초 안에 모두에게 보여요)' : '공지를 내렸어요'); } catch (e) { toast(e.message); }
