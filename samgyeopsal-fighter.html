@@ -578,7 +578,7 @@ const CHARS = [
   { name: '돼루토', title: '포기를 모르는 닌자 돼지', type: '닌자', hp: 100, power: 1.02, speed: 1.1, ultRate: 0.9, scale: 1.1, unlock: 'admin', how: '🎁 보상 센터의 돼루토 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
     look: look('#ffc9b5', '#c27a63', '#ffe3d6', '#f7a58f', '#3e2723', '#c79100', '#1a237e', ['ninja', 'spiky', 'whisker', 'hitai', 'bold'], 1),
     skill: { name: '분신술', type: 'kageClone', cd: 540, desc: 'U: 분신 2마리가 대신 싸움 (한 대 맞으면 둘 다 펑)' },
-    skills: [{ name: '분신술', type: 'kageClone', cd: 540, desc: 'U: 분신 2마리가 대신 싸움 · 한 대 맞으면 펑' }, { name: '회오리 구슬', type: 'rasen', cd: 240, desc: '↓+U: 손에 모은 회오리로 날려 버림' }, { name: '쿠나이 던지기', type: 'kunai', cd: 120, desc: '→+U: 빠른 쿠나이 3개' }],
+    skills: [{ name: '분신술', type: 'kageClone', cd: 540, desc: 'U: 분신 2마리가 대신 싸움 · 한 대 맞으면 펑' }, { name: '회오리 구슬', type: 'rasen', cd: 240, desc: '↓+U: 회오리 구슬을 들고 상대에게 달려가 날려 버림' }, { name: '쿠나이 던지기', type: 'kunai', cd: 120, desc: '→+U: 빠른 쿠나이 3개' }],
     tf: { name: '선인 모드', type: 'champion', color: '#ff6d00', desc: '펀치 피해·속도↑' },
     ult: { name: '구미호 모드', type: 'gumiho', desc: '아홉 꼬리 폭발 + 12초 동안 강해짐' } }
 ];
@@ -797,7 +797,7 @@ const SKILLDEF = {
   monowire:      { startup: 8, active: 18, recovery: 16, dmg: 5, hits: 3, hitEvery: 6, range: 290, height: 'mid', kb: 4, stun: 18, pose: 'punch', kind: 'skill', wire: true, txt: ['찌릿!', '슥!', '촤악!'] },
   cyberDash:     { startup: 3, active: 14, recovery: 14, dmg: 14, range: 150, height: 'mid', kb: 16, stun: 30, launch: -8, dash: 22, invuln: true, invulnF: 10, pose: 'dash', hitstop: 10, shake: 10, txt: ['찰칵!', '쾅!'] },
   kageClone:     { startup: 6, active: 1, recovery: 10, pose: 'counter', buff: true },
-  rasen:         { startup: 16, active: 6, recovery: 18, dmg: 18, range: 150, height: 'mid', kb: 18, launch: -10, stun: 40, dash: 6, pose: 'punch', hitstop: 14, shake: 14, rasen: true, txt: ['회오리 구슬!!'] },
+  rasen:         { startup: 6, active: 42, recovery: 18, dmg: 20, range: 150, height: 'mid', kb: 20, launch: -11, stun: 42, dash: 15, pose: 'punch', hitstop: 14, shake: 14, rasen: true, txt: ['회오리 구슬!!'] },
   kunai:         { startup: 8, active: 1, recovery: 14, proj: { kind: 'kunai', spread: 3, flat: true, speed: 13, dmg: 4, height: 'mid', g: 0, life: 70, w: 30, h: 14 }, pose: 'throw' },
   boomerang:     { startup: 12, active: 1, recovery: 20, proj: { kind: 'slice', speed: 11, back: 0.4, dmg: 7, height: 'mid', multi: 16, maxHits: 2, life: 95, w: 52, h: 36 }, pose: 'throw' },   // 냉삼 부메랑: 날아갔다 돌아오며 두 번 맞힘
   uppercut:      { startup: 3,  active: 10, recovery: 20, dmg: 18, range: 150, dash: 4, height: 'mid', kb: 4, stun: 40, launch: -17, rise: -13, invuln: true, invulnF: 8, pose: 'uppercut', kind: 'punch', txt: ['어퍼!!'] }
@@ -1547,6 +1547,8 @@ function attackUpdate(f, o, inp) {
     if (inp.grab) return startAtk(f, 'grab', GRABDEF);
     if (inp.skill && f.skillCD <= 0) return startSkill(f, false);
   }
+  if (a.rasen && f.atkHit && f.af < a.startup + a.active) { f.af = a.startup + a.active; f.vx = 0; }   // 회오리 구슬: 맞히면 그 자리에서 멈춤
+  if (a.rasen && f.af === a.startup) f.facing = Math.sign(f.opp.x - f.x) || f.facing;   // 달려가기 전에 상대 쪽을 봄
   if (a.dash && f.af >= a.startup && f.af < a.startup + a.active) {
     f.vx = f.facing * a.dash;
     if (f.t % 2 === 0) burst(f.x - f.facing * 40, GROUND - 5, 2, ['#a07850', '#c8a070'], 4);
@@ -3761,6 +3763,8 @@ function drawKeys() {
     txt(kn, x + 259, y + 24, fitSize(kn, 16, 128), MAP1[k] !== KEY_DEF[k] ? '#69f0ae' : '#fff59d', null);
     addHot(x, y, 340, 48, () => { KS.sel = i; KS.wait = true; });
   });
+  ctx.fillStyle = 'rgba(229,57,53,0.85)'; rr(W / 2 - 110, 418, 220, 36, 10); ctx.fill(); txt('↺ 키 설정 초기화', W / 2, 436, 16, '#fff', null);
+  addHot(W / 2 - 110, 418, 220, 36, () => { if (!KS.wait) pressed.Backspace = true; });
   txt('↑↓ 고르기 · Enter 바꾸기 · Backspace 처음대로 · Esc 나가기', W / 2, 470, 13, '#80d8ff', null);
   txt('같은 키를 고르면 두 동작의 키가 서로 바뀌어요 · 2P(방향키·숫자패드)는 그대로', W / 2, 494, 12, '#aaa', null);
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 10, 100, 34, 8); ctx.fill(); txt('← 나가기', 64, 27, 14, '#fff', null);
@@ -4069,7 +4073,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-11';
+const BUILD = '20261112-12';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -6629,6 +6633,7 @@ if (/autotest/.test(location.search)) {
         if (scene === 'fight') { p1.meter = 100; p1.state = 'idle'; startUlt(p1); for (let n = 0; n < NEW_ULT_CUT + 60 && scene === 'fight'; n++) { step(); if (n % 25 === 0) draw(); } out.push(`  ult ${me.ult.name}: cyber=${p1.cyberT} fox=${p1.foxT} state=${p1.state}`); if (scene === 'fight' && !(p1.cyberT > 0 || p1.foxT > 0)) throw new Error('신캐 필살기 실패'); }
       }
       { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 400; p2.x = 520; p1.facing = 1; p2.facing = -1; p2.state = 'block'; const r1 = dealHit(p1, p2, { dmg: 10, kind: 'ult', src: p1.x, height: 'mid', stun: 20 }); p2.state = 'block'; p2.stun = 0; const r2 = dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 20 }); out.push(`ult vs block: ${r1} · punch vs block: ${r2}`); if (r1 !== 'hit' || r2 !== 'block') throw new Error('필살기 방어 무시 실패'); }
+      { mode = 0; p1.setChar(NR); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 150; p2.x = 760; p2.state = 'idle'; p1.state = 'idle'; p1.inp = { down: true }; startSkill(p1, false); const h0 = p2.hp; let hitAt = -1; for (let n = 0; n < RASEN_CUT + 80 && scene === 'fight'; n++) { p2.x = Math.max(p2.x, 700); step(); if (hitAt < 0 && p2.hp < h0) hitAt = n; } out.push(`rasen dash: hit=${hitAt >= 0} dmg=${(h0 - p2.hp).toFixed(1)} p1.x=${p1.x | 0}`); if (hitAt < 0) throw new Error('회오리 구슬 달려가서 맞히기 실패'); }
       mode = 1; ranked = false; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step();
       const s0 = streak; forceWon = false; forceWin(); for (let n = 0; n < 400 && scene !== 'cutscene'; n++) step(); out.push(`forceWin: scene=${scene} streak ${s0}->${streak}`); if (scene !== 'cutscene' || streak !== s0 + 1) throw new Error('강제 승리 실패');
       startNrTrailer(); for (let n = 0; n < NRT_T + 5 && scene === 'nrtrailer'; n++) { step(); if (n % 25 === 0) draw(); } out.push(`nr trailer: end scene=${scene}`); if (scene !== 'title') throw new Error('돼루토 예고편 실패'); POPQ.length = 0; POP = null;
