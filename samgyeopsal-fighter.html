@@ -600,7 +600,7 @@ const CHARS = [
     tf: { name: '선인 모드', type: 'champion', color: '#ff6d00', desc: '펀치 피해·속도↑' },
     ult: { name: '구미호 모드', type: 'gumiho', desc: '아홉 꼬리 폭발 + 12초 동안 강해짐' } },
   // 이타돼리: 저주를 몸에 품은 돼지 고등학생 (관리자가 '업데이트 공개'를 누르면 모두 해금 · 한 번 켜면 못 끔)
-  { name: '이타돼리', title: '저주를 품은 돼지 고등학생', type: '격투', hp: 106, power: 1.06, speed: 1.08, ultRate: 0.9, scale: 1.12, unlock: 'admin', relId: 'itadori', how: '업데이트가 공개되면 모두 무료 · 퀘스트를 깨면 모듈로 모습, 각성하면 스쿠나 모습', perk: '모습 3가지',
+  { name: '이타돼리', title: '저주를 품은 돼지 고등학생', type: '격투', hp: 106, power: 1.06, speed: 1.08, ultRate: 0.9, scale: 1.12, unlock: 'admin', relId: 'itadori', quest: true, how: '공개 후 10일 안에 이타돼리 퀘스트를 깨면 얻어요 (🎁 보상 센터) · 모듈로 각성 퀘스트 → 모듈로 · 각성 → 스쿠나', perk: '퀘스트 한정 돼지',
     look: look('#ffc9b8', '#b5715d', '#ffe3d8', '#f4a18e', '#3e2723', '#4e342e', '#c62828', ['uniform', 'pinkhair', 'bold'], 1.03),
     skill: { name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' },
     skills: [{ name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' }, { name: '검은 번개', type: 'blackBolt', cd: 260, desc: '↓+U: 연타로 이어 쓰면 반드시 검은 번개(2.5배) · 아니면 50%' }, { name: '날아 무릎차기', type: 'kneeDash', cd: 180, desc: '←→+U: 날아가며 무릎으로 들이받기' }],
@@ -2064,7 +2064,7 @@ function dealHit(a, d, h) {
   hitstop = Math.max(hitstop, h.hitstop ?? Math.round(3 + dmg * 0.4)); shake = Math.max(shake, h.shake ?? dmg * 0.6);
   const hx = h.hx ?? (h.src + d.x) / 2, hy = d.y - 95 * d.sc / 1.15;
   burst(hx, hy, Math.min(30, 8 + dmg), skinOf(a) ? skinOf(a).fx : ['#fff176', '#ffffff', '#ff8a65'], Math.min(14, 6 + dmg * 0.4)); skinHitFx(a, hx, hy, dmg);   // 🎨 스킨마다 다른 타격 효과
-  if (h.boltCrit) { bfT = 14; SFX.boom(); if (a === p1 && mode === 1) awkAdd(a.ch.name, 'bolt'); popText(hx, hy - 90, '검은 번개!!', '#ff1744', 32); }
+  if (h.boltCrit) { bfT = 14; SFX.boom(); if (a === p1 && mode === 1 && a.ch.name === '이타돼리') nqAdd('itbolt', 1); if (a === p1 && mode === 1) awkAdd(a.ch.name, 'bolt'); popText(hx, hy - 90, '검은 번개!!', '#ff1744', 32); }
   if (h.cleave) { for (let i = 0; i < 5; i++) slash(hx + rand(-30, 30), hy + rand(-50, 50)); }   // 검은 번개: 화면이 검붉게 번쩍
   if (h.boltCrit) { for (let i = 0; i < 6; i++) slash(hx + rand(-40, 40), hy + rand(-40, 40)); burst(hx, hy, 30, ['#000', '#ff1744', '#b71c1c'], 14); shake = Math.max(shake, 20); }   // 검은 번개
   parts.push({ type: 'ring', x: hx, y: hy, r: 8, life: 14, max: 14, c: dmg > 10 ? '255,213,79' : '255,255,255', vx: 0, vy: 0, g: 0 });
@@ -2078,7 +2078,7 @@ function dealHit(a, d, h) {
   if (d.hp <= 0) {
     d.state = 'ko'; d.koT = 0; d.vy = -11; d.vx = (Math.sign(d.x - h.src) || -d.facing) * 9; d.atk = null;
     hitstop = 22; shake = 18; SFX.ko(); setTimeout(SFX.squeal, 250);
-    if (h.kind === 'ult') a.stats.ultFinish = true; if (h.kind === 'ult' && a === p1 && mode === 1) { nqAdd('ultko', 1); awkAdd(a.ch.name, a.ch.ult.type === 'dismantle' || a.ultAlt === 'dismantle' ? 'dismko' : 'ultko'); }   // 퀘스트: 필살기로 K.O.
+    if (h.kind === 'ult') a.stats.ultFinish = true; if (h.kind === 'ult' && a === p1 && mode === 1) { nqAdd('ultko', 1); if (a.ch.name === '이타돼리') nqAdd('itultko', 1); awkAdd(a.ch.name, a.ch.ult.type === 'dismantle' || a.ultAlt === 'dismantle' ? 'dismko' : 'ultko'); }   // 퀘스트: 필살기로 K.O.
     if (scene === 'fight') endRound(a, 'K.O.!!');
     return 'hit';
   }
@@ -4301,12 +4301,20 @@ const SQ = [
   { id: 'shift', name: '장사 20번 끝내기', goal: 20 },
   { id: 'ultko', name: '필살기로 K.O. 3번', goal: 3 }
 ];
+// 🩸 모듈로 각성 퀘스트: 이타돼리를 얻은 뒤, 이타돼리로만 채우는 조건 → 모듈로 모습
+const MQ = [
+  { id: 'itwin', name: '이타돼리로 40번 이기기', goal: 40 },
+  { id: 'itbolt', name: '이타돼리로 검은 번개 100번 터뜨리기', goal: 100 },
+  { id: 'itultko', name: '이타돼리 필살기로 K.O. 15번', goal: 15 },
+  { id: 'itstreak', name: '이타돼리로 연승 모드 10연승', goal: 10 }
+];
 const IT_DAYS = 10;
 const itWinEnd = () => (REL.itadoriWin || REL.itadori || 0) + IT_DAYS * 86400000;
 const itWinOpen = () => /newchars/.test(location.search) || (isRel('itadori') && Date.now() < itWinEnd());
 const QUESTS = [
   { ch: '돼루토', icon: '🍥', key: 'sgf_nq', steps: NQ, open: () => isReleased() },
-  { ch: '이타돼리', icon: '👊', key: 'sgf_q_it', steps: IQ, open: () => itWinOpen(), timed: true, unlockKey: 'sgf_itmodulo', prize: '이타돼리 모듈로 모습' },
+  { ch: '이타돼리', icon: '👊', key: 'sgf_q_it', steps: IQ, open: () => itWinOpen(), timed: true },
+  { ch: '이타돼리', icon: '🩸', key: 'sgf_q_itmod', steps: MQ, open: () => isRel('itadori') && (lsGet('sgf_unlock_이타돼리', false) || IS_TESTER || /newchars/.test(location.search)), unlockKey: 'sgf_itmodulo', prize: '이타돼리 모듈로 각성' },
   { ch: '우주꿀돈', icon: '🚀', key: 'sgf_q_sp', steps: SQ, open: () => isRel('big1') },
   { ch: '꿀린', icon: '🧙', key: 'sgf_q_wz', steps: [{ id: 'bet', name: 'AI 경기 베팅 10번 하기', goal: 10 }, { id: 'ranked', name: '랭크전 12번 이기기', goal: 12 }, { id: 'streak', name: '연승 모드에서 8연승 하기', goal: 8 }, { id: 'ultko', name: '필살기로 K.O. 5번', goal: 5 }], open: () => isRel('big2') }
 ];
@@ -4420,7 +4428,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-32';
+const BUILD = '20261112-33';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4636,7 +4644,7 @@ const IT_FORMS = {
 };
 const itFormOk = k => k === 'base' || (k === 'modulo' && (lsGet('sgf_itmodulo', false) || IS_TESTER)) || (k === 'sukuna' && isAwake('이타돼리'));
 const itForm = () => { const k = lsGet('sgf_itform', 'base'); return itFormOk(k) ? k : 'base'; };
-function cycleItForm() { const L = ['base', 'modulo', 'sukuna'].filter(itFormOk); const i = L.indexOf(itForm()); const k = L[(i + 1) % L.length]; lsSet('sgf_itform', k); cloudDirty(); SFX.select(); toast(L.length < 2 ? '🔒 모듈로는 이타돼리 퀘스트, 스쿠나는 각성으로 열려요' : `👊 이타돼리 모습: ${IT_FORMS[k].name}`); }
+function cycleItForm() { const L = ['base', 'modulo', 'sukuna'].filter(itFormOk); const i = L.indexOf(itForm()); const k = L[(i + 1) % L.length]; lsSet('sgf_itform', k); cloudDirty(); SFX.select(); toast(L.length < 2 ? '🔒 모듈로는 모듈로 각성 퀘스트(보상 센터), 스쿠나는 각성으로 열려요' : `👊 이타돼리 모습: ${IT_FORMS[k].name}`); }
 function applyItForm(f, k) {   // 싸우는 돼지에 모습 입히기 (그 돼지 것만 바뀜)
   const F = IT_FORMS[k] || IT_FORMS.base;
   f.ch = { ...f.ch, ...(F.skills ? { skills: F.skills, skill: F.skills[0] } : {}), ...(F.ult ? { ult: F.ult } : {}) };
@@ -6644,6 +6652,7 @@ function startCutscene(w, l) {
       cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1) * evMul('coin'); if (p1.lucky) { cut.earn.win *= 5; p1.lucky = false; }   // 황금 행운 부적   // 금한돈: 승리 코인 3배
       cut.earn.win += jackpotRoll(cut.earn.win); rwProgress('win'); if (ranked) rwProgress('ranked');   // 잭팟 이벤트 · 일일 미션
       if (ranked) nqAdd('ranked', 1); else nqAdd('streak', streak, true);   // 돼루토 퀘스트
+      if (p1.ch.name === '이타돼리') { nqAdd('itwin', 1); if (!ranked) nqAdd('itstreak', streak, true); }   // 모듈로 각성 퀘스트
       { const nm = p1.ch.name; awkAdd(nm, 'win'); if (ranked) awkAdd(nm, 'ranked'); else awkAdd(nm, 'streak', streak, true); if (p1.stats.minHpRatio >= 0.999) awkAdd(nm, 'perfect'); }   // ⚡ 각성 조건
       if (bet > 0) cut.earn.bet = bet * (betSel === 2 ? 3 : 2);
       addCoins(cut.earn.win + cut.earn.bet);
