@@ -4007,7 +4007,7 @@ function drawTitle() {
 
 // ================= ⌨️ 키 설정: 공격·이동 키를 마음대로 바꾸기 (1P 키보드) =================
 const KEY_ACTS = [['left', '← 왼쪽 이동'], ['right', '→ 오른쪽 이동'], ['up', '↑ 점프'], ['down', '↓ 앉기'], ['lp', '👊 약펀치'], ['rp', '👊 강펀치'], ['lk', '🦵 약킥'], ['rk', '🦵 강킥'],
-  ['grab', '🤼 업어치기'], ['skill', '✨ 스킬'], ['ultD', '💥 필살기'], ['tf', '🔥 변신']];
+  ['grab', '🤼 업어치기'], ['skill', '✨ 스킬'], ['ultD', '💥 필살기']];
 const KEY_DEF = { ...MAP1 };
 Object.assign(MAP1, lsGet('sgf_keys', {}));
 const keyName = c => !c ? '-' : c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, '숫자패드 ').replace(/^Arrow/, '방향 ').replace('Left', '←').replace('Right', '→').replace('Up', '↑').replace('Down', '↓').replace('ShiftLeft', '왼 Shift').replace('Space', '스페이스');
@@ -4407,7 +4407,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-24';
+const BUILD = '20261112-25';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -5197,7 +5197,6 @@ const TUT = [
   { t: () => (TOUCH ? '조이스틱을 아래로 당긴 채 스킬 버튼!' : `${K('down')}를 누른 채 ${K('skill')}!`) + '\n두 번째 스킬이 나와.', ok: T => T.skill.has(1), prep: () => { p1.skillCD = 0; } },
   { t: () => (TOUCH ? '조이스틱을 앞(상대 쪽)으로 민 채 스킬 버튼!' : `앞(상대 쪽) 방향키를 누른 채 ${K('skill')}!`) + '\n세 번째 스킬이야. 돼지마다 스킬이 3개씩!', ok: T => T.skill.has(2), prep: () => { p1.skillCD = 0; } },
   { t: () => '때리고 맞으면 아래 노란 필살 게이지가 차.\n꽉 차면 ' + (TOUCH ? '필살기 버튼' : `${K('ultD')} 키`) + '로 필살기! (지금 채워 줄게)\n필살기는 막을 수 없어!', ok: T => T.ult, prep: () => { p1.meter = 100; } },
-  { t: () => '변신 게이지도 있어. 꽉 차면 ' + (TOUCH ? '변신 버튼' : `${K('tf')} 키`) + '로 변신!\n잠깐 동안 강해져. (지금 채워 줄게)', ok: () => p1.tfOn, prep: () => { p1.tfG = 100; } },
   { t: () => '싸움은 끝! 이제 메뉴를 알려 줄게.\n\n🏆 랭크전: 이기면 티어 점수(TP)가 올라. 랭킹에 올라가!\n🔥 연승 모드: 몇 번 연속으로 이길 수 있을까?', tap: true },
   { t: () => '🍳 지면 요리가 돼! 이긴 돼지가 진 돼지를 요리해.\n요리는 냉장고에 들어가고, 🏮 포장마차 시장에서 팔면 코인!\n🎲 AI 경기 베팅: CPU끼리 싸움에 코인을 걸 수도 있어.', tap: true },
   { t: () => '🏮 포장마차 장사: 고기를 굽고 손님에게 서빙해서 돈을 벌어.\n강화하면 더 벌고, 🤖 자동 영업을 켜면 알아서 장사해.\n🌙 무인 영업을 사면 게임을 꺼도 장사가 돼!', tap: true },
