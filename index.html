@@ -589,7 +589,7 @@ const CHARS = [
     skill: { name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' },
     skills: [{ name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' }, { name: '검은 번개', type: 'blackBolt', cd: 260, desc: '↓+U: 35% 확률로 검은 번개 → 2.5배 피해' }, { name: '돌려차기', type: 'spinKick', cd: 170, desc: '→+U: 빙글 돌며 3연속 발차기' }],
     tf: { name: '집중 모드', type: 'champion', color: '#c62828', desc: '펀치 피해·속도↑' },
-    ult: { name: '저주왕 빙의', type: 'curseKing', desc: '15초 동안 저주왕: 저절로 베는 칼날 · 공격력↑ · 시작할 때 폭발' } },
+    ult: { name: '저주 결계', type: 'curseKing', desc: '화면 전체를 저주 결계로: 15초 동안 칼날이 반드시 벰 · 공격력↑' } },
   // 🎉 대규모 업데이트 (relId 'big1': 관리자가 공개하면 모두 무료)
   // 훈제돈: 흰 셰프 모자 · 앞치마 · 콧수염의 바비큐 셰프. 불·소스·꼬치로 싸움
   { name: '훈제돈', title: '불맛 바비큐 셰프', type: '요리사', hp: 104, power: 1.05, speed: 0.98, ultRate: 0.95, scale: 1.16, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
@@ -1489,7 +1489,7 @@ class Fighter {
     if (this.tfIs('champion') && kind === 'punch') m *= 1.4; if (this.tfIs('ironHoof') && kind === 'kick') m *= 1.5;
     if (this.weapon && (kind === 'punch' || kind === 'kick')) m *= 1.25;
     if (this.drunkT > 0) m *= 1.25;
-    if (this.cyberT > 0) m *= 1.5; if (this.foxT > 0) m *= 1.35; if (this.curseT > 0) m *= 1.4;
+    if (this.cyberT > 0) m *= 1.5; if (this.foxT > 0) m *= 1.35; if (this.curseT > 0) m *= 1.4; if (this.awk && AWAKE[this.ch.name]) m *= AWAKE[this.ch.name].power;
     return m * (1 + Math.min(0.25, 0.02 * this.cpuLv));
   }
   defMul() { let m = this.cyberT > 0 ? 0.5 : 1; if (this.tfIs('stone')) m *= 0.6; if (this.tfIs('giant')) m *= 0.85; return m; }
@@ -1919,7 +1919,8 @@ function dealHit(a, d, h) {
   if (a.tfIs('clone') && !h.clone && !h.force && ['punch', 'kick', 'skill'].includes(h.kind)) a.cloneQ.push({ t: 10, dmg: h.dmg * 0.5 });
   hitstop = Math.max(hitstop, h.hitstop ?? Math.round(3 + dmg * 0.4)); shake = Math.max(shake, h.shake ?? dmg * 0.6);
   const hx = h.hx ?? (h.src + d.x) / 2, hy = d.y - 95 * d.sc / 1.15;
-  burst(hx, hy, Math.min(30, 8 + dmg), ['#fff176', '#ffffff', '#ff8a65'], Math.min(14, 6 + dmg * 0.4));
+  burst(hx, hy, Math.min(30, 8 + dmg), skinOf(a) ? skinOf(a).fx : ['#fff176', '#ffffff', '#ff8a65'], Math.min(14, 6 + dmg * 0.4)); skinHitFx(a, hx, hy, dmg);   // 🎨 스킨마다 다른 타격 효과
+  if (h.boltCrit) { for (let i = 0; i < 6; i++) slash(hx + rand(-40, 40), hy + rand(-40, 40)); burst(hx, hy, 30, ['#000', '#ff1744', '#b71c1c'], 14); shake = Math.max(shake, 20); }   // 검은 번개
   parts.push({ type: 'ring', x: hx, y: hy, r: 8, life: 14, max: 14, c: dmg > 10 ? '255,213,79' : '255,255,255', vx: 0, vy: 0, g: 0 });
   hype = Math.min(1.5, hype + dmg * 0.04);
   if (dmg >= 2) popText(d.x + rand(-24, 24), d.y - 170 * d.sc / 1.15, `-${dmg}`, '#ff8a80', 17);
@@ -1931,7 +1932,7 @@ function dealHit(a, d, h) {
   if (d.hp <= 0) {
     d.state = 'ko'; d.koT = 0; d.vy = -11; d.vx = (Math.sign(d.x - h.src) || -d.facing) * 9; d.atk = null;
     hitstop = 22; shake = 18; SFX.ko(); setTimeout(SFX.squeal, 250);
-    if (h.kind === 'ult') a.stats.ultFinish = true; if (h.kind === 'ult' && a === p1 && mode === 1) nqAdd('ultko', 1);   // 퀘스트: 필살기로 K.O.
+    if (h.kind === 'ult') a.stats.ultFinish = true; if (h.kind === 'ult' && a === p1 && mode === 1) { nqAdd('ultko', 1); awkAdd(a.ch.name, 'ultko'); }   // 퀘스트: 필살기로 K.O.
     if (scene === 'fight') endRound(a, 'K.O.!!');
     return 'hit';
   }
@@ -2742,12 +2743,19 @@ const SHOP = [   // 2026-11-12: 가격 10배로 올림 · 비싼 새 물건 추�
   { id: 'fullMeter', type: 'use', name: '필살 게이지 100%', price: 20000, desc: '다음 연승 경기 바로 필살기' },
   { id: 'luckyCharm', type: 'use', name: '황금 행운 부적', price: 80000, desc: '다음 경기 이기면 승리 코인 5배' },
   { id: 'tix10', type: 'use', name: '룰렛 티켓 10장', price: 25000, desc: '🎁 보상 센터 행운 룰렛용' },
-  { id: 'fastSpin', type: 'use', name: '룰렛 빨리 돌리기', price: 1e11, desc: '영구: 행운 룰렛이 금방 멈춰요 (한 번만 사면 됨)' }
+  { id: 'fastSpin', type: 'use', name: '룰렛 빨리 돌리기', price: 1e11, desc: '영구: 행운 룰렛이 금방 멈춰요 (한 번만 사면 됨)' },
+  { id: 'skHell', type: 'skin', name: '지옥불 스킨', price: 500000 },
+  { id: 'skIce', type: 'skin', name: '빙하 스킨', price: 800000 },
+  { id: 'skSakura', type: 'skin', name: '벚꽃 스킨', price: 1500000 },
+  { id: 'skBolt', type: 'skin', name: '번개 스킨', price: 3000000 },
+  { id: 'skGalaxy', type: 'skin', name: '은하수 스킨', price: 10000000 },
+  { id: 'skGold', type: 'skin', name: '황금 왕 스킨', price: 50000000 }
 ];
 const itPrice = it => Math.round(it.price * (1 - (evLive() ? Math.min(90, +EVT.sale || 0) : 0) / 100));   // 이벤트 할인
 const USE_ICON = { fastSpin: '💨', meter: '⚡', hpup: '🛡️', revive: '💖', bigRevive: '💎', rankShield: '🏅', fullMeter: '🔥', luckyCharm: '🍀', tix10: '🎟️' };
 const COS_IDS = SHOP.filter(s => s.type !== 'use').map(s => s.id);
-const withCos = (ch, cos = inv.eq) => ({ ...ch, look: { ...ch.look, hat: COS_IDS.includes(cos && cos.hat) ? cos.hat : null, fx: COS_IDS.includes(cos && cos.fx) ? cos.fx : null } });
+const withCos = (ch, cos = inv.eq) => { const r = withCos0(ch, cos), sk = cos && typeof SKIN_DEF !== 'undefined' && SKIN_DEF[cos.skin]; if (sk) r.look = { ...r.look, ...sk.pal, skin: cos.skin }; return r; };   // 🎨 스킨: 몸 색 바꾸기
+const withCos0 = (ch, cos = inv.eq) => ({ ...ch, look: { ...ch.look, hat: COS_IDS.includes(cos && cos.hat) ? cos.hat : null, fx: COS_IDS.includes(cos && cos.fx) ? cos.fx : null } });
 // ---- 스킬 효과음 (합성음만, 음성 없음) ----
 // 재료: 여러 겹 톱니파 + 필터 열림(두껍게 '부우웅'), FM(쇳소리·칼날), 공간 울림(리버브), 좌우 퍼짐
 function bus(pan = 0, wet = 0.3) {   // 소리가 나갈 길: 좌우 위치 + 울림 양
@@ -3535,19 +3543,23 @@ function drawMarket() {
     addHot(W / 2 - 150, 486, 300, 40, () => { pressed.KeyX = true; });
   } else {
     txt(`보유: 필살50% ${inv.use.meter || 0} · 강철체력 ${inv.use.hpup || 0} · 부활권 ${inv.use.revive || 0}   (꾸미기는 내 돼지에게 표시, 온라인 상대에게도 보여요)`, W / 2, 118, 13, '#fff59d', null);
+    const SROWS = 5, SHOFF = clamp((mk.sel / 4 | 0) - 2, 0, Math.max(0, Math.ceil(SHOP.length / 4) - SROWS));   // 물건이 많아서 고른 줄 따라 스크롤
+    if (SHOFF > 0) { txt('▲', W - 30, 150, 22, '#ffcc80', '#000', 4); addHot(W - 50, 130, 40, 40, () => { mk.sel = Math.max(0, mk.sel - 4); }); }
+    if (SHOFF + SROWS < Math.ceil(SHOP.length / 4)) { txt('▼', W - 30, 480, 22, '#ffcc80', '#000', 4); addHot(W - 50, 460, 40, 40, () => { mk.sel = Math.min(SHOP.length - 1, mk.sel + 4); }); }
     SHOP.forEach((it, i) => {
-      const CH = SHOP.length > 16 ? 72 : SHOP.length > 12 ? 88 : 112, x = 70 + (i % 4) * 208, y = 134 + (i / 4 | 0) * (CH + 6), on = mk.sel === i, own = !!inv.own[it.id], eq = inv.eq[it.type] === it.id;
+      if ((i / 4 | 0) < SHOFF || (i / 4 | 0) >= SHOFF + SROWS) return;
+      const CH = 72, x = 70 + (i % 4) * 208, y = 134 + ((i / 4 | 0) - SHOFF) * (CH + 6), on = mk.sel === i, own = !!inv.own[it.id], eq = inv.eq[it.type] === it.id;
       ctx.fillStyle = on ? 'rgba(120,70,40,0.92)' : 'rgba(25,12,40,0.85)'; rr(x, y, 196, CH, 12); ctx.fill();
       if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 196, CH, 12); ctx.stroke(); }
       addHot(x, y, 196, CH, () => { if (mk.sel === i) pressed.Enter = true; else mk.sel = i; });
       if (it.type === 'use') txt(USE_ICON[it.id] || '🎁', x + 44, y + CH / 2 - 4, 34, '#fff', null);
-      else { const lk = { ...CHARS[0].look, hat: it.type === 'hat' ? it.id : null, fx: it.type === 'fx' ? it.id : null }; ctx.save(); ctx.beginPath(); ctx.rect(x, y, 100, CH); ctx.clip(); drawPig(x + 40, y + CH - 8, 1, lk, { scale: 0.55, t: gT }); ctx.restore(); }
+      else { const lk = { ...CHARS[0].look, hat: it.type === 'hat' ? it.id : null, fx: it.type === 'fx' ? it.id : null, ...(it.type === 'skin' ? { ...SKIN_DEF[it.id].pal, skin: it.id } : {}) }; ctx.save(); ctx.beginPath(); ctx.rect(x, y, 100, CH); ctx.clip(); drawPig(x + 40, y + CH - 8, 1, lk, { scale: 0.55, t: gT }); ctx.restore(); }
       txt(it.name, x + 145, y + CH * 0.25, fitSize(it.name, 15, 92), '#fff', null);   // 카드(오른쪽 끝 x+196) 밖으로 안 나가게
       txt(it.type === 'use' ? `보유 ${inv.use[it.id] || 0}` : eq ? '장착 중' : own ? '보유 (탭=장착)' : '', x + 145, y + CH * 0.47, 12, eq ? '#69f0ae' : '#bbb', null);
       if (it.desc) txt(it.desc, x + 98, y + CH - 9, fitSize(it.desc, 10, 186), '#aaa', null);
       if (!own || it.type === 'use') txt(`🪙 ${fmtN(itPrice(it))}`, x + 145, y + CH * 0.69, 16, coins >= itPrice(it) ? '#ffd740' : '#ff8a80', null);
     });
-    txt('Enter / 탭: 구매 · 장착/해제', W / 2, 526, 14, '#aaa', null);
+    txt('Enter / 탭: 구매 · 장착/해제 · 🎨 스킨은 내 돼지 색과 때릴 때 효과가 바뀌어요', W / 2, 530, 14, '#aaa', null);
   }
 }
 
@@ -4228,7 +4240,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-16';
+const BUILD = '20261112-17';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4357,7 +4369,7 @@ function drawNrTrailer() {
   addHot(0, 0, W, H, () => { if (nrt.t > 60) pressed.Enter = true; });
 }
 // ================= 👊 이타돼리: 관리자가 '업데이트 공개'를 누르면 등장 (한 번 켜면 못 끔) =================
-// 저주를 몸에 품은 돼지 고등학생. 분홍 삐죽 머리 · 남색 교복 · 빨간 후드. 맨주먹 격투 (스킬 3개) + 필살기 '저주왕 빙의'
+// 저주를 몸에 품은 돼지 고등학생. 분홍 삐죽 머리 · 남색 교복 · 빨간 후드. 맨주먹 격투 (스킬 3개) + 필살기 '저주 결계'
 // 공개(REL.itadori)되면: 모두에게 무료 해금 + 예고편 한 번 (싸우는 중이면 그 판은 승리)
 let REL = lsGet('sgf_rel', {});   // 관리자가 공개한 업데이트 { itadori: 공개 시각 } — 서버가 10초마다 알려 줌
 const isRel = id => !!REL[id] || /newchars/.test(location.search);
@@ -4366,7 +4378,7 @@ function setRel(r) { if (!r || typeof r !== 'object') return; const was = { ...R
 function itSkillStart(f, s) {
   const k = f.sc / 1.15;
   if (s.type === 'lateFist') f.lateQ = { t: 24, hp: f.opp.hp };   // 늦게 터지는 주먹: 첫 주먹이 맞았으면 한 박자 뒤에 한 번 더 터짐
-  if (s.type === 'blackBolt' && f.atk && srnd() < 0.35) { f.atk.dmg *= 2.5; f.atk.hitstop = 22; f.atk.shake = 18; f.atk.txt = ['검은 번개!!']; popText(f.x, f.y - 230 * k, '검은 번개!!', '#ff1744', 30); }   // 35%: 2.5배
+  if (s.type === 'blackBolt' && f.atk && srnd() < 0.35) { f.atk.dmg *= 2.5; f.atk.boltCrit = true; f.atk.hitstop = 22; f.atk.shake = 18; f.atk.txt = ['검은 번개!!']; popText(f.x, f.y - 230 * k, '검은 번개!!', '#ff1744', 30); }   // 35%: 2.5배
 }
 function itUpdate(f) {   // 매 프레임 (싸우는 돼지 update에서)
   const o = f.opp;
@@ -4376,7 +4388,7 @@ function itUpdate(f) {   // 매 프레임 (싸우는 돼지 update에서)
   }
   if (f.curseT > 0) {
     f.curseT--;
-    if (f.curseT % 75 === 0 && o.state !== 'ko' && scene === 'fight') {   // 저주왕: 보이지 않는 칼날이 상대를 저절로 벰
+    if (f.curseT % (f.awk ? 45 : 75) === 0 && o.state !== 'ko' && scene === 'fight') {   // 저주왕: 보이지 않는 칼날이 상대를 저절로 벰
       dealHit(f, o, { dmg: 4.5, height: 'mid', kb: 2, stun: 12, src: f.x, kind: 'ult', force: true, noReact: false, hitstop: 4, shake: 6, txt: ['베기!', '싹둑!', '촥!'] });
       for (let i = 0; i < 2; i++) slash(o.x + rand(-30, 30), o.y - rand(60, 140)); whipS(1.3, 0.5);
     }
@@ -4386,9 +4398,9 @@ function itUpdate(f) {   // 매 프레임 (싸우는 돼지 update에서)
 function itUlt(f, o, T) {
   const s = f.sc / 1.15; f.vx = 0;
   if (T === 6) {
-    f.curseT = 900; shake = 22; SFX.boom();
+    f.curseT = f.awk ? 1320 : 900; shake = 22; SFX.boom();
     burst(f.x, f.y - 100 * s, 60, ['#b71c1c', '#000', '#ff5252', '#fff'], 13);
-    popText(f.x, f.y - 260 * s, '저주왕 빙의 · 15초!!', '#ff1744', 32);
+    popText(f.x, f.y - 260 * s, '저주 결계 · 15초!!', '#ff1744', 32);
     if (Math.abs(o.x - f.x) < 320) dealHit(f, o, { dmg: 20, launch: -15, kb: 18, stun: 44, src: f.x, kind: 'ult', height: 'mid', hitstop: 18, shake: 18, txt: ['저주 폭발!!'] });
     ultEnd(f, o);
   }
@@ -4396,6 +4408,7 @@ function itUlt(f, o, T) {
 // 저주왕 모습: 붉은 기운 · 얼굴 문신 · 붉은 눈 두 쌍
 function drawCurse(f) {
   if (!(f.curseT > 0)) return;
+  if (f.ch) { const a0 = Math.min(1, f.curseT / 60); ctx.save(); ctx.fillStyle = `rgba(70,0,0,${0.2 * a0})`; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = `rgba(255,23,68,${0.35 * a0})`; ctx.lineWidth = 2; for (let i = 0; i < 12; i++) { const yy = (i * 47 + gT * 2) % H; line(0, yy, W, yy + 30); } ctx.strokeStyle = `rgba(255,23,68,${0.6 * a0})`; ctx.lineWidth = 8; ctx.strokeRect(6, 6, W - 12, H - 12); txt('저주 결계', W / 2, 92, 16, `rgba(255,138,128,${a0})`, '#000', 4); ctx.restore(); }   // 저주 결계: 화면 전체가 붉은 결계
   const s = f.sc, a = Math.min(1, f.curseT / 60), hx = f.x + f.facing * 36 * s, hy = f.y - 90 * s;
   ctx.save(); ctx.globalAlpha *= a;
   for (let i = 0; i < 3; i++) { const g = ctx.createRadialGradient(f.x, f.y - 80 * s, 10, f.x, f.y - 80 * s, (110 + i * 25 + Math.sin(gT * 0.2 + i) * 8) * s); g.addColorStop(0, 'rgba(183,28,28,0)'); g.addColorStop(0.7, 'rgba(183,28,28,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y - 80 * s, (110 + i * 25) * s, 0, Math.PI * 2); ctx.fill(); }
@@ -4417,7 +4430,7 @@ function drawItCut(f) {
   ctx.save(); ctx.translate(W * 0.38, H + 60); const sc = f.ch.scale * (2.2 + T * 0.003); drawPig(0, 0, 1, f.C, { t: gT, scale: sc, victory: T > 60 }); ctx.restore();
   if (T > 35) drawCurse({ x: W * 0.38, y: H + 60, facing: 1, sc: f.ch.scale * (2.2 + T * 0.003), curseT: Math.min(60, (T - 35) * 3) });
   if (T > 70) for (let i = 0; i < 6; i++) { ctx.strokeStyle = `rgba(255,255,255,${0.8 - ((T * 3 + i * 20) % 60) / 80})`; ctx.lineWidth = 3; const y = 80 + i * 70; line(0, y + ((T * 13 + i * 50) % 60), W, y - 40 + ((T * 13 + i * 50) % 60)); }   // 보이지 않는 칼날
-  ctx.save(); ctx.translate((1 - Math.min(1, T / 14)) * -W, 0); ctx.fillStyle = 'rgba(120,0,0,0.85)'; ctx.fillRect(0, 60, W, 70); txt('저주왕 빙의', W / 2, 95, 46, '#fff', '#1a0000', 10); ctx.restore();
+  ctx.save(); ctx.translate((1 - Math.min(1, T / 14)) * -W, 0); ctx.fillStyle = 'rgba(120,0,0,0.85)'; ctx.fillRect(0, 60, W, 70); txt('저주 결계', W / 2, 95, 46, '#fff', '#1a0000', 10); ctx.restore();
   if (T > 40) txt(T < 75 ? '"...꽤 재밌는 몸이군."' : '15초 동안 · 저절로 베는 칼날 · 공격력↑', W / 2, H - 50, 22, '#ffcdd2', '#000', 6);
   if (T > 102) { ctx.fillStyle = `rgba(255,23,68,${(T - 102) / 8})`; ctx.fillRect(0, 0, W, H); }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 30); ctx.fillRect(0, H - 18, W, 18);
@@ -4434,7 +4447,7 @@ function updateItTrailer() {
   if (T === 640) { SFX.boom(); itt.sh = 26; }
   if (T >= 660 && T < 760 && T % 8 === 0) whipS(1.2, 0.5);
   if (T === 780) SFX.bell();
-  if (T >= ITT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '👊', title: '이타돼리 등장!', lines: ['⏰ 10일 안에 이타돼리 퀘스트를 깨면 해금!', '늦게 터지는 주먹 · 검은 번개 · 돌려차기', '필살기: 저주왕 빙의 (15초)', '🎁 보상 센터에서 퀘스트 확인'], big: true }); }
+  if (T >= ITT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '👊', title: '이타돼리 등장!', lines: ['⏰ 10일 안에 이타돼리 퀘스트를 깨면 해금!', '늦게 터지는 주먹 · 검은 번개 · 돌려차기', '필살기: 저주 결계 (15초)', '🎁 보상 센터에서 퀘스트 확인'], big: true }); }
 }
 function drawItTrailer() {
   const T = itt.t, c = CHARS.find(x => x.name === '이타돼리'), L = c.look;
@@ -4465,7 +4478,7 @@ function drawItTrailer() {
     if (lt > 60) drawCurse({ x: W / 2, y: H + 80, facing: 1, sc: 2.4 * c.scale, curseT: Math.min(60, (lt - 60) * 2) });
     if (lt > 160) for (let i = 0; i < 8; i++) { ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 3; const y = (i * 67 + lt * 9) % H; line(0, y, W, y - 80); }
     if (lt > 20 && lt < 150) txt('"...드디어 나왔군."', W / 2, 70, 30, '#ffcdd2', '#000', 7);
-    if (lt > 160) nrtCard('저주왕 빙의', '필살기 · 15초 동안 저절로 베는 칼날 + 공격력↑', lt - 160, '#ffcdd2', '#5d0000');
+    if (lt > 160) nrtCard('저주 결계', '필살기 · 15초 동안 저절로 베는 칼날 + 공격력↑', lt - 160, '#ffcdd2', '#5d0000');
   } else {   // 5컷: 타이틀
     const lt = T - 760, k = Math.min(1, lt / 20);
     ctx.fillStyle = '#07040a'; ctx.fillRect(0, 0, W, H);
@@ -4622,6 +4635,78 @@ function drawBigTrailer() {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 34); ctx.fillRect(0, H - 30, W, 30);
   if (T > 60) txt(TOUCH ? '탭하면 건너뛰기' : 'Enter 건너뛰기', W - 20, H - 15, 12, '#888', null, 0, 'right');
   addHot(0, 0, W, H, () => { if (bigt.t > 60) pressed.Enter = true; });
+}
+// ================= ⚡ 캐릭터 각성 (모듈식: AWAKE에 돼지와 조건만 추가하면 됨) =================
+// 그 돼지로 연승 모드·랭크전을 하며 조건을 전부 채우면 각성: 체력·공격력↑ · 필살기 강화 · 각성 오라
+// 저장: sgf_awake = { 돼지이름: { 조건id: 숫자, done: true } }
+const AWAKE = {
+  '이타돼리': {
+    title: '각성 · 저주의 그릇', color: '#ff1744', hp: 1.2, power: 1.2,
+    note: '필살기 저주 결계가 22초로 늘고, 칼날이 더 자주 벰',
+    steps: [
+      { id: 'win', name: '이타돼리로 150번 이기기', goal: 150 },
+      { id: 'ranked', name: '이타돼리로 랭크전 100번 이기기', goal: 100 },
+      { id: 'ultko', name: '이타돼리 필살기(저주 결계)로 K.O. 60번', goal: 60 },
+      { id: 'lose', name: '이타돼리로 50번 지기 (쓰러져야 강해진다)', goal: 50 },
+      { id: 'streak', name: '이타돼리로 연승 모드 30연승', goal: 30 },
+      { id: 'perfect', name: '이타돼리로 한 대도 안 맞고 이기기 25번', goal: 25 }
+    ]
+  }
+};
+const awkAll = () => lsGet('sgf_awake', {});
+const awkOf = name => awkAll()[name] || {};
+const isAwake = name => !!(AWAKE[name] && awkOf(name).done);
+function awkAdd(name, id, v = 1, max = false) {
+  const A = AWAKE[name]; if (!A || isAwake(name)) return;
+  const st = A.steps.find(s => s.id === id); if (!st) return;
+  const all = awkAll(), q = all[name] || {}, was = q[id] || 0; if (was >= st.goal) return;
+  q[id] = Math.min(st.goal, max ? Math.max(was, v) : was + v); all[name] = q;
+  if (q[id] >= st.goal) {
+    if (A.steps.every(s => (q[s.id] || 0) >= s.goal)) { q.done = true; popup({ icon: '⚡', title: `${name} 각성!!!`, lines: [A.title, `체력 ×${A.hp} · 공격력 ×${A.power}`, A.note], big: true }); }
+    else toast(`⚡ ${name} 각성 조건 달성: ${st.name}`);
+  }
+  lsSet('sgf_awake', all); cloudDirty();
+}
+function showAwake() {
+  const L = Object.keys(AWAKE).filter(n => isUnlocked(CHARS.find(c => c.name === n)));
+  if (!L.length) { toast('⚡ 각성할 수 있는 돼지가 아직 없어요 (이타돼리를 먼저 얻으세요)'); return; }
+  for (const n of L) {
+    const A = AWAKE[n], q = awkOf(n);
+    popup({ icon: '⚡', title: isAwake(n) ? `${n} · ${A.title} (각성 완료)` : `${n} 각성 조건 (전부 채우면 각성)`, lines: [...A.steps.map(s => `${(q[s.id] || 0) >= s.goal ? '✅' : '⬜'} ${s.name}  ${Math.min(q[s.id] || 0, s.goal)}/${s.goal}`), `보상: 체력 ×${A.hp} · 공격력 ×${A.power} · ${A.note}`] });
+  }
+}
+// 각성 오라: 검붉은 번개가 몸 주위에서 튐
+function drawAwake(f) {
+  if (!f.awk || f.state === 'ko') return;
+  const s = f.sc / 1.15, A = AWAKE[f.ch.name];
+  if (gT % 6 < 3) { ctx.save(); ctx.shadowColor = A.color; ctx.shadowBlur = 14; ctx.strokeStyle = gT % 12 < 6 ? A.color : '#000'; ctx.lineWidth = 3; ctx.beginPath(); let x = f.x + rand(-60, 60) * s, y = f.y - rand(30, 170) * s; ctx.moveTo(x, y); for (let j = 0; j < 4; j++) { x += rand(-22, 22); y += rand(-22, 22); ctx.lineTo(x, y); } ctx.stroke(); ctx.restore(); }
+  txt('각성', f.x, f.y - 232 * s, 13, A.color, '#000', 4);
+}
+// ================= 🎨 스킨: 몸 색 + 때릴 때 효과가 바뀜 (상점에서 사서 장착, 내 돼지에 적용) =================
+const SKIN_DEF = {
+  skHell:   { name: '지옥불', pal: { body: '#6d1b1b', dark: '#1a0000', belly: '#9c2a2a', snout: '#b23a3a', hoof: '#120000', brow: '#000' }, fx: ['#ff3d00', '#ffab00', '#3e0000'], kind: 'fire', aura: '#ff3d00' },
+  skIce:    { name: '빙하', pal: { body: '#b3e5fc', dark: '#0277bd', belly: '#e1f5fe', snout: '#81d4fa', hoof: '#01579b', brow: '#01579b' }, fx: ['#e1f5fe', '#4fc3f7', '#ffffff'], kind: 'ice', aura: '#81d4fa' },
+  skBolt:   { name: '번개', pal: { body: '#fff176', dark: '#6a1b9a', belly: '#fff9c4', snout: '#ffd54f', hoof: '#4a148c', brow: '#4a148c' }, fx: ['#ffeb3b', '#b388ff', '#ffffff'], kind: 'bolt', aura: '#ffeb3b' },
+  skGalaxy: { name: '은하수', pal: { body: '#311b92', dark: '#0d0630', belly: '#4527a0', snout: '#5e35b1', hoof: '#0d0630', brow: '#000' }, fx: ['#b388ff', '#80d8ff', '#ffffff'], kind: 'star', aura: '#b388ff' },
+  skSakura: { name: '벚꽃', pal: { body: '#fce4ec', dark: '#c2185b', belly: '#ffffff', snout: '#f8bbd0', hoof: '#ad1457', brow: '#880e4f' }, fx: ['#f8bbd0', '#ffffff', '#f48fb1'], kind: 'petal', aura: '#f48fb1' },
+  skGold:   { name: '황금 왕', pal: { body: '#ffd54f', dark: '#8d6e00', belly: '#fff8e1', snout: '#ffca28', hoof: '#5d4037', brow: '#5d4037' }, fx: ['#ffd740', '#fff8e1', '#ffab00'], kind: 'coin', aura: '#ffd740' }
+};
+const skinOf = f => f && f.C && f.C.skin && SKIN_DEF[f.C.skin];
+// 때릴 때: 스킨마다 다른 파편 · 모양
+function skinHitFx(a, x, y, dmg) {
+  const S = skinOf(a); if (!S) return;
+  const n = Math.min(14, 4 + dmg * 0.6 | 0);
+  if (S.kind === 'fire') for (let i = 0; i < n; i++) flame(x + rand(-20, 20), y + rand(-20, 20));
+  if (S.kind === 'ice') for (let i = 0; i < n; i++) parts.push({ x, y, vx: rand(-7, 7), vy: rand(-8, 2), life: 26, max: 26, c: pick(S.fx), s: rand(3, 6), g: 0.3, type: 'dot', glow: true });
+  if (S.kind === 'bolt') { for (let i = 0; i < 3; i++) slash(x + rand(-20, 20), y + rand(-20, 20)); }
+  if (S.kind === 'star' || S.kind === 'petal' || S.kind === 'coin') for (let i = 0; i < Math.min(5, n); i++) texts.push({ x: x + rand(-30, 30), y: y + rand(-20, 20), s: S.kind === 'star' ? '✦' : S.kind === 'petal' ? '🌸' : '🪙', c: pick(S.fx), size: 18 + rand(0, 10), life: 30, max: 30 });
+  parts.push({ type: 'ring', x, y, r: 10, life: 16, max: 16, c: S.kind === 'ice' ? '129,212,250' : S.kind === 'fire' ? '255,61,0' : S.kind === 'bolt' ? '255,235,59' : S.kind === 'star' ? '179,136,255' : S.kind === 'petal' ? '248,187,208' : '255,215,64', vx: 0, vy: 0, g: 0 });
+}
+// 서 있을 때도 스킨 기운이 살짝
+function drawSkinAura(f) {
+  const S = skinOf(f); if (!S || f.state === 'ko' || gT % 7) return;
+  const s = f.sc / 1.15;
+  parts.push({ x: f.x + rand(-50, 50) * s, y: f.y - rand(20, 150) * s, vx: rand(-0.3, 0.3), vy: -1, life: 30, max: 30, c: S.aura, s: rand(2, 3.5), g: -0.01, type: 'dot', glow: true });
 }
 // ================= 🎁 보상 센터: 출석 체크 · 행운 룰렛 · 일일 미션 =================
 // 저장: sgf_reward = { day(마지막 출석 날짜), att(연속 출석 1~7), days(총 출석), spinDay, spins(오늘 쓴 무료), bonus(쌓인 무료 룰렛),
@@ -4818,6 +4903,7 @@ function drawReward() {
   if (free && RWS.t < 0 && gT % 50 < 25) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; rr(110, 482, 300, 40, 12); ctx.stroke(); }
   txt(lab, 260, 502, fitSize(lab, 18, 280), '#fff', '#000', 4);
   addHot(110, 482, 300, 40, () => { RWS.sel = 0; spinWheel(); });
+  ctx.fillStyle = 'rgba(120,0,0,0.6)'; rr(14, 124, 100, 30, 8); ctx.fill(); txt('⚡ 각성 조건', 64, 139, 12, '#ff8a80', null); addHot(14, 124, 100, 30, () => showAwake());
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 88, 100, 30, 8); ctx.fill(); txt('🎬 돼루토 예고편', 64, 103, 11, '#ffcc80', null); addHot(14, 88, 100, 30, () => startNrTrailer());
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 52, 100, 30, 8); ctx.fill(); txt(TOUCH ? '📊 확률' : '📊 확률 [P]', 64, 67, 13, '#fff59d', null); addHot(14, 52, 100, 30, () => showOdds());
   if (wheelSlots().some(s => s.k === 'char')) txt(`🤖 볼트돈 확정까지 ${PITY_N - (RW.pity || 0)}번`, 260, 468, 13, '#84ffff', '#000', 3);
@@ -5539,7 +5625,7 @@ function startMatch() {
   p2.name = mode === 0 ? p2.base + ' (CPU)' : `${p2.base} Lv.${oppLv() + 1}`;
   if (mode === 1) p2.meter = Math.min(40, (ranked ? tierOf(tp) : streak) * 4);
   if (mode === 3) { p1.cpuLv = p2.cpuLv = 0; p1.name = NET.names[0]; p2.name = NET.names[1]; }
-  p1.hpMul = p2.hpMul = 1; p1.condDmg = p2.condDmg = 1; p1.cond = p2.cond = -1;
+  p1.hpMul = p2.hpMul = 1; p1.awk = p2.awk = false; p1.condDmg = p2.condDmg = 1; p1.cond = p2.cond = -1;
   if (mode === 4) {   // AI 베팅: 컨디션이 실제 체력·공격력에 반영됨
     p1.cond = bet4.ca; p2.cond = bet4.cb;
     p1.hpMul = COND_HP[bet4.ca]; p2.hpMul = COND_HP[bet4.cb]; p1.condDmg = COND_DMG[bet4.ca]; p2.condDmg = COND_DMG[bet4.cb];
@@ -5550,6 +5636,7 @@ function startMatch() {
     if (inv.use.meter > 0) { inv.use.meter--; p1.meter = 50; toast('⚡ 필살 게이지 50%로 시작!'); }
     if (inv.use.fullMeter > 0) { inv.use.fullMeter--; p1.meter = 100; toast('🔥 필살 게이지 100%로 시작!'); }
     p1.lucky = false; if (inv.use.luckyCharm > 0) { inv.use.luckyCharm--; p1.lucky = true; toast('🍀 황금 행운 부적! 이기면 승리 코인 5배'); }
+    if (isAwake(p1.ch.name)) { p1.awk = true; p1.hpMul = (p1.hpMul || 1) * AWAKE[p1.ch.name].hp; toast(`⚡ ${AWAKE[p1.ch.name].title}`); }   // 각성한 돼지
     saveInv();
   }
 
@@ -5805,10 +5892,12 @@ function startCutscene(w, l) {
       cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1) * evMul('coin'); if (p1.lucky) { cut.earn.win *= 5; p1.lucky = false; }   // 황금 행운 부적   // 금한돈: 승리 코인 3배
       cut.earn.win += jackpotRoll(cut.earn.win); rwProgress('win'); if (ranked) rwProgress('ranked');   // 잭팟 이벤트 · 일일 미션
       if (ranked) nqAdd('ranked', 1); else nqAdd('streak', streak, true);   // 돼루토 퀘스트
+      { const nm = p1.ch.name; awkAdd(nm, 'win'); if (ranked) awkAdd(nm, 'ranked'); else awkAdd(nm, 'streak', streak, true); if (p1.stats.minHpRatio >= 0.999) awkAdd(nm, 'perfect'); }   // ⚡ 각성 조건
       if (bet > 0) cut.earn.bet = bet * (betSel === 2 ? 3 : 2);
       addCoins(cut.earn.win + cut.earn.bet);
     } else {
       if (bet > 0) cut.earn.bet = -bet;
+      awkAdd(p1.ch.name, 'lose');   // ⚡ 각성 조건: 그 돼지로 지기
       if (RV.choice === 'big' && inv.use.bigRevive > 0) { inv.use.bigRevive--; saveInv(); cut.revived = true; cut.bigRev = true; if (bet > 0) { addCoins(bet); cut.earn.bet = 0; } toast('💎 대형 부활권! 건 돈·티어 점수 그대로 이어서'); }   // 대형 부활권: 돈·랭크 안 잃음
       else if (RV.choice === 'normal' && inv.use.revive > 0) { inv.use.revive--; saveInv(); cut.revived = true; }   // 고른 부활권만 씀
       else { runOver = true; rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now(), rk: !!ranked }); }
@@ -6525,6 +6614,7 @@ function drawFighter(f) {
   drawNewFront(f);
   drawCurse(f);   // 저주왕
   drawBigFront(f);
+  drawAwake(f); drawSkinAura(f);   // 각성 오라 · 스킨 기운
   const sp = spiritOn(f); if (sp) drawSpirit(f, sp);
   if (f.ch.spirit && (f.state === 'idle' || f.state === 'walk' || TSTOP) && f.state !== 'ko') {   // 스탠드 사용자 주위에 떠다니는 만화 기운 글자 (ゴゴゴ · PIO는 ドドド)
     const k = f.sc / 1.15;
@@ -7078,6 +7168,10 @@ if (/autotest/.test(location.search)) {
       out.push(`quest: step=${nqStep()} unlocked=${isUnlocked(NR)}`); if (!isUnlocked(NR)) throw new Error('돼루토 퀘스트 실패'); localStorage.removeItem('sgf_unlock_돼루토'); POPQ.length = 0;
       for (const Q of QUESTS.slice(1)) { const c = CHARS.find(x => x.name === Q.ch); localStorage.removeItem('sgf_unlock_' + Q.ch); lsSet(Q.key, {}); const before = isUnlocked(c); for (const st of Q.steps) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`quest ${Q.ch}: before=${before} after=${isUnlocked(c)}`); if (before || !isUnlocked(c)) throw new Error(Q.ch + ' 퀘스트 실패'); localStorage.removeItem('sgf_unlock_' + Q.ch); POPQ.length = 0; POP = null; }
       if (!isUnlocked(CHARS.find(x => x.name === '훈제돈')) || !isUnlocked(CHARS.find(x => x.name === '핑크하트'))) throw new Error('무료 돼지 해금 실패');
+      { lsSet('sgf_awake', {}); const A = AWAKE['이타돼리']; for (const st of A.steps) for (let k = 0; k < st.goal; k++) awkAdd('이타돼리', st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`awake: ${isAwake('이타돼리')}`); if (!isAwake('이타돼리')) throw new Error('각성 실패');
+        mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); const d0 = p1.dmgMul('punch'); p1.awk = true; const d1 = p1.dmgMul('punch'); out.push(`awake dmg ${d0.toFixed(2)} -> ${d1.toFixed(2)}`); if (!(d1 > d0)) throw new Error('각성 공격력 실패'); for (let n = 0; n < 130; n++) step(); draw(); lsSet('sgf_awake', {}); POPQ.length = 0; POP = null; showAwake(); POPQ.length = 0; }
+      { coins = 1e9; const si = SHOP.findIndex(x => x.id === 'skGalaxy'); shopAct(si); out.push(`skin: own=${!!inv.own.skGalaxy} eq=${inv.eq.skin}`); if (inv.eq.skin !== 'skGalaxy') throw new Error('스킨 장착 실패'); const lk = withCos(CHARS[0]).look; if (lk.skin !== 'skGalaxy' || lk.body !== SKIN_DEF.skGalaxy.pal.body) throw new Error('스킨 색 실패');
+        mode = 0; p1.setChar(withCos(CHARS[0])); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 420; p2.x = 520; dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 10 }); draw(); openMarket(); mk.tab = 1; mk.sel = SHOP.length - 1; draw(); shopAct(si); if (inv.eq.skin) throw new Error('스킨 해제 실패'); scene = 'title'; }
       localStorage.removeItem('sgf_unlock_볼트돈'); RWS.slots = wheelSlots(); RWS.res = RWS.slots.findIndex(x => x.k === 'char'); wheelDone(); out.push(`wheel char: slot=${RWS.res} unlocked=${isUnlocked(DV)}`); if (RWS.res < 0 || !isUnlocked(DV)) throw new Error('룰렛 볼트돈 실패'); localStorage.removeItem('sgf_unlock_볼트돈'); POPQ.length = 0; POP = null;
       localStorage.removeItem('sgf_unlock_볼트돈'); RW.pity = PITY_N - 1; RW.bonus = 5; RWS.t = -1; spinWheel(); const pk = RWS.slots[RWS.res].k; for (let n = 0; n < RWS.T + 2; n++) updateReward(); out.push(`pity: res=${pk} pity=${RW.pity} unlocked=${isUnlocked(DV)}`); if (pk !== 'char' || !isUnlocked(DV)) throw new Error('200번 확정 실패'); localStorage.removeItem('sgf_unlock_볼트돈');
       inv.use.fastSpin = 1; spinWheel(); out.push(`fast spin T=${RWS.T}`); if (RWS.T !== 45) throw new Error('빠른 룰렛 실패'); for (let n = 0; n < 50; n++) updateReward(); inv.use.fastSpin = 0; POPQ.length = 0; showOdds(); out.push(`odds: ${POPQ[0].lines.length} lines`); POPQ.length = 0; POP = null;
