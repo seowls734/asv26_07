@@ -36,6 +36,8 @@ const normLogin = v => String(v || '').trim().normalize('NFC').toLowerCase();
 // 관리자 아이디 (Cloudflare 환경변수 ADMINS에 쉼표로 넣으면 그걸 씀)
 const DEFAULT_ADMINS = '정우쮝';
 const adminList = env => String(env.ADMINS || DEFAULT_ADMINS).split(',').map(normLogin).filter(Boolean);
+const DEFAULT_TESTERS = 'pigtest01';   // 테스트 계정: 공개 전 돼지까지 모두 써 봄 (관리자 계정은 일반 플레이어처럼)
+const testerList = env => String(env.TESTERS || DEFAULT_TESTERS).split(',').map(normLogin).filter(Boolean);
 // 구글 OAuth 클라이언트 ID (공개값이라 코드에 둬도 됨. 환경변수 GOOGLE_CLIENT_ID가 있으면 그걸 씀) — index.html의 GOOGLE_CLIENT_ID와 같아야 함
 const DEFAULT_GOOGLE_CLIENT_ID = '36016988229-39ku26haf3v904rslpfvh5vnjlb3fc3t.apps.googleusercontent.com';
 // 구글 ID 토큰 확인 → 구글 계정 고유번호(sub) / 실패하면 null
@@ -415,7 +417,7 @@ export default {
       let login = '';
       if (m) {
         const u = await db.prepare('SELECT u.login, u.saved, u.admin_edit FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
-        if (u) { c.saved = u.saved || 0; c.adminEdit = u.admin_edit || 0; login = u.login; if (adminList(env).includes(u.login)) c.admin = true; }
+        if (u) { c.saved = u.saved || 0; c.adminEdit = u.admin_edit || 0; login = u.login; if (adminList(env).includes(u.login)) c.admin = true; if (testerList(env).includes(u.login)) c.tester = true; }
       }
       // 지금 접속 중 알림 (?p=기기번호&n=이름&s=화면): 게임이 1분마다 한 번 보냄 → 관리자 화면의 '지금 접속'
       const q = new URL(req.url).searchParams, p = String(q.get('p') || '').slice(0, 40);

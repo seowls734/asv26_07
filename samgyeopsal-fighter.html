@@ -730,7 +730,7 @@ let pushing = 0;   // 저장 중이면 건너뜀 (방금 내가 올린 기록을
 function authExpired(banned, msg) { setAuth({ guest: true }); toast(banned ? '⛔ ' + (msg || '정지된 계정이에요. 관리자에게 문의하세요') : '🔑 로그인이 만료됐어요. 타이틀에서 다시 로그인해 주세요'); }
 // 공지 · 랭킹 시즌 · 이벤트 · 선물 · 내 계정 기록 바뀜을 10초마다 한 번에 확인 (게임을 보고 있을 때만)
 // 관리자가 바꾼 게 10초 안에, 새로고침 없이 반영됨
-let IS_ADMIN = false;   // 관리자 계정이면 서버가 알려 줌 → 모든 돼지 해금
+let IS_ADMIN = false, IS_TESTER = false;   // 테스트 계정이면 서버가 알려 줌 → 공개 전 돼지까지 모두 해금 (관리자 계정은 일반 플레이어와 같음)
 let notice = '', EVT = null, GIFT = null;   // EVT: { coin, tp, ty, jackpot, spins, luck, daily, msg, until, id }
 const evLive = () => !!(EVT && (!EVT.until || Date.now() < EVT.until));
 const evMul = k => { if (!evLive()) return 1; const n = +EVT[k] || (EVT[k + '2x'] ? 2 : 1); return Math.max(1, n); };
@@ -765,7 +765,7 @@ function fetchConfig() {
   const ping = cfgPing++ % 6 === 0 ? `?p=${lsGet('sgf_dev', '')}&n=${encodeURIComponent(playerName)}&s=${scene}` : '';   // 1분마다 '지금 접속 중' 알림 (관리자 화면)
   authFetch('/config' + ping).then(d => {
     applyBal(d.bal);
-    IS_ADMIN = !!d.admin;
+    IS_ADMIN = !!d.admin; IS_TESTER = !!d.tester;
     setRel(d.rel);   // 관리자가 공개한 업데이트
     if (+d.mreset && +d.mreset !== (RW.mReset || 0)) { const today = dayKey(+d.mreset) === dayKey(); RW.mReset = +d.mreset; if (today) { RW.mDay = ''; rwMissions(); } rwSave(); if (today) toast('🎯 관리자가 일일 미션을 새로 바꿨어요! 🎁 보상 센터에서 확인'); }   // 관리자 미션 초기화
     notice = String(d.notice || '');
@@ -2036,7 +2036,7 @@ function dealHit(a, d, h) {
   hitstop = Math.max(hitstop, h.hitstop ?? Math.round(3 + dmg * 0.4)); shake = Math.max(shake, h.shake ?? dmg * 0.6);
   const hx = h.hx ?? (h.src + d.x) / 2, hy = d.y - 95 * d.sc / 1.15;
   burst(hx, hy, Math.min(30, 8 + dmg), skinOf(a) ? skinOf(a).fx : ['#fff176', '#ffffff', '#ff8a65'], Math.min(14, 6 + dmg * 0.4)); skinHitFx(a, hx, hy, dmg);   // 🎨 스킨마다 다른 타격 효과
-  if (h.boltCrit) { bfT = 14; SFX.boom(); popText(hx, hy - 90, '검은 번개!!', '#ff1744', 32); }
+  if (h.boltCrit) { bfT = 14; SFX.boom(); if (a === p1 && mode === 1) awkAdd(a.ch.name, 'bolt'); popText(hx, hy - 90, '검은 번개!!', '#ff1744', 32); }
   if (h.cleave) { for (let i = 0; i < 5; i++) slash(hx + rand(-30, 30), hy + rand(-50, 50)); }   // 검은 번개: 화면이 검붉게 번쩍
   if (h.boltCrit) { for (let i = 0; i < 6; i++) slash(hx + rand(-40, 40), hy + rand(-40, 40)); burst(hx, hy, 30, ['#000', '#ff1744', '#b71c1c'], 14); shake = Math.max(shake, 20); }   // 검은 번개
   parts.push({ type: 'ring', x: hx, y: hy, r: 8, life: 14, max: 14, c: dmg > 10 ? '255,213,79' : '255,255,255', vx: 0, vy: 0, g: 0 });
@@ -2050,7 +2050,7 @@ function dealHit(a, d, h) {
   if (d.hp <= 0) {
     d.state = 'ko'; d.koT = 0; d.vy = -11; d.vx = (Math.sign(d.x - h.src) || -d.facing) * 9; d.atk = null;
     hitstop = 22; shake = 18; SFX.ko(); setTimeout(SFX.squeal, 250);
-    if (h.kind === 'ult') a.stats.ultFinish = true; if (h.kind === 'ult' && a === p1 && mode === 1) { nqAdd('ultko', 1); awkAdd(a.ch.name, 'ultko'); }   // 퀘스트: 필살기로 K.O.
+    if (h.kind === 'ult') a.stats.ultFinish = true; if (h.kind === 'ult' && a === p1 && mode === 1) { nqAdd('ultko', 1); awkAdd(a.ch.name, a.ultAlt === 'dismantle' && a.state === 'ult' ? 'dismko' : 'ultko'); }   // 퀘스트: 필살기로 K.O.
     if (scene === 'fight') endRound(a, 'K.O.!!');
     return 'hit';
   }
@@ -2530,7 +2530,7 @@ function drawOpening() {
 // ================= 캐릭터 선택 칸 =================
 // (커스텀 캐릭터 만들기 기능은 뺐음 → 기본 캐릭터만. 예전 버전 상대가 커스텀을 보내도 첫 캐릭터로 대신함)
 // 관리자 선물 돼지(unlock: 'admin')는 받기 전엔 어디에도 안 보임 (선택 칸·CPU 상대·AI 베팅·타이틀·장사 손님·오프닝 퍼레이드)
-const shownChar = c => (IS_ADMIN && isMember() && !!c) || !(c && c.relId && !isRel(c.relId)) && !(c && c.unlock === 'admin' && !isUnlocked(c)) && !(c && NEW_CHARS.includes(c.name) && !isReleased());
+const shownChar = c => (IS_TESTER && isMember() && !!c) || !(c && c.relId && !isRel(c.relId)) && !(c && c.unlock === 'admin' && !isUnlocked(c)) && !(c && NEW_CHARS.includes(c.name) && !isReleased());
 const shownIdx = () => CHARS.map((c, i) => i).filter(i => shownChar(CHARS[i]));
 const pickShown = () => { const s = shownIdx(); return s[Math.random() * s.length | 0]; };
 const selCols = () => Math.ceil(shownIdx().length / 2);   // 두 줄로 (돼지가 늘면 칸이 좁아짐)
@@ -4381,7 +4381,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-21';
+const BUILD = '20261112-22';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4834,8 +4834,9 @@ const AWAKE = {
     note: '필살기 저주 결계가 22초로 늘고, 칼날이 더 자주 벰',
     steps: [
       { id: 'win', name: '이타돼리로 150번 이기기', goal: 150 },
-      { id: 'ranked', name: '이타돼리로 랭크전 100번 이기기', goal: 100 },
-      { id: 'ultko', name: '이타돼리 필살기(저주 결계)로 K.O. 60번', goal: 60 },
+      { id: 'bolt', name: '검은 번개 300번 터뜨리기 (평타·스킬 모두)', goal: 300 },
+      { id: 'ultko', name: '저주 결계로 K.O. 60번', goal: 60 },
+      { id: 'dismko', name: '베어 가르기(저주왕 상태 필살기)로 K.O. 30번', goal: 30 },
       { id: 'lose', name: '이타돼리로 50번 지기 (쓰러져야 강해진다)', goal: 50 },
       { id: 'streak', name: '이타돼리로 연승 모드 30연승', goal: 30 },
       { id: 'perfect', name: '이타돼리로 한 대도 안 맞고 이기기 25번', goal: 25 }
@@ -5460,7 +5461,7 @@ let tp = lsGet('sgf_tp', 0);
 // ---- 티어 해금 캐릭터 (금한돈 = 골드). 한 번 오르면 티어가 떨어지거나 파산해도 계속 쓸 수 있음 ----
 const isUnlocked = c => {
   if (!c || c.unlock == null) return true;
-  if (IS_ADMIN && isMember()) return true;   // 관리자 계정은 모든 돼지를 씀
+  if (IS_TESTER && isMember()) return true;   // 테스트 계정은 모든 돼지를 씀
   if (c.relId) { if (!isRel(c.relId)) return false; if (!c.quest) return true; }   // 공개된 업데이트 돼지: 퀘스트 돼지가 아니면 모두 무료
   const k = 'sgf_unlock_' + c.name;
   if (lsGet(k, false)) return true;
