@@ -3968,7 +3968,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-3';
+const BUILD = '20261112-4';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -3979,7 +3979,7 @@ setTimeout(checkVersion, 8000);
 function updateTick() {
   if (!newBuild) return;
   if (['intro', 'fight', 'roundEnd'].includes(scene)) { forceWin(); return; }
-  if (['cutscene', 'vs', 'opening', 'story', 'trailer'].includes(scene) || (scene === 'online' && NET.ready) || authOpen() || pushing) return;
+  if (['cutscene', 'vs', 'opening', 'story', 'trailer', 'revive'].includes(scene) || (scene === 'online' && NET.ready) || authOpen() || pushing) return;
   newBuild = false;
   try { sessionStorage.setItem('sgf_msg', '🆕 새 버전으로 업데이트됐어요!'); } catch (e) {}
   const go = () => location.reload();
@@ -4257,7 +4257,7 @@ function jackpotRoll(base) {
 // 싸우는 중에는 기다렸다가 끝나면 띄움. 탭하거나 Enter로 닫음
 const POPQ = []; let POP = null, popConf = [];
 function popup(o) { POPQ.push({ lines: [], ...o, t: 0 }); }
-const popBlocked = () => ['intro', 'fight', 'roundEnd', 'cutscene', 'vs', 'opening', 'story', 'trailer'].includes(scene) || authOpen();
+const popBlocked = () => ['revive', 'intro', 'fight', 'roundEnd', 'cutscene', 'vs', 'opening', 'story', 'trailer'].includes(scene) || authOpen();
 function updatePopup() {
   if (!POP && POPQ.length && !popBlocked()) {
     POP = POPQ.shift(); popConf = [];
@@ -4942,8 +4942,34 @@ function timeOver() {
 }
 function afterRound() {
   const champ = p1.wins >= 2 ? p1 : p2.wins >= 2 ? p2 : null;
+  if (champ === p2 && mode === 1 && ((inv.use.bigRevive || 0) > 0 || (inv.use.revive || 0) > 0)) { RV.t = 0; RV.sel = 0; scene = 'revive'; return; }   // 졌을 때 부활권: 쓸지 물어봄
   if (champ) startCutscene(champ, champ.opp);
   else { round++; startRound(); }
+}
+// ---- 💖 부활권 쓸까요? (졌을 때마다 고르기 · 15초 안 고르면 안 씀) ----
+const RV = { t: 0, sel: 0, choice: 'none' };
+const rvOpts = () => [(inv.use.bigRevive || 0) > 0 && ['big', `💎 대형 부활권 쓰기 (${inv.use.bigRevive}개)`, '이어하기 + 건 돈·티어 점수 안 잃음'], (inv.use.revive || 0) > 0 && ['normal', `💖 부활권 쓰기 (${inv.use.revive}개)`, '이어하기 (건 돈은 잃어요)'], ['none', '❌ 안 쓰고 끝내기', '부활권은 아껴 둬요']].filter(Boolean);
+function reviveGo(c) { RV.choice = c; SFX.confirm(); startCutscene(p2, p1); RV.choice = 'none'; }
+function updateRevive() {
+  const L = rvOpts(); RV.t++;
+  if (pressed.KeyW || pressed.ArrowUp) { RV.sel = (RV.sel + L.length - 1) % L.length; SFX.select(); }
+  if (pressed.KeyS || pressed.ArrowDown) { RV.sel = (RV.sel + 1) % L.length; SFX.select(); }
+  for (let i = 0; i < L.length; i++) if (pressed['Digit' + (i + 1)]) return reviveGo(L[i][0]);
+  if (RV.t > 20 && (pressed.Enter || pressed.Space || pressed.KeyI)) return reviveGo(L[RV.sel][0]);
+  if (pressed.Escape || RV.t >= 900) return reviveGo('none');
+}
+function drawRevive() {
+  drawFight(); ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
+  const L = rvOpts();
+  txt('💀 졌어요! 부활권을 쓸까요?', W / 2, 120, 34, '#ffcdd2', '#000', 8);
+  txt(`${streak}연승 중 · ${Math.ceil((900 - RV.t) / 60)}초 안에 안 고르면 안 써요`, W / 2, 162, 15, '#ccc', '#000', 4);
+  L.forEach(([k, a, b], i) => {
+    const y = 200 + i * 78, on = RV.sel === i;
+    ctx.fillStyle = on ? (k === 'big' ? 'rgba(0,176,255,0.6)' : k === 'normal' ? 'rgba(255,64,129,0.55)' : 'rgba(120,120,120,0.6)') : 'rgba(25,12,40,0.9)'; rr(W / 2 - 260, y, 520, 66, 14); ctx.fill();
+    if (on) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; rr(W / 2 - 260, y, 520, 66, 14); ctx.stroke(); }
+    txt(`${i + 1}. ${a}`, W / 2, y + 24, 22, '#fff', '#000', 4); txt(b, W / 2, y + 50, 13, '#eee', null);
+    addHot(W / 2 - 260, y, 520, 66, () => { RV.sel = i; pressed.Enter = true; });
+  });
 }
 // 돼타로 스탠드: I+O로 꺼내면 뚱타플레티나가 계속 나와서 상대를 따라감 (돼타로에게서 380px까지)
 function standToggle(f) {
@@ -5017,6 +5043,7 @@ function step() {
   else if (scene === 'reward') updateReward();
   else if (scene === 'trailer') updateTrailer();
   else if (scene === 'keys') updateKeys();
+  else if (scene === 'revive') { updateRevive(); if (pressed.Escape) pressed.Escape = false; }
   else if (scene === 'tycoon') updateTycoon();
   else if (scene === 'opening') {
     sceneT++; updateOpening();
@@ -5142,8 +5169,8 @@ function startCutscene(w, l) {
       addCoins(cut.earn.win + cut.earn.bet);
     } else {
       if (bet > 0) cut.earn.bet = -bet;
-      if (inv.use.bigRevive > 0) { inv.use.bigRevive--; saveInv(); cut.revived = true; cut.bigRev = true; if (bet > 0) { addCoins(bet); cut.earn.bet = 0; } toast('💎 대형 부활권! 건 돈·티어 점수 그대로 이어서'); }   // 대형 부활권: 돈·랭크 안 잃음
-      else if (inv.use.revive > 0) { inv.use.revive--; saveInv(); cut.revived = true; }
+      if (RV.choice === 'big' && inv.use.bigRevive > 0) { inv.use.bigRevive--; saveInv(); cut.revived = true; cut.bigRev = true; if (bet > 0) { addCoins(bet); cut.earn.bet = 0; } toast('💎 대형 부활권! 건 돈·티어 점수 그대로 이어서'); }   // 대형 부활권: 돈·랭크 안 잃음
+      else if (RV.choice === 'normal' && inv.use.revive > 0) { inv.use.revive--; saveInv(); cut.revived = true; }   // 고른 부활권만 씀
       else { runOver = true; rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now(), rk: !!ranked }); }
     }
     bet = 0;
@@ -6227,6 +6254,7 @@ function draw() {
   else if (scene === 'reward') drawReward();
   else if (scene === 'trailer') drawTrailer();
   else if (scene === 'keys') drawKeys();
+  else if (scene === 'revive') drawRevive();
   else if (scene === 'tycoon') drawTycoon();
   else if (scene === 'select') drawSelect();
   else if (scene === 'vs') drawVs();
@@ -6403,8 +6431,9 @@ if (/autotest/.test(location.search)) {
       out.push(`shop2: use=${JSON.stringify(inv.use)} tix=${RW.bonus}`); if (!inv.use.bigRevive || !inv.use.luckyCharm) throw new Error('비싼 물건 구매 실패');
       openMarket(); mk.tab = 1; draw();
       mode = 1; ranked = true; tp = 500; bet = 100; coins = 1000; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step();
-      runOver = false; const tp0 = tp, br0 = inv.use.bigRevive, c0 = coins; startCutscene(p2, p1); out.push(`bigRevive: tp ${tp0}->${tp} coins+${coins - c0} left=${inv.use.bigRevive} runOver=${runOver}`);
+      runOver = false; const tp0 = tp, br0 = inv.use.bigRevive, c0 = coins; RV.choice = 'big'; startCutscene(p2, p1); RV.choice = 'none'; out.push(`bigRevive: tp ${tp0}->${tp} coins+${coins - c0} left=${inv.use.bigRevive} runOver=${runOver}`);
       if (tp !== tp0 || inv.use.bigRevive !== br0 - 1 || runOver || coins - c0 !== 100) throw new Error('대형 부활권 실패'); ranked = false; lsSet('sgf_rkpending', false);
+      for (const pickN of [1, 2]) { inv.use.bigRevive = 0; inv.use.revive = 1; runOver = false; ranked = false; mode = 1; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p2.wins = 2; afterRound(); const sc0 = scene; draw(); for (let n = 0; n < 25; n++) step(); pressed['Digit' + pickN] = true; step(); out.push(`revive pick${pickN}: ${sc0}->${scene} revived=${!!cut.revived} left=${inv.use.revive} runOver=${runOver}`); if (sc0 !== 'revive' || scene !== 'cutscene' || (pickN === 1) !== !!cut.revived) throw new Error('부활권 고르기 실패'); }
       tyU = TYU0(); tyU.chain = 3; tyU.chains = ['강남', '홍대', '판교']; coins = 1e12; openTycoon(); TY.sel = TY_UP.findIndex(u => u.id === 'branch') + 1; pressed.Enter = true; step(); out.push(`branch: phase=${TY.phase}`); if (TY.phase !== 'branch') throw new Error('체인점별 강화 화면 실패');
       for (let k = 0; k < 3; k++) { TY.bsel = k; pressed.Enter = true; step(); } draw(); pressed.Escape = true; step(); draw();
       out.push(`branch lv: ${JSON.stringify(tyU.br)} income=${brIncome().toFixed(2)} vip=${brSum('vip')} wage=${brSum('wage')} tip=${brSum('tip')}`); if (brSum('vip') !== 1 || brSum('wage') !== 1 || TY.phase !== 'lobby') throw new Error('체인점별 강화 실패');
