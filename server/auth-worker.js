@@ -404,7 +404,7 @@ export default {
       let login = '';
       if (m) {
         const u = await db.prepare('SELECT u.login, u.saved, u.admin_edit FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
-        if (u) { c.saved = u.saved || 0; c.adminEdit = u.admin_edit || 0; login = u.login; }
+        if (u) { c.saved = u.saved || 0; c.adminEdit = u.admin_edit || 0; login = u.login; if (adminList(env).includes(u.login)) c.admin = true; }
       }
       // 지금 접속 중 알림 (?p=기기번호&n=이름&s=화면): 게임이 1분마다 한 번 보냄 → 관리자 화면의 '지금 접속'
       const q = new URL(req.url).searchParams, p = String(q.get('p') || '').slice(0, 40);
