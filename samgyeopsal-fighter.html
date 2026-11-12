@@ -568,7 +568,7 @@ const CHARS = [
   // 🆕 2026-11-12 업데이트 (공개 전엔 안 보임). unlock: 'admin'처럼 얻기 전엔 숨김 · how: 얻는 법
   // 돼이비드: 등에 크롬 임플란트를 박은 사이버 돼지. 노란 재킷 · 네온 불빛. 스킬 3개, 필살기는 20초 동안 사이버 외골격
   { name: '돼이비드', title: '크롬 박은 거리의 돼지', type: '사이버', hp: 96, power: 1.08, speed: 1.12, ultRate: 0.85, scale: 1.12, unlock: 'admin', how: '🎁 보상 센터 행운 룰렛에서 얻어요', perk: '룰렛 한정 돼지',
-    look: look('#f3c1b0', '#a0604e', '#fde0d6', '#ee9e8c', '#263238', '#1b1b1b', '#00e5ff', ['coat', 'scar', 'bold'], 1.02),
+    look: look('#f3c1b0', '#a0604e', '#fde0d6', '#ee9e8c', '#263238', '#1b1b1b', '#00e5ff', ['jacket', 'undercut', 'bold'], 1.02),
     skill: { name: '크롬 가속기', type: 'sande', cd: 720, desc: 'U: 4초 동안 세상이 느려짐' },
     skills: [{ name: '크롬 가속기', type: 'sande', cd: 720, desc: 'U: 4초 동안 상대가 아주 느려짐' }, { name: '레이저 와이어', type: 'monowire', cd: 200, desc: '↓+U: 멀리까지 닿는 채찍 3연타' }, { name: '크롬 대시', type: 'cyberDash', cd: 180, desc: '→+U: 무적 순간이동 펀치' }],
     tf: { name: '오버클럭', type: 'wild', color: '#00e5ff', desc: '속도·공격 속도↑' },
@@ -985,6 +985,19 @@ function drawPig(x, y, face, C, p = {}) {
     for (let i = 0; i < 7; i++) { ctx.lineTo(-34 + i * 8, -106 + by + (i % 2) * 4); ctx.lineTo(-30 + i * 8, -92 + by); }
     ctx.lineTo(20, -90 + by); ctx.closePath(); ctx.fill();
   }
+  if (acc.includes('jacket')) {   // 노란 짧은 점퍼 + 검은 깃·소매선 + 등의 척추 임플란트 불빛 (돼이비드)
+    ctx.save(); ell(0, -60 + by, 46 * bw, 34); ctx.clip();
+    const jg = ctx.createLinearGradient(0, -96 + by, 0, -26 + by); jg.addColorStop(0, '#ffe03a'); jg.addColorStop(1, '#e0a800');
+    ctx.fillStyle = jg; ctx.fillRect(-50 * bw, -96 + by, 60 * bw, 74);
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-50 * bw, -40 + by, 60 * bw, 7);   // 밑단 고무줄
+    ctx.fillStyle = '#2b2b2b'; poly([[2 * bw, -96 + by], [14 * bw, -96 + by], [10 * bw, -66 + by], [2 * bw, -70 + by]]); ctx.fill();   // 검은 깃
+    ctx.strokeStyle = '#8d6e00'; ctx.lineWidth = 2 * LWM; line(10 * bw, -94 + by, 8 * bw, -38 + by);   // 지퍼선
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-30 * bw, -86 + by, 22 * bw, 4); ctx.fillStyle = '#ff6d00'; ctx.fillRect(-30 * bw, -80 + by, 22 * bw, 3);   // 등 무늬 줄
+    ctx.restore();
+    ctx.save(); ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 10; ctx.fillStyle = `rgba(0,229,255,${0.65 + 0.3 * Math.sin(t * 0.2)})`;
+    for (let i = 0; i < 5; i++) { rr(-46 * bw + i * 1.5, -86 + by + i * 9, 6, 5, 2); ctx.fill(); }   // 척추 임플란트 (등을 따라 빛나는 마디)
+    ctx.restore();
+  }
   if (acc.includes('coat')) {   // 긴 검은 코트: 등을 덮고 앞은 열림 + 금단추·금줄, 뒤로 펄럭이는 자락
     const fl = Math.sin(t * 0.2) * 6, fl2 = Math.sin(t * 0.2 + 1.3) * 5;
     // 뒤로 펄럭이는 긴 자락 두 갈래 (몸 뒤에 먼저)
@@ -1036,6 +1049,12 @@ function drawPig(x, y, face, C, p = {}) {
     ctx.save(); ell(hx, hy, 30, 29); ctx.clip(); ctx.fillStyle = '#1a1028'; ctx.fillRect(hx - 32, hy - 17, 64, 19); ctx.restore();
     ctx.strokeStyle = '#1a1028'; ctx.lineWidth = 6 * LWM;
     for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.moveTo(hx - 28, hy - 8); ctx.quadraticCurveTo(hx - 48, hy - 12 + Math.sin(t * 0.3 + i) * 6, hx - 66, hy - 2 + i * 10 + Math.sin(t * 0.25 + i * 2) * 8); ctx.stroke(); }
+  }
+  if (acc.includes('undercut')) {   // 옆을 짧게 깎고 위는 뒤로 넘긴 검은 머리 (돼이비드)
+    ctx.fillStyle = 'rgba(40,40,48,0.45)'; ell(hx - 10, hy - 6, 20, 14); ctx.fill();   // 짧게 깎은 옆머리
+    ctx.fillStyle = '#15151c'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5 * LWM;
+    poly([[hx + 24, hy - 20], [hx + 10, hy - 34], [hx - 8, hy - 38], [hx - 30, hy - 32], [hx - 46, hy - 22], [hx - 34, hy - 20], [hx - 44, hy - 12], [hx - 24, hy - 18], [hx - 6, hy - 22], [hx + 12, hy - 18]]); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(120,140,160,0.6)'; ctx.lineWidth = 1.5 * LWM; line(hx + 6, hy - 30, hx - 22, hy - 30); line(hx - 2, hy - 25, hx - 30, hy - 24);
   }
   if (acc.includes('band')) {
     ctx.strokeStyle = C.band; ctx.lineWidth = 7 * LWM;
@@ -3788,7 +3807,7 @@ function drawNewCut(f) {
 }
 // 사이버 외골격: 돼지를 통째로 감싸는 거대한 군용 강화 슈트 (등 리액터 · 거대한 기계 팔과 주먹 · 어깨 장갑 · 가슴판 · 다리 피스톤 · 빛나는 바이저)
 // 뒤쪽(돼지 뒤에 그림) / 앞쪽(돼지 위에 그림) 두 번 나눠 그림. f: { x, y, facing, sc, state?, af?, atk? }
-const CY_DARK = '#263238', CY_MID = '#455a64', CY_LIGHT = '#90a4ae', CY_EDGE = '#cfd8dc';
+const CY_DARK = '#17191c', CY_MID = '#33383d', CY_LIGHT = '#5f666d', CY_EDGE = '#9aa3ab';   // 군용 짙은 회색 + 주황빛
 function cyPlate(pts, fill, stroke = '#11181c') { ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.closePath(); ctx.fill(); ctx.stroke(); }
 function cyGlow(c, b = 14) { ctx.shadowColor = c; ctx.shadowBlur = b; }
 function cyBegin(f, a) { ctx.save(); ctx.globalAlpha *= a; ctx.translate(f.x, f.y); const s = f.sc * 0.82; ctx.scale(f.facing * s, s); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; }
@@ -3799,7 +3818,7 @@ function drawCyberBack(f, a = 1) {
   // 등 리액터 + 배기관
   cyPlate([-150, -215, -85, -225, -70, -60, -140, -50], CY_MID);
   cyPlate([-140, -200, -95, -207, -85, -75, -132, -68], CY_DARK);
-  for (let i = 0; i < 4; i++) { cyGlow('#00e5ff'); ctx.fillStyle = `rgba(0,229,255,${0.55 + 0.35 * Math.sin(gT * 0.2 + i)})`; ctx.fillRect(-128, -185 + i * 28, 30, 9); ctx.shadowBlur = 0; }
+  for (let i = 0; i < 4; i++) { cyGlow('#ff6d00'); ctx.fillStyle = `rgba(255,109,0,${0.55 + 0.35 * Math.sin(gT * 0.2 + i)})`; ctx.fillRect(-128, -185 + i * 28, 30, 9); ctx.shadowBlur = 0; }
   for (const [x, h] of [[-138, 60], [-105, 74]]) { cyPlate([x - 9, -215, x + 9, -215, x + 7, -215 - h, x - 7, -215 - h], CY_LIGHT); if (gT % 6 < 3) { ctx.fillStyle = 'rgba(200,220,230,0.35)'; ctx.beginPath(); ctx.arc(x, -225 - h - (gT % 30), 9 + (gT % 30) / 3, 0, Math.PI * 2); ctx.fill(); } }
   // 뒤쪽 거대한 팔
   ctx.strokeStyle = CY_DARK; ctx.lineWidth = 34; ctx.beginPath(); ctx.moveTo(-40, -165 + br); ctx.lineTo(-95, -95); ctx.lineTo(-70, -30); ctx.stroke();
@@ -3816,9 +3835,9 @@ function drawCyberFront(f, a = 1) {
   // 가슴판
   cyPlate([-55, -160 + br, 60, -168 + br, 72, -70, 40, -38, -45, -38, -62, -80], 'rgba(69,90,100,0.92)');
   cyPlate([-30, -145 + br, 40, -150 + br, 48, -95, -25, -90], 'rgba(38,50,56,0.95)');
-  cyGlow('#00e5ff'); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3;
+  cyGlow('#ff6d00'); ctx.strokeStyle = '#ff6d00'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(-20, -120 + br); ctx.lineTo(10, -120 + br); ctx.lineTo(22, -105); ctx.moveTo(-40, -60); ctx.lineTo(50, -62); ctx.stroke();
-  ctx.fillStyle = `rgba(0,229,255,${0.6 + 0.4 * Math.sin(gT * 0.25)})`; ctx.beginPath(); ctx.arc(8, -128 + br, 9, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;   // 가슴 코어
+  ctx.fillStyle = `rgba(255,109,0,${0.6 + 0.4 * Math.sin(gT * 0.25)})`; ctx.beginPath(); ctx.arc(8, -128 + br, 9, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;   // 가슴 코어
   // 다리 피스톤 (앞) + 발판
   cyPlate([18, -40, 55, -40, 58, 18, 15, 18], CY_LIGHT);
   ctx.strokeStyle = CY_DARK; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(36, -36); ctx.lineTo(36, 12); ctx.stroke();
@@ -3832,16 +3851,17 @@ function drawCyberFront(f, a = 1) {
   ctx.strokeStyle = CY_MID; ctx.lineWidth = 32; ctx.beginPath(); ctx.moveTo(45, -170 + br); ctx.lineTo(ex, ey); ctx.lineTo(fx - 20, fy); ctx.stroke();
   ctx.strokeStyle = CY_LIGHT; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(ex, ey - 12); ctx.lineTo(fx - 26, fy - 12); ctx.stroke();
   ctx.fillStyle = CY_DARK; ctx.beginPath(); ctx.arc(ex, ey, 16, 0, Math.PI * 2); ctx.fill();   // 팔꿈치 관절
-  cyGlow('#00e5ff', 8); ctx.fillStyle = '#00e5ff'; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  cyGlow('#ff6d00', 8); ctx.fillStyle = '#ff6d00'; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
   rr(fx - 30, fy - 34, 62, 68, 14); ctx.fillStyle = CY_DARK; ctx.fill(); ctx.strokeStyle = '#11181c'; ctx.lineWidth = 3; ctx.stroke();   // 거대한 주먹
   ctx.strokeStyle = CY_LIGHT; ctx.lineWidth = 4; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(fx + 12, fy - 22 + i * 18); ctx.lineTo(fx + 28, fy - 22 + i * 18); ctx.stroke(); }
   if (pu) { cyGlow('#ff1744', 20); ctx.strokeStyle = 'rgba(255,23,68,0.8)'; ctx.lineWidth = 4; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(fx - 60 - i * 25, fy - 20 + i * 12); ctx.lineTo(fx - 20 - i * 25, fy - 20 + i * 12); ctx.stroke(); } ctx.shadowBlur = 0; }
   // 머리 보호대 + 빛나는 바이저
   cyPlate([10, -215 + br, 70, -222 + br, 98, -190 + br, 95, -165 + br, 20, -170 + br], 'rgba(55,71,79,0.95)');
   cyGlow('#ff1744', 18); ctx.fillStyle = `rgba(255,23,68,${0.75 + 0.25 * Math.sin(gT * 0.3)})`; rr(40, -200 + br, 54, 12, 5); ctx.fill();
-  ctx.fillStyle = '#00e5ff'; cyGlow('#00e5ff'); ctx.fillRect(28, -196 + br, 8, 4); ctx.shadowBlur = 0;
+  ctx.fillStyle = '#ff6d00'; cyGlow('#ff6d00'); ctx.fillRect(28, -196 + br, 8, 4); ctx.shadowBlur = 0;
   // 등에서 나온 케이블 + 가끔 튀는 불꽃
-  ctx.strokeStyle = '#212121'; ctx.lineWidth = 5; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-80, -170 + i * 22); ctx.quadraticCurveTo(-30, -210 + i * 18 + Math.sin(gT * 0.2 + i) * 6, 15, -165 + i * 10 + br); ctx.stroke(); }
+  ctx.strokeStyle = '#0b0b0b'; ctx.lineWidth = 10; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-80, -170 + i * 22); ctx.quadraticCurveTo(-30, -210 + i * 18 + Math.sin(gT * 0.2 + i) * 6, 15, -165 + i * 10 + br); ctx.stroke(); }
+  ctx.fillStyle = '#ff6d00'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(-80, -170 + i * 22, 6, 0, Math.PI * 2); ctx.fill(); }   // 척추에 꽂힌 케이블 단자
   if (gT % 20 < 2) { ctx.fillStyle = '#ffd740'; for (let i = 0; i < 5; i++) ctx.fillRect(ex + rand(-20, 20), ey + rand(-20, 20), 3, 3); }
   ctx.restore();
 }
@@ -3968,7 +3988,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-4';
+const BUILD = '20261112-5';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -6670,6 +6690,7 @@ else if (VIEW === 'market') { if (!fridge.length) { addDish(makeDish(MEATS[5].op
 else if (VIEW === 'shop') { openMarket(); mk.tab = 1; }
 else if (VIEW === 'reward') { RW.att = 3; RW.day = dayKey(); openReward(); rwMissions()[0].n = 1; RW.bonus = 2; RW.days = 3; for (let i = 0; i < 30; i++) step(); }
 else if (VIEW === 'cyber') { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼이비드')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.cyberT = 900; p1.x = 330; p2.x = 640; p1.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
+else if (VIEW === 'dv') { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼이비드')); p2.setChar(CHARS.find(c => c.name === '돼이비드')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 380; p2.x = 580; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'cybercut') { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼이비드')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; startUlt(p1); for (let i = 0; i < 45; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'popup') { popup({ icon: '🎁', title: '관리자 선물 도착!', lines: ['🪙 +50,000 코인', '🎡 무료 룰렛 +3번', '주말 특별 선물!'], big: true }); for (let i = 0; i < 30; i++) step(); }
 else if (VIEW === 'bank') { scene = 'bank'; }
