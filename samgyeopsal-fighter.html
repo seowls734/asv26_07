@@ -1312,7 +1312,7 @@ class Fighter {
     this.grabT = 0; this.mashN = 0; this.cloneQ = []; this.sandT = 0; this.cyberT = 0; this.foxT = 0; this.trail = []; this.invT = 0; this.hotT = 0; this.cmdT = 0; this.drunkT = 0;
     Object.assign(this.ai, { think: 0, move: 0, guard: 0, low: false });
   }
-  get sc() { return this.ch.scale * (this.tfIs('giant') ? 1.3 : 1) * (this.cyberT > 0 ? 1.22 : 1); }
+  get sc() { return this.ch.scale * (this.tfIs('giant') ? 1.3 : 1) * (this.cyberT > 0 ? 1.35 : 1); }
   tfIs(t) { return this.tfOn && this.ch.tf.type === t; }
   crouching() {
     const s = this.state;
@@ -2567,10 +2567,11 @@ const SHOP = [   // 2026-11-12: 가격 10배로 올림 · 비싼 새 물건 추�
   { id: 'rankShield', type: 'use', name: '랭크 보호권', price: 40000, desc: '랭크전에서 져도 티어 점수 그대로' },
   { id: 'fullMeter', type: 'use', name: '필살 게이지 100%', price: 20000, desc: '다음 연승 경기 바로 필살기' },
   { id: 'luckyCharm', type: 'use', name: '황금 행운 부적', price: 80000, desc: '다음 경기 이기면 승리 코인 5배' },
-  { id: 'tix10', type: 'use', name: '룰렛 티켓 10장', price: 25000, desc: '🎁 보상 센터 행운 룰렛용' }
+  { id: 'tix10', type: 'use', name: '룰렛 티켓 10장', price: 25000, desc: '🎁 보상 센터 행운 룰렛용' },
+  { id: 'fastSpin', type: 'use', name: '룰렛 빨리 돌리기', price: 1e11, desc: '영구: 행운 룰렛이 금방 멈춰요 (한 번만 사면 됨)' }
 ];
 const itPrice = it => Math.round(it.price * (1 - (evLive() ? Math.min(90, +EVT.sale || 0) : 0) / 100));   // 이벤트 할인
-const USE_ICON = { meter: '⚡', hpup: '🛡️', revive: '💖', bigRevive: '💎', rankShield: '🏅', fullMeter: '🔥', luckyCharm: '🍀', tix10: '🎟️' };
+const USE_ICON = { fastSpin: '💨', meter: '⚡', hpup: '🛡️', revive: '💖', bigRevive: '💎', rankShield: '🏅', fullMeter: '🔥', luckyCharm: '🍀', tix10: '🎟️' };
 const COS_IDS = SHOP.filter(s => s.type !== 'use').map(s => s.id);
 const withCos = (ch, cos = inv.eq) => ({ ...ch, look: { ...ch.look, hat: COS_IDS.includes(cos && cos.hat) ? cos.hat : null, fx: COS_IDS.includes(cos && cos.fx) ? cos.fx : null } });
 // ---- 스킬 효과음 (합성음만, 음성 없음) ----
@@ -2647,6 +2648,7 @@ function shopAct(i) {
   if (it.type === 'use') {
     if (coins < itPrice(it)) { SFX.block(); toast('코인이 부족해요'); return; }
     addCoins(-itPrice(it));
+    if (it.id === 'fastSpin' && (inv.use.fastSpin || 0) > 0) { addCoins(itPrice(it)); SFX.block(); toast('이미 갖고 있어요 (영구)'); return; }
     if (it.id === 'tix10') { RW.bonus += 10; rwSave(); SFX.coin(); toast(`🎟️ 룰렛 티켓 10장! (보유 ${RW.bonus}장)`); saveInv(); cloudDirty(); return; }
     inv.use[it.id] = (inv.use[it.id] || 0) + 1; SFX.coin(); toast(`${it.name} 구매! (보유 ${inv.use[it.id]}개)`);
   } else if (inv.own[it.id]) {
@@ -3352,16 +3354,16 @@ function drawMarket() {
   } else {
     txt(`보유: 필살50% ${inv.use.meter || 0} · 강철체력 ${inv.use.hpup || 0} · 부활권 ${inv.use.revive || 0}   (꾸미기는 내 돼지에게 표시, 온라인 상대에게도 보여요)`, W / 2, 118, 13, '#fff59d', null);
     SHOP.forEach((it, i) => {
-      const CH = SHOP.length > 12 ? 88 : 112, x = 70 + (i % 4) * 208, y = 134 + (i / 4 | 0) * (CH + 6), on = mk.sel === i, own = !!inv.own[it.id], eq = inv.eq[it.type] === it.id;
+      const CH = SHOP.length > 16 ? 72 : SHOP.length > 12 ? 88 : 112, x = 70 + (i % 4) * 208, y = 134 + (i / 4 | 0) * (CH + 6), on = mk.sel === i, own = !!inv.own[it.id], eq = inv.eq[it.type] === it.id;
       ctx.fillStyle = on ? 'rgba(120,70,40,0.92)' : 'rgba(25,12,40,0.85)'; rr(x, y, 196, CH, 12); ctx.fill();
       if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 196, CH, 12); ctx.stroke(); }
       addHot(x, y, 196, CH, () => { if (mk.sel === i) pressed.Enter = true; else mk.sel = i; });
       if (it.type === 'use') txt(USE_ICON[it.id] || '🎁', x + 44, y + CH / 2 - 4, 34, '#fff', null);
       else { const lk = { ...CHARS[0].look, hat: it.type === 'hat' ? it.id : null, fx: it.type === 'fx' ? it.id : null }; ctx.save(); ctx.beginPath(); ctx.rect(x, y, 100, CH); ctx.clip(); drawPig(x + 40, y + CH - 8, 1, lk, { scale: 0.55, t: gT }); ctx.restore(); }
-      txt(it.name, x + 145, y + (CH > 100 ? 30 : 20), fitSize(it.name, 15, 92), '#fff', null);   // 카드(오른쪽 끝 x+196) 밖으로 안 나가게
-      txt(it.type === 'use' ? `보유 ${inv.use[it.id] || 0}` : eq ? '장착 중' : own ? '보유 (탭=장착)' : '', x + 145, y + (CH > 100 ? 54 : 40), 12, eq ? '#69f0ae' : '#bbb', null);
-      if (it.desc) txt(it.desc, x + 98, y + CH - 12, fitSize(it.desc, 10, 186), '#aaa', null);
-      if (!own || it.type === 'use') txt(`🪙 ${fmtN(itPrice(it))}`, x + 145, y + (CH > 100 ? 78 : 60), 16, coins >= itPrice(it) ? '#ffd740' : '#ff8a80', null);
+      txt(it.name, x + 145, y + CH * 0.25, fitSize(it.name, 15, 92), '#fff', null);   // 카드(오른쪽 끝 x+196) 밖으로 안 나가게
+      txt(it.type === 'use' ? `보유 ${inv.use[it.id] || 0}` : eq ? '장착 중' : own ? '보유 (탭=장착)' : '', x + 145, y + CH * 0.47, 12, eq ? '#69f0ae' : '#bbb', null);
+      if (it.desc) txt(it.desc, x + 98, y + CH - 9, fitSize(it.desc, 10, 186), '#aaa', null);
+      if (!own || it.type === 'use') txt(`🪙 ${fmtN(itPrice(it))}`, x + 145, y + CH * 0.69, 16, coins >= itPrice(it) ? '#ffd740' : '#ff8a80', null);
     });
     txt('Enter / 탭: 구매 · 장착/해제', W / 2, 526, 14, '#aaa', null);
   }
@@ -3605,7 +3607,7 @@ function drawTitle() {
   const evT = evText();   // 이벤트 중이면 부제 자리에 이벤트 안내
   if (evT) txt(evT, W / 2, 112, fitSize(evT, 18, W - 80), gT % 40 < 28 ? '#ffd740' : '#fff59d', '#000', 5);
   else txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
-  const best = Math.max(lsGet('sgf_rbest', 0), getRank().filter(r => r.name === playerName).reduce((m, r) => Math.max(m, r.streak), 0));   // 랭킹과 같게: 랭크전 최고 연승도 같이 봄
+  const best = Math.max(lsGet('sgf_rbest', 0), getRank().filter(r => r.name === playerName && r.rk).reduce((m, r) => Math.max(m, r.streak), 0));   // 랭킹과 같게: 랭크전 최고 연승도 같이 봄
   // 티어 배지 + 상태 줄을 한 덩어리로 가운데 정렬 (숫자가 길어져도 배지와 겹치지 않게, 너무 길면 글자를 줄임)
   const stat = `👤 ${playerName}${isMember() ? '' : ' [N]'}  ·🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`;
   ctx.font = `900 12px ${FONT}`; const bw = ctx.measureText(`🏅 ${TIERS[tierOf(tp)][0]}`).width + 16;
@@ -3769,9 +3771,11 @@ function drawNewCut(f) {
     for (let i = 0; i < 9; i++) drawTail(W / 2, H / 2 + 70, -Math.PI / 2 + (i - 4) * 0.32, 260 * k, T, 1);
   }
   // 가운데: 돼지 클로즈업
-  ctx.save(); ctx.translate(W / 2, H / 2 + 150); const sc = 1.9 + T * 0.004;
+  ctx.save(); ctx.translate(W / 2 - (cyber ? 20 : 0), H / 2 + (cyber ? 190 : 150)); const sc = (cyber ? 1.15 : 1.9) + T * 0.004;
+  const cf = { x: 0, y: 0, facing: 1, sc: f.ch.scale * sc };
+  if (cyber) drawCyberBack(cf, Math.min(1, T / 30));
   drawPig(0, 0, 1, f.C, { t: gT, scale: f.ch.scale * sc, victory: true });
-  if (cyber) drawCyberSkel({ x: 0, y: 0, facing: 1, sc: f.ch.scale * sc, cyberT: 99 }, Math.min(1, T / 40));
+  if (cyber) drawCyberFront(cf, Math.min(1, T / 30));
   ctx.restore();
   // 글자
   const name = f.ch.ult.name;
@@ -3782,22 +3786,66 @@ function drawNewCut(f) {
   if (cyber && T % 12 < 2) { ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0, 0, W, H); }   // 글리치 번쩍
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 30); ctx.fillRect(0, H - 18, W, 18);
 }
-// 사이버 외골격: 몸 둘레의 금속 뼈대 + 빨간 눈 + 등 뒤 케이블
-function drawCyberSkel(f, a = 1) {
-  const s = f.sc / 1.15, x = f.x, y = f.y;
-  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y); ctx.scale(f.facing * s, s);
-  ctx.strokeStyle = '#cfd8dc'; ctx.lineWidth = 7; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-60, -40); ctx.quadraticCurveTo(-70, -120, -20, -160); ctx.stroke();   // 등뼈
-  for (let i = 0; i < 5; i++) { const yy = -60 - i * 20; ctx.beginPath(); ctx.moveTo(-62 + i * 3, yy); ctx.quadraticCurveTo(-10, yy - 18, 40, yy + 4); ctx.stroke(); }   // 갈비
-  ctx.strokeStyle = '#78909c'; ctx.lineWidth = 9;
-  ctx.beginPath(); ctx.moveTo(-30, -20); ctx.lineTo(-35, 0); ctx.moveTo(25, -20); ctx.lineTo(30, 0); ctx.stroke();   // 다리 프레임
-  ctx.beginPath(); ctx.moveTo(30, -110); ctx.lineTo(85, -95); ctx.stroke();   // 팔 프레임
-  ctx.fillStyle = '#ff1744'; ctx.shadowColor = '#ff1744'; ctx.shadowBlur = 16;
-  ctx.beginPath(); ctx.arc(40, -150, 6, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(0,229,255,0.9)'; ctx.lineWidth = 3; ctx.shadowColor = '#00e5ff';
-  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-60, -130 + i * 12); ctx.bezierCurveTo(-110, -150 + i * 20 + Math.sin(gT * 0.2 + i) * 10, -130, -60, -100 - i * 8, -10); ctx.stroke(); }
+// 사이버 외골격: 돼지를 통째로 감싸는 거대한 군용 강화 슈트 (등 리액터 · 거대한 기계 팔과 주먹 · 어깨 장갑 · 가슴판 · 다리 피스톤 · 빛나는 바이저)
+// 뒤쪽(돼지 뒤에 그림) / 앞쪽(돼지 위에 그림) 두 번 나눠 그림. f: { x, y, facing, sc, state?, af?, atk? }
+const CY_DARK = '#263238', CY_MID = '#455a64', CY_LIGHT = '#90a4ae', CY_EDGE = '#cfd8dc';
+function cyPlate(pts, fill, stroke = '#11181c') { ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+function cyGlow(c, b = 14) { ctx.shadowColor = c; ctx.shadowBlur = b; }
+function cyBegin(f, a) { ctx.save(); ctx.globalAlpha *= a; ctx.translate(f.x, f.y); const s = f.sc * 0.82; ctx.scale(f.facing * s, s); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; }
+function cyPunch(f) { const at = f.atk; return f.state === 'attack' && at && f.af >= at.startup && f.af < at.startup + at.active + 4 ? 1 : 0; }
+function drawCyberBack(f, a = 1) {
+  cyBegin(f, a);
+  const br = Math.sin(gT * 0.15) * 2;
+  // 등 리액터 + 배기관
+  cyPlate([-150, -215, -85, -225, -70, -60, -140, -50], CY_MID);
+  cyPlate([-140, -200, -95, -207, -85, -75, -132, -68], CY_DARK);
+  for (let i = 0; i < 4; i++) { cyGlow('#00e5ff'); ctx.fillStyle = `rgba(0,229,255,${0.55 + 0.35 * Math.sin(gT * 0.2 + i)})`; ctx.fillRect(-128, -185 + i * 28, 30, 9); ctx.shadowBlur = 0; }
+  for (const [x, h] of [[-138, 60], [-105, 74]]) { cyPlate([x - 9, -215, x + 9, -215, x + 7, -215 - h, x - 7, -215 - h], CY_LIGHT); if (gT % 6 < 3) { ctx.fillStyle = 'rgba(200,220,230,0.35)'; ctx.beginPath(); ctx.arc(x, -225 - h - (gT % 30), 9 + (gT % 30) / 3, 0, Math.PI * 2); ctx.fill(); } }
+  // 뒤쪽 거대한 팔
+  ctx.strokeStyle = CY_DARK; ctx.lineWidth = 34; ctx.beginPath(); ctx.moveTo(-40, -165 + br); ctx.lineTo(-95, -95); ctx.lineTo(-70, -30); ctx.stroke();
+  ctx.strokeStyle = CY_MID; ctx.lineWidth = 22; ctx.beginPath(); ctx.moveTo(-40, -165 + br); ctx.lineTo(-95, -95); ctx.lineTo(-70, -30); ctx.stroke();
+  ctx.fillStyle = CY_DARK; ctx.beginPath(); ctx.arc(-68, -22, 36, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#11181c'; ctx.lineWidth = 3; ctx.stroke();
+  // 다리 피스톤 (뒤)
+  cyPlate([-55, -40, -20, -40, -24, 18, -60, 18], CY_MID);
   ctx.restore();
 }
+function drawCyberFront(f, a = 1) {
+  cyBegin(f, a);
+  const br = Math.sin(gT * 0.15) * 2, pu = cyPunch(f) * 48;
+  // 가슴판
+  cyPlate([-55, -160 + br, 60, -168 + br, 72, -70, 40, -38, -45, -38, -62, -80], 'rgba(69,90,100,0.92)');
+  cyPlate([-30, -145 + br, 40, -150 + br, 48, -95, -25, -90], 'rgba(38,50,56,0.95)');
+  cyGlow('#00e5ff'); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-20, -120 + br); ctx.lineTo(10, -120 + br); ctx.lineTo(22, -105); ctx.moveTo(-40, -60); ctx.lineTo(50, -62); ctx.stroke();
+  ctx.fillStyle = `rgba(0,229,255,${0.6 + 0.4 * Math.sin(gT * 0.25)})`; ctx.beginPath(); ctx.arc(8, -128 + br, 9, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;   // 가슴 코어
+  // 다리 피스톤 (앞) + 발판
+  cyPlate([18, -40, 55, -40, 58, 18, 15, 18], CY_LIGHT);
+  ctx.strokeStyle = CY_DARK; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(36, -36); ctx.lineTo(36, 12); ctx.stroke();
+  cyPlate([5, 10, 75, 10, 80, 26, 0, 26], CY_DARK); cyPlate([-70, 10, -10, 10, -6, 26, -75, 26], CY_DARK);
+  // 어깨 장갑 (빨간 줄)
+  cyPlate([-20, -205 + br, 55, -215 + br, 95, -175 + br, 80, -135, 0, -140], CY_LIGHT);
+  ctx.fillStyle = '#d50000'; ctx.fillRect(5, -200 + br, 60, 9);
+  // 앞쪽 거대한 팔: 어깨 → 팔꿈치 → 주먹 (공격할 땐 앞으로 쭉)
+  const ex = 95 + pu * 0.4, ey = -120, fx = 150 + pu, fy = -110;
+  ctx.strokeStyle = '#11181c'; ctx.lineWidth = 40; ctx.beginPath(); ctx.moveTo(45, -170 + br); ctx.lineTo(ex, ey); ctx.lineTo(fx - 20, fy); ctx.stroke();
+  ctx.strokeStyle = CY_MID; ctx.lineWidth = 32; ctx.beginPath(); ctx.moveTo(45, -170 + br); ctx.lineTo(ex, ey); ctx.lineTo(fx - 20, fy); ctx.stroke();
+  ctx.strokeStyle = CY_LIGHT; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(ex, ey - 12); ctx.lineTo(fx - 26, fy - 12); ctx.stroke();
+  ctx.fillStyle = CY_DARK; ctx.beginPath(); ctx.arc(ex, ey, 16, 0, Math.PI * 2); ctx.fill();   // 팔꿈치 관절
+  cyGlow('#00e5ff', 8); ctx.fillStyle = '#00e5ff'; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  rr(fx - 30, fy - 34, 62, 68, 14); ctx.fillStyle = CY_DARK; ctx.fill(); ctx.strokeStyle = '#11181c'; ctx.lineWidth = 3; ctx.stroke();   // 거대한 주먹
+  ctx.strokeStyle = CY_LIGHT; ctx.lineWidth = 4; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(fx + 12, fy - 22 + i * 18); ctx.lineTo(fx + 28, fy - 22 + i * 18); ctx.stroke(); }
+  if (pu) { cyGlow('#ff1744', 20); ctx.strokeStyle = 'rgba(255,23,68,0.8)'; ctx.lineWidth = 4; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(fx - 60 - i * 25, fy - 20 + i * 12); ctx.lineTo(fx - 20 - i * 25, fy - 20 + i * 12); ctx.stroke(); } ctx.shadowBlur = 0; }
+  // 머리 보호대 + 빛나는 바이저
+  cyPlate([10, -215 + br, 70, -222 + br, 98, -190 + br, 95, -165 + br, 20, -170 + br], 'rgba(55,71,79,0.95)');
+  cyGlow('#ff1744', 18); ctx.fillStyle = `rgba(255,23,68,${0.75 + 0.25 * Math.sin(gT * 0.3)})`; rr(40, -200 + br, 54, 12, 5); ctx.fill();
+  ctx.fillStyle = '#00e5ff'; cyGlow('#00e5ff'); ctx.fillRect(28, -196 + br, 8, 4); ctx.shadowBlur = 0;
+  // 등에서 나온 케이블 + 가끔 튀는 불꽃
+  ctx.strokeStyle = '#212121'; ctx.lineWidth = 5; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-80, -170 + i * 22); ctx.quadraticCurveTo(-30, -210 + i * 18 + Math.sin(gT * 0.2 + i) * 6, 15, -165 + i * 10 + br); ctx.stroke(); }
+  if (gT % 20 < 2) { ctx.fillStyle = '#ffd740'; for (let i = 0; i < 5; i++) ctx.fillRect(ex + rand(-20, 20), ey + rand(-20, 20), 3, 3); }
+  ctx.restore();
+}
+function drawCyberSkel(f, a = 1) { drawCyberBack(f, a); drawCyberFront(f, a); }
 function drawTail(x, y, ang, len, t, a) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang + Math.sin(t * 0.08 + ang * 3) * 0.12);
   const g = ctx.createLinearGradient(0, 0, len, 0); g.addColorStop(0, `rgba(255,109,0,${0.85 * a})`); g.addColorStop(1, `rgba(255,209,128,${0.2 * a})`);
@@ -3807,6 +3855,7 @@ function drawTail(x, y, ang, len, t, a) {
 // 싸움 화면에서 새 돼지 꾸미기 (몸 뒤/앞)
 function drawNewBack(f) {
   const s = f.sc / 1.15;
+  if (f.cyberT > 0) drawCyberBack(f, Math.min(1, f.cyberT / 60));   // 사이버 외골격 (몸 뒤쪽)
   if (f.sandT > 0 && f.trail) for (let i = 0; i < f.trail.length; i += 2) { const p = f.trail[i]; ctx.save(); ctx.globalAlpha = 0.18 + i * 0.03; drawPig(p[0], p[1], f.facing, i % 4 ? SANDE_G : SANDE_C, { t: gT, scale: f.sc }); ctx.restore(); }
   if (f.foxT > 0) {
     const a = Math.min(1, f.foxT / 60);
@@ -3816,7 +3865,7 @@ function drawNewBack(f) {
 }
 function drawNewFront(f) {
   const s = f.sc / 1.15;
-  if (f.cyberT > 0) { drawCyberSkel(f, Math.min(1, f.cyberT / 60)); if (f.cyberT < 180) txt(`외골격 ${Math.ceil(f.cyberT / 60)}초`, f.x, f.y - 230 * s, 16, '#00e5ff', '#000', 4); }
+  if (f.cyberT > 0) { drawCyberFront(f, Math.min(1, f.cyberT / 60)); if (f.cyberT < 180) txt(`외골격 ${Math.ceil(f.cyberT / 60)}초`, f.x, f.y - 230 * s, 16, '#00e5ff', '#000', 4); }
   if (f.ch.name === '돼이비드' && f.state !== 'ko') { ctx.strokeStyle = `rgba(0,229,255,${0.5 + 0.3 * Math.sin(gT * 0.2)})`; ctx.lineWidth = 3; line(f.x - f.facing * 50 * s, f.y - 140 * s, f.x - f.facing * 40 * s, f.y - 70 * s); }   // 등의 임플란트 불빛
   if (f.state === 'attack' && f.atk && f.atk.rasen && f.af < f.atk.startup + f.atk.active + 4) {   // 회오리 구슬
     const hx = f.x + f.facing * 75 * s, hy = f.y - 95 * s, r = 16 + Math.min(14, f.af);
@@ -3889,7 +3938,7 @@ function drawTrailer() {
     ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(lt * 0.01); for (let i = 0; i < 12; i++) { ctx.rotate(Math.PI / 6); ctx.fillStyle = i % 2 ? 'rgba(0,229,255,0.15)' : 'rgba(255,109,0,0.15)'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-60, -600); ctx.lineTo(60, -600); ctx.fill(); } ctx.restore();
     const k = Math.min(1, lt / 40);
     drawPig(W / 2 - 330 + 120 * k, H - 50, 1, dv.look, { t: gT, scale: 1.5, victory: lt > 80 });
-    drawCyberSkel({ x: W / 2 - 330 + 120 * k, y: H - 50, facing: 1, sc: 1.5 * dv.scale, cyberT: 1 }, lt > 80 ? 1 : 0);
+    drawCyberFront({ x: W / 2 - 330 + 120 * k, y: H - 50, facing: 1, sc: 1.5 }, lt > 80 ? 1 : 0);
     for (let i = 0; i < 9; i++) if (lt > 80) drawTail(W / 2 + 330 - 120 * k, H - 110, -(i - 4) * 0.2 - 0.3, 170, gT, 1);
     drawPig(W / 2 + 330 - 120 * k, H - 50, -1, nr.look, { t: gT, scale: 1.5, victory: lt > 80 });
     if (lt > 40 && lt < 60 && lt % 4 < 2) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(0, 0, W, H); }
@@ -3919,7 +3968,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-2';
+const BUILD = '20261112-3';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4027,6 +4076,15 @@ const WHEEL = [
 const wheelSlots = () => { const c = CHARS.find(x => x.name === '돼이비드'); return isReleased() && c && !isUnlocked(c) ? [...WHEEL.slice(0, 9), { w: 3, k: 'char', c: '#00e5ff', t: '🤖돼이비드' }, WHEEL[9]] : WHEEL; };
 const curWheel = () => (RWS.t >= 0 || RWS.flash > 0) && RWS.slots ? RWS.slots : wheelSlots();
 const wSum = L => L.reduce((a, s) => a + s.w, 0);
+const PITY_N = 200;
+// 📊 확률 보기: 칸마다 나올 확률 (칸 크기와 같음)
+const slotName = s => s.k === 'coin' ? `🪙 코인 ${s.t}` : s.k === 'again' ? '🎟️ 티켓 +1' : s.k === 'char' ? '🤖 돼이비드' : { meter: '⚡ 필살 50%', hpup: '🛡️ 강철 체력', revive: '🍀 부활권' }[s.k] || s.t;
+function showOdds() {
+  const L = wheelSlots(), S = wSum(L), parts = L.map(s => `${slotName(s)} ${(s.w / S * 100).toFixed(1)}%`), lines = [];
+  for (let i = 0; i < parts.length; i += 2) lines.push(parts.slice(i, i + 2).join('   ·   '));
+  if (L.some(s => s.k === 'char')) lines.push(`🤖 돼이비드 확정까지 ${PITY_N - (RW.pity || 0)}번 남음 (${PITY_N}번째엔 무조건)`);
+  popup({ icon: '📊', title: '행운 룰렛 확률', lines: ['(코인 = 보상 기준 금액 × 배수)', ...lines] });
+}
 const dayFree = () => { if (RW.spinDay !== dayKey()) { RW.spinDay = dayKey(); RW.spins = 0; } return Math.max(0, 1 + (evLive() ? +EVT.spins || 0 : 0) - RW.spins); };
 const spinFree = () => dayFree() + RW.bonus;
 const spinCost = () => rwBase() * 2;
@@ -4038,11 +4096,14 @@ function spinWheel() {
   else { buyTicket(); return false; }   // 🎟️ 티켓이 없으면: 코인으로 티켓 사기
   const L = wheelSlots(), SUM = wSum(L); RWS.slots = L;
   let r = Math.random() * SUM, i = 0; while (i < L.length - 1 && r >= L[i].w) { r -= L[i].w; i++; }
+  const ci = L.findIndex(x => x.k === 'char');   // 돼이비드 확정: 200번째에는 무조건
+  if (ci >= 0) { RW.pity = (RW.pity || 0) + 1; if (RW.pity >= PITY_N) i = ci; if (i === ci) RW.pity = 0; }
   let a0 = 0; for (let j = 0; j < i; j++) a0 += L[j].w;
   const mid = (a0 + L[i].w * rand(0.2, 0.8)) / SUM * Math.PI * 2;
    // 바늘(위쪽)에 그 칸이 오게
   const TAU = Math.PI * 2, base = ((RWS.ang % TAU) + TAU) % TAU;
-  RWS.from = RWS.ang; RWS.to = RWS.ang - base + TAU * 6 + (TAU - mid); RWS.t = 0; RWS.res = i;
+  RWS.from = RWS.ang; const fast = (inv.use.fastSpin || 0) > 0; RWS.T = fast ? 45 : 230;   // 💨 룰렛 빨리 돌리기 (상점)
+  RWS.to = RWS.ang - base + TAU * (fast ? 2 : 6) + (TAU - mid); RWS.t = 0; RWS.res = i;
   rwProgress('spin'); rwSave(); cloudDirty(); SFX.confirm();
   return true;
 }
@@ -4076,6 +4137,7 @@ function updateReward() {
   for (let i = 0; i < 3; i++) if (pressed['Digit' + (i + 1)] || pressed['Numpad' + (i + 1)]) claimMission(i);
   if (pressed.Enter || pressed.Space || pressed.KeyI) { if (RWS.sel === 0) spinWheel(); else claimMission(RWS.sel - 1); }
   if (pressed.KeyR) spinWheel();
+  if (pressed.KeyP) showOdds();
   if (pressed.Escape && RWS.t < 0) toTitle();
   if (gT % 4 === 0) flame(rand(40, W - 40), H - 10);
 }
@@ -4123,6 +4185,9 @@ function drawReward() {
   if (free && RWS.t < 0 && gT % 50 < 25) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; rr(110, 482, 300, 40, 12); ctx.stroke(); }
   txt(lab, 260, 502, fitSize(lab, 18, 280), '#fff', '#000', 4);
   addHot(110, 482, 300, 40, () => { RWS.sel = 0; spinWheel(); });
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 52, 100, 30, 8); ctx.fill(); txt(TOUCH ? '📊 확률' : '📊 확률 [P]', 64, 67, 13, '#fff59d', null); addHot(14, 52, 100, 30, () => showOdds());
+  if (wheelSlots().some(s => s.k === 'char')) txt(`🤖 돼이비드 확정까지 ${PITY_N - (RW.pity || 0)}번`, 260, 468, 13, '#84ffff', '#000', 3);
+  if ((inv.use.fastSpin || 0) > 0) txt('💨 빠른 룰렛', 400, 108, 12, '#69f0ae', '#000', 3);
   // 오른쪽 위: 출석 7일
   const x0 = 500;
   txt(`📅 출석 체크 · ${RW.att}일째 (총 ${RW.days}일)`, x0, 92, 16, '#fff', '#000', 4, 'left');
@@ -4542,7 +4607,7 @@ function drawRanking() {
       const y = 130 + i * 36;
       if (i === rankPos) { ctx.fillStyle = gT % 30 < 15 ? 'rgba(255,213,79,0.35)' : 'rgba(255,213,79,0.2)'; rr(150, y - 16, 660, 32, 8); ctx.fill(); }
       const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
-      txt(`${i + 1}`, 190, y, 20, col, '#000', 4); txt(e.name, 340, y, 20, col, '#000', 4);
+      txt(`${i + 1}`, 190, y, 20, col, '#000', 4); txt(e.name + (e.rk ? ' 🏆랭크전' : ' 🔥연승 모드'), 340, y, fitSize(e.name + ' 🔥연승 모드', 20, 260), col, '#000', 4);
       txt(e.char, 540, y, 18, '#ddd', '#000', 3); txt(`${e.streak}연승`, 700, y, 20, col, '#000', 4);
     });
   }
@@ -4827,7 +4892,7 @@ function nextOpponent() {
 // 랭크전 싸움 도중 나가면 패배 처리 (지는 중에 나가서 점수 지키기 방지)
 function rankedForfeit() { if (!lsGet("sgf_rkpending", false)) return; lsSet("sgf_rkpending", false); rankedResult(false, false); lsSet("sgf_ranked", true); uploadRank(); toast("⚠️ 랭크전 도중 나가서 패배로 처리됐어요"); }
 function quitRun() {
-  if (mode === 1 && ranked && ["intro", "fight", "roundEnd"].includes(scene)) rankedForfeit(); if (mode === 1 && !runOver && streak > 0) { rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now() }); runOver = true; } toTitle(); }
+  if (mode === 1 && ranked && ["intro", "fight", "roundEnd"].includes(scene)) rankedForfeit(); if (mode === 1 && !runOver && streak > 0) { rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now(), rk: !!ranked }); runOver = true; } toTitle(); }
 function startMatch() {
   if (mode !== 3) sseed(Math.random() * 4294967296 >>> 0);
   p1.cpuLv = mode === 0 ? 3 : 0; p2.cpuLv = oppLv();
@@ -5079,7 +5144,7 @@ function startCutscene(w, l) {
       if (bet > 0) cut.earn.bet = -bet;
       if (inv.use.bigRevive > 0) { inv.use.bigRevive--; saveInv(); cut.revived = true; cut.bigRev = true; if (bet > 0) { addCoins(bet); cut.earn.bet = 0; } toast('💎 대형 부활권! 건 돈·티어 점수 그대로 이어서'); }   // 대형 부활권: 돈·랭크 안 잃음
       else if (inv.use.revive > 0) { inv.use.revive--; saveInv(); cut.revived = true; }
-      else { runOver = true; rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now() }); }
+      else { runOver = true; rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now(), rk: !!ranked }); }
     }
     bet = 0;
   }
@@ -6329,6 +6394,8 @@ if (/autotest/.test(location.search)) {
       localStorage.removeItem('sgf_unlock_돼루토'); lsSet('sgf_nq', {}); for (const st of NQ) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak');
       out.push(`quest: step=${nqStep()} unlocked=${isUnlocked(NR)}`); if (!isUnlocked(NR)) throw new Error('돼루토 퀘스트 실패'); localStorage.removeItem('sgf_unlock_돼루토'); POPQ.length = 0;
       localStorage.removeItem('sgf_unlock_돼이비드'); RWS.slots = wheelSlots(); RWS.res = RWS.slots.findIndex(x => x.k === 'char'); wheelDone(); out.push(`wheel char: slot=${RWS.res} unlocked=${isUnlocked(DV)}`); if (RWS.res < 0 || !isUnlocked(DV)) throw new Error('룰렛 돼이비드 실패'); localStorage.removeItem('sgf_unlock_돼이비드'); POPQ.length = 0; POP = null;
+      localStorage.removeItem('sgf_unlock_돼이비드'); RW.pity = PITY_N - 1; RW.bonus = 5; RWS.t = -1; spinWheel(); const pk = RWS.slots[RWS.res].k; for (let n = 0; n < RWS.T + 2; n++) updateReward(); out.push(`pity: res=${pk} pity=${RW.pity} unlocked=${isUnlocked(DV)}`); if (pk !== 'char' || !isUnlocked(DV)) throw new Error('200번 확정 실패'); localStorage.removeItem('sgf_unlock_돼이비드');
+      inv.use.fastSpin = 1; spinWheel(); out.push(`fast spin T=${RWS.T}`); if (RWS.T !== 45) throw new Error('빠른 룰렛 실패'); for (let n = 0; n < 50; n++) updateReward(); inv.use.fastSpin = 0; POPQ.length = 0; showOdds(); out.push(`odds: ${POPQ[0].lines.length} lines`); POPQ.length = 0; POP = null;
       RW.bonus = 0; RW.spinDay = dayKey(); RW.spins = 9; coins = 1e6; const c1 = coins; spinWheel(); out.push(`ticket buy: tix=${RW.bonus} coins-${c1 - coins}`); if (RW.bonus !== 1) throw new Error('티켓 사기 실패');
       mode = 1; scene = 'title'; }
     // 🛒 비싼 물건 · 🏙️ 체인점별 강화 · ⚖️ 밸런스 · ⌨️ 키 설정 · 🎁 돼지/아이템 선물
@@ -6573,6 +6640,8 @@ else if (VIEW === 'betpick') openBet();
 else if (VIEW === 'market') { if (!fridge.length) { addDish(makeDish(MEATS[5].opts[0]), '갈비', 5); addDish(makeDish(MEATS[2].opts[0]), '등심', 4); addDish(makeDish(MEATS[4].opts[0]), '족', 3); } openMarket(); }
 else if (VIEW === 'shop') { openMarket(); mk.tab = 1; }
 else if (VIEW === 'reward') { RW.att = 3; RW.day = dayKey(); openReward(); rwMissions()[0].n = 1; RW.bonus = 2; RW.days = 3; for (let i = 0; i < 30; i++) step(); }
+else if (VIEW === 'cyber') { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼이비드')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.cyberT = 900; p1.x = 330; p2.x = 640; p1.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
+else if (VIEW === 'cybercut') { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼이비드')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; startUlt(p1); for (let i = 0; i < 45; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'popup') { popup({ icon: '🎁', title: '관리자 선물 도착!', lines: ['🪙 +50,000 코인', '🎡 무료 룰렛 +3번', '주말 특별 선물!'], big: true }); for (let i = 0; i < 30; i++) step(); }
 else if (VIEW === 'bank') { scene = 'bank'; }
 else if (VIEW === 'tycoon' || VIEW === 'tylobby') {   // 장사 화면 확인용
