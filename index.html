@@ -4063,12 +4063,13 @@ function forceWin(why) {
 }
 const TRAILER_SAFE = ['title', 'select', 'market', 'bank', 'endings', 'ranking', 'reward', 'tycoon', 'betpick'];
 function releaseTick() {
+  if (!AUTH_TEST && isReleased() && lsGet('sgf_trailer2', false) && !lsGet('sgf_nrtrailer', false) && TRAILER_SAFE.includes(scene) && !POP && !POPQ.length && !authOpen()) { startNrTrailer(); return; }   // 🍥 돼루토 예고편 (한 번)
   if (AUTH_TEST || !isReleased() || lsGet('sgf_trailer2', false)) return;
   if (['intro', 'fight', 'roundEnd'].includes(scene)) { forceWin('🆕 업데이트 공개! 이 판은 승리로 처리됐어요'); return; }
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-10';
+const BUILD = '20261112-11';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4079,7 +4080,7 @@ setTimeout(checkVersion, 8000);
 function updateTick() {
   if (!newBuild) return;
   if (['intro', 'fight', 'roundEnd'].includes(scene)) { forceWin(); return; }
-  if (['cutscene', 'vs', 'opening', 'story', 'trailer', 'revive'].includes(scene) || (scene === 'online' && NET.ready) || authOpen() || pushing) return;
+  if (['cutscene', 'vs', 'opening', 'story', 'trailer', 'nrtrailer', 'revive'].includes(scene) || (scene === 'online' && NET.ready) || authOpen() || pushing) return;
   newBuild = false;
   try { sessionStorage.setItem('sgf_msg', '🆕 새 버전으로 업데이트됐어요!'); } catch (e) {}
   const go = () => location.reload();
@@ -4090,6 +4091,111 @@ function drawKunai(o) {
   ctx.fillStyle = '#90a4ae'; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(0, -6); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill();
   ctx.fillStyle = '#37474f'; ctx.fillRect(-14, -2, 14, 4); ctx.strokeStyle = '#ff9100'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-17, 0, 4, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
+}
+// ================= 🍥 돼루토 예고편 (트레일러): 닌자 달리기 → 분신술 → 쿠나이 → 회오리 구슬 → 구미호 모드 → 타이틀 =================
+const NRT_T = 960;
+const nrt = { t: 0, sh: 0 };
+function startNrTrailer() { lsSet('sgf_nrtrailer', true); nrt.t = 0; nrt.sh = 0; scene = 'nrtrailer'; }
+function updateNrTrailer() {
+  const T = ++nrt.t;
+  if (nrt.sh > 0) nrt.sh *= 0.88;
+  const hit = (s = 10) => { nrt.sh = s; };
+  if (T === 1) SFX.gong();
+  if (T === 60 || T === 100 || T === 140) SFX.jump();
+  if (T === 200 || T === 230 || T === 260) { SFX.whiff(); hit(6); }
+  if (T >= 330 && T < 400 && T % 6 === 0) SFX.whiff();
+  if (T === 400) SFX.special();
+  if (T >= 420 && T < 500 && T % 5 === 0) SFX.tick();
+  if (T === 520) { SFX.boom(); hit(22); }
+  if (T === 600) SFX.gong();
+  if (T === 690) { SFX.boom(); hit(26); }
+  if (T === 820) SFX.bell();
+  if (T >= NRT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '🍥', title: '돼루토', lines: ['분신술 · 회오리 구슬 · 쿠나이 · 구미호 모드', '🎁 보상 센터의 돼루토 퀘스트를 깨면 얻어요'], big: true }); }
+}
+// 화면에 크게 박히는 기술 이름
+function nrtCard(s, sub, lt, col, edge) {
+  const k = Math.min(1, lt / 10), sc = 1 + (1 - k) * 1.5;
+  ctx.save(); ctx.translate(W / 2, H / 2 - 120); ctx.scale(sc, sc); ctx.globalAlpha = k;
+  txt(s, 0, 0, 58, '#fff', edge, 12); ctx.restore();
+  if (sub && lt > 14) txt(sub, W / 2, H / 2 - 70, 18, col, '#000', 5);
+}
+function nrtSpeed(col, n = 30, T = 0) { for (let i = 0; i < n; i++) { const y = (i * 53 + T * 7) % H; ctx.fillStyle = col; ctx.fillRect((i * 97 + T * 40) % (W + 300) - 300, y, 160 + (i % 4) * 60, 2); } }
+function drawNrTrailer() {
+  const T = nrt.t, nr = CHARS.find(c => c.name === '돼루토'), L = nr.look;
+  ctx.save(); if (nrt.sh > 0.5) ctx.translate(rand(-nrt.sh, nrt.sh), rand(-nrt.sh, nrt.sh));
+  if (T < 180) {   // 1컷: 노을 숲 위를 뛰어다니는 닌자 돼지 (실루엣 → 컬러)
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#ff6f00'); g.addColorStop(0.6, '#bf360c'); g.addColorStop(1, '#3e1500'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,224,130,0.9)'; ctx.beginPath(); ctx.arc(W * 0.7, H * 0.42, 70, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1b0a00'; for (let i = 0; i < 12; i++) { const x = ((i * 120 - T * 3) % (W + 240)) - 120; ctx.beginPath(); ctx.moveTo(x - 40, H); ctx.lineTo(x + 20, H - 300 - (i % 3) * 50); ctx.lineTo(x + 80, H); ctx.fill(); }
+    const ph = (T % 40) / 40, jx = 120 + T * 3.6, jy = H - 120 - Math.sin(ph * Math.PI) * 160;
+    ctx.save(); if (T < 90) ctx.filter = 'brightness(0)'; drawPig(jx, jy, 1, L, { t: T, scale: 1.1, move: 'dash', k: 0.8 }); ctx.restore();
+    if (T > 30) txt(T < 100 ? '포기를 모르는 닌자 돼지가 있었다.' : '"절대 안 져!!"', W / 2, 70, 28, '#fff3e0', '#000', 7);
+  } else if (T < 320) {   // 2컷: 분신술 — 연기 펑 펑 펑, 1 → 3 → 9
+    const lt = T - 180;
+    ctx.fillStyle = '#2b1200'; ctx.fillRect(0, 0, W, H); nrtSpeed('rgba(255,171,64,0.25)', 30, T);
+    ctx.fillStyle = '#4e2100'; ctx.fillRect(0, H - 70, W, 70);
+    const n = lt < 20 ? 1 : lt < 50 ? 3 : 9;
+    for (let i = 0; i < n; i++) {
+      const row = n === 9 ? (i < 5 ? 0 : 1) : 0, cols = n === 9 ? (row ? 4 : 5) : n, ci = n === 9 ? (row ? i - 5 : i) : i;
+      const x = W / 2 + (ci - (cols - 1) / 2) * (n === 9 ? 150 : 200), y = H - 70 - row * 70, sc = n === 9 ? (row ? 0.85 : 1) : 1.15;
+      drawPig(x, y, i % 2 ? -1 : 1, L, { t: T + i * 9, scale: sc, victory: lt > 70 });
+      const born = n === 3 ? 20 : n === 9 ? 50 : -99;
+      if (lt - born < 14 && lt >= born) { ctx.fillStyle = `rgba(255,255,255,${0.9 - (lt - born) / 16})`; for (let j = 0; j < 5; j++) { ctx.beginPath(); ctx.arc(x + Math.cos(j * 1.3) * 40, y - 80 + Math.sin(j * 1.7) * 40, 30 + (lt - born) * 3, 0, Math.PI * 2); ctx.fill(); } }
+    }
+    nrtCard('분신술!!', '분신이 대신 싸워 줘요 · 한 대 맞으면 펑', lt, '#ffcc80', '#e65100');
+  } else if (T < 400) {   // 3컷: 쿠나이 세례
+    const lt = T - 320;
+    ctx.fillStyle = '#10121a'; ctx.fillRect(0, 0, W, H); nrtSpeed('rgba(255,255,255,0.18)', 40, T);
+    drawPig(160, H - 60, 1, L, { t: T, scale: 1.25, move: 'throw', k: (lt % 12) / 12 });
+    for (let i = 0; i < 14; i++) { const x = 230 + ((lt * 18 + i * 70) % 800), y = H - 200 + Math.sin(i * 2.1) * 120; drawKunai({ x, y, vx: 1 }); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; line(x - 60, y, x - 18, y); }
+    nrtCard('쿠나이!', '→+U · 빠른 쿠나이 3개', lt, '#cfd8dc', '#263238');
+  } else if (T < 560) {   // 4컷: 회오리 구슬 — 모으고 → 달려가서 → 쾅
+    const lt = T - 400;
+    if (lt < 100) {
+      const k = Math.min(1, lt / 80), cx = W * 0.6, cy = H / 2 + 10;
+      const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 650); g.addColorStop(0, '#0d47a1'); g.addColorStop(1, '#020814'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.save(); ctx.translate(cx, cy); for (let i = 0; i < 46; i++) { const a = i * 2.39 + lt * 0.2, r = 460 - ((lt * 10 + i * 37) % 440); ctx.strokeStyle = `rgba(179,229,252,${0.12 + 0.55 * (1 - r / 460)})`; ctx.lineWidth = 2 + (1 - r / 460) * 3; ctx.beginPath(); ctx.arc(0, 0, r, a, a + 0.5); ctx.stroke(); } ctx.restore();
+      ctx.save(); ctx.translate(W * 0.26, H + 50); drawPig(0, 0, 1, L, { t: T, scale: nr.scale * 2.2, move: 'punch', k: 0.5 }); ctx.restore();
+      const R = 24 + 120 * k + Math.sin(lt * 0.8) * 5;
+      ctx.save(); ctx.shadowColor = '#4fc3f7'; ctx.shadowBlur = 60; const og = ctx.createRadialGradient(cx, cy, 4, cx, cy, R); og.addColorStop(0, '#fff'); og.addColorStop(0.35, '#b3e5fc'); og.addColorStop(0.75, '#29b6f6'); og.addColorStop(1, 'rgba(13,71,161,0)'); ctx.fillStyle = og; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse(cx, cy, R * 0.8, R * (0.25 + 0.1 * (i % 3)), lt * 0.4 + i * 1.05, 0, Math.PI * 1.3); ctx.stroke(); }
+      nrtCard('회오리 구슬!!', '↓+U · 손바닥에 모은 회오리로 날려 버림', lt, '#b3e5fc', '#01579b');
+    } else {
+      const lt2 = lt - 100, x = 120 + Math.min(1, lt2 / 20) * 520;
+      ctx.fillStyle = '#071a33'; ctx.fillRect(0, 0, W, H); nrtSpeed('rgba(179,229,252,0.4)', 50, T * 2);
+      drawPig(x, H - 70, 1, L, { t: T, scale: 1.3, move: 'dash', k: 1 });
+      const ox = x + 95, oy = H - 190; ctx.save(); ctx.shadowColor = '#4fc3f7'; ctx.shadowBlur = 40; ctx.fillStyle = '#b3e5fc'; ctx.beginPath(); ctx.arc(ox, oy, 36, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      if (lt2 >= 20) {   // 맞는 순간: 흰 번쩍 + 충격파 고리
+        const r = (lt2 - 20) * 22; ctx.strokeStyle = `rgba(179,229,252,${Math.max(0, 1 - r / 600)})`; ctx.lineWidth = 14; ctx.beginPath(); ctx.arc(ox + 40, oy, r, 0, Math.PI * 2); ctx.stroke();
+        if (lt2 < 28) { ctx.fillStyle = `rgba(255,255,255,${1 - (lt2 - 20) / 8})`; ctx.fillRect(0, 0, W, H); }
+      }
+    }
+  } else if (T < 800) {   // 5컷: 구미호 모드 — 붉은 기운, 꼬리 아홉 개가 하나씩
+    const lt = T - 560;
+    ctx.fillStyle = '#120000'; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.translate(W / 2, H / 2 + 40); ctx.rotate(lt * 0.01); for (let i = 0; i < 18; i++) { ctx.rotate(Math.PI / 9); ctx.fillStyle = i % 2 ? `rgba(255,109,0,${0.12 + 0.2 * Math.min(1, lt / 130)})` : 'rgba(80,0,0,0.5)'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-80, -700); ctx.lineTo(80, -700); ctx.fill(); } ctx.restore();
+    const tails = Math.min(9, Math.floor(lt / 14));
+    for (let i = 0; i < tails; i++) drawTail(W / 2 - 20, H - 150, -Math.PI / 2 + (i - 4) * 0.3, 300, gT + i * 7, 1);
+    for (let i = 0; i < 3; i++) flame(W / 2 + rand(-120, 120), H - rand(60, 260));
+    drawParts();
+    ctx.save(); if (lt < 130) ctx.filter = 'brightness(0.35) sepia(1) saturate(4) hue-rotate(-30deg)'; drawPig(W / 2, H - 50, 1, L, { t: T, scale: 1.7, victory: lt > 130 }); ctx.restore();
+    if (lt > 60 && lt < 130) { ctx.save(); ctx.shadowColor = '#ff1744'; ctx.shadowBlur = 20; ctx.fillStyle = '#ff1744'; ctx.beginPath(); ctx.ellipse(W / 2 + 70, H - 235, 9, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }   // 붉게 빛나는 눈
+    if (lt > 130 && lt < 138) { ctx.fillStyle = `rgba(255,140,0,${1 - (lt - 130) / 8})`; ctx.fillRect(0, 0, W, H); }
+    if (lt > 140) nrtCard('구미호 모드', '필살기 · 아홉 꼬리 폭발 + 12초 동안 강해짐', lt - 140, '#ffd180', '#bf360c');
+    else if (lt > 20) txt('"...이게 내 진짜 힘이야."', W / 2, 70, 26, '#ffccbc', '#000', 6);
+  } else {   // 6컷: 타이틀 카드
+    const lt = T - 800, k = Math.min(1, lt / 20);
+    ctx.fillStyle = '#05070d'; ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 9; i++) drawTail(W / 2 + 230, H - 120, -Math.PI / 2 + (i - 4) * 0.26, 200, gT + i * 7, 0.7 * k);
+    drawPig(W / 2 + 230, H - 40, -1, L, { t: T, scale: 1.6, victory: true });
+    txt('돼루토', W / 2 - 160, H / 2 - 30, 90 * k, '#fff', '#e65100', 14);
+    if (lt > 25) txt('포기를 모르는 닌자 돼지', W / 2 - 160, H / 2 + 40, 22, '#ffcc80', '#000', 6);
+    if (lt > 45) txt('🎁 보상 센터 퀘스트를 깨고 얻으세요', W / 2 - 160, H / 2 + 85, 18, '#ffd740', '#000', 5);
+  }
+  ctx.restore();
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 34); ctx.fillRect(0, H - 30, W, 30);   // 영화처럼 위아래 검은 띠
+  if (T > 60) txt(TOUCH ? '탭하면 건너뛰기' : 'Enter 건너뛰기', W - 20, H - 15, 12, '#888', null, 0, 'right');
+  addHot(0, 0, W, H, () => { if (nrt.t > 60) pressed.Enter = true; });
 }
 // ================= 🎁 보상 센터: 출석 체크 · 행운 룰렛 · 일일 미션 =================
 // 저장: sgf_reward = { day(마지막 출석 날짜), att(연속 출석 1~7), days(총 출석), spinDay, spins(오늘 쓴 무료), bonus(쌓인 무료 룰렛),
@@ -4285,6 +4391,7 @@ function drawReward() {
   if (free && RWS.t < 0 && gT % 50 < 25) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; rr(110, 482, 300, 40, 12); ctx.stroke(); }
   txt(lab, 260, 502, fitSize(lab, 18, 280), '#fff', '#000', 4);
   addHot(110, 482, 300, 40, () => { RWS.sel = 0; spinWheel(); });
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 88, 100, 30, 8); ctx.fill(); txt('🎬 돼루토 예고편', 64, 103, 11, '#ffcc80', null); addHot(14, 88, 100, 30, () => startNrTrailer());
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 52, 100, 30, 8); ctx.fill(); txt(TOUCH ? '📊 확률' : '📊 확률 [P]', 64, 67, 13, '#fff59d', null); addHot(14, 52, 100, 30, () => showOdds());
   if (wheelSlots().some(s => s.k === 'char')) txt(`🤖 볼트돈 확정까지 ${PITY_N - (RW.pity || 0)}번`, 260, 468, 13, '#84ffff', '#000', 3);
   if ((inv.use.fastSpin || 0) > 0) txt('💨 빠른 룰렛', 400, 108, 12, '#69f0ae', '#000', 3);
@@ -4358,7 +4465,7 @@ function jackpotRoll(base) {
 // 싸우는 중에는 기다렸다가 끝나면 띄움. 탭하거나 Enter로 닫음
 const POPQ = []; let POP = null, popConf = [];
 function popup(o) { POPQ.push({ lines: [], ...o, t: 0 }); }
-const popBlocked = () => ['revive', 'intro', 'fight', 'roundEnd', 'cutscene', 'vs', 'opening', 'story', 'trailer'].includes(scene) || authOpen();
+const popBlocked = () => ['nrtrailer', 'revive', 'intro', 'fight', 'roundEnd', 'cutscene', 'vs', 'opening', 'story', 'trailer'].includes(scene) || authOpen();
 function updatePopup() {
   if (!POP && POPQ.length && !popBlocked()) {
     POP = POPQ.shift(); popConf = [];
@@ -5144,6 +5251,7 @@ function step() {
   else if (scene === 'endings') updateEndings();
   else if (scene === 'reward') updateReward();
   else if (scene === 'trailer') updateTrailer();
+  else if (scene === 'nrtrailer') updateNrTrailer();
   else if (scene === 'keys') updateKeys();
   else if (scene === 'revive') { updateRevive(); if (pressed.Escape) pressed.Escape = false; }
   else if (scene === 'tycoon') updateTycoon();
@@ -6356,6 +6464,7 @@ function draw() {
   else if (scene === 'endings') drawEndings();
   else if (scene === 'reward') drawReward();
   else if (scene === 'trailer') drawTrailer();
+  else if (scene === 'nrtrailer') drawNrTrailer();
   else if (scene === 'keys') drawKeys();
   else if (scene === 'revive') drawRevive();
   else if (scene === 'tycoon') drawTycoon();
@@ -6522,6 +6631,7 @@ if (/autotest/.test(location.search)) {
       { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 400; p2.x = 520; p1.facing = 1; p2.facing = -1; p2.state = 'block'; const r1 = dealHit(p1, p2, { dmg: 10, kind: 'ult', src: p1.x, height: 'mid', stun: 20 }); p2.state = 'block'; p2.stun = 0; const r2 = dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 20 }); out.push(`ult vs block: ${r1} · punch vs block: ${r2}`); if (r1 !== 'hit' || r2 !== 'block') throw new Error('필살기 방어 무시 실패'); }
       mode = 1; ranked = false; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step();
       const s0 = streak; forceWon = false; forceWin(); for (let n = 0; n < 400 && scene !== 'cutscene'; n++) step(); out.push(`forceWin: scene=${scene} streak ${s0}->${streak}`); if (scene !== 'cutscene' || streak !== s0 + 1) throw new Error('강제 승리 실패');
+      startNrTrailer(); for (let n = 0; n < NRT_T + 5 && scene === 'nrtrailer'; n++) { step(); if (n % 25 === 0) draw(); } out.push(`nr trailer: end scene=${scene}`); if (scene !== 'title') throw new Error('돼루토 예고편 실패'); POPQ.length = 0; POP = null;
       scene = 'title'; startTrailer(); for (let n = 0; n < TRAILER_T + 5 && scene === 'trailer'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`trailer: end scene=${scene} pop=${POPQ.length + (POP ? 1 : 0)}`); if (scene !== 'title') throw new Error('예고편 실패'); POPQ.length = 0; POP = null;
       localStorage.removeItem('sgf_unlock_돼루토'); lsSet('sgf_nq', {}); nqAdd('ranked', 1); nqAdd('shift', 1); if (nqState().ranked !== 1 || nqState().shift !== 1) throw new Error('퀘스트 동시 진행 실패'); for (const st of NQ) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak');
       out.push(`quest: step=${nqStep()} unlocked=${isUnlocked(NR)}`); if (!isUnlocked(NR)) throw new Error('돼루토 퀘스트 실패'); localStorage.removeItem('sgf_unlock_돼루토'); POPQ.length = 0;
@@ -6775,6 +6885,7 @@ else if (VIEW === 'shop') { openMarket(); mk.tab = 1; }
 else if (VIEW === 'reward') { RW.att = 3; RW.day = dayKey(); openReward(); rwMissions()[0].n = 1; RW.bonus = 2; RW.days = 3; for (let i = 0; i < 30; i++) step(); }
 else if (VIEW === 'cyber') { mode = 0; p1.setChar(CHARS.find(c => c.name === '볼트돈')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.cyberT = 900; p1.x = 330; p2.x = 640; p1.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'dv') { mode = 0; p1.setChar(CHARS.find(c => c.name === '볼트돈')); p2.setChar(CHARS.find(c => c.name === '볼트돈')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 380; p2.x = 580; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
+else if (VIEW && VIEW.startsWith('nrt')) { startNrTrailer(); const to = +VIEW.slice(3) || 250; for (let i = 0; i < to; i++) step(); step = () => {}; }
 else if (VIEW === 'nr') { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼루토')); p2.setChar(CHARS.find(c => c.name === '돼루토')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 380; p2.x = 580; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'rasencut') { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼루토')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.inp = { down: true }; p1.state = 'idle'; startSkill(p1, false); for (let i = 0; i < 45; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'cybercut') { mode = 0; p1.setChar(CHARS.find(c => c.name === '볼트돈')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; startUlt(p1); for (let i = 0; i < 45; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
