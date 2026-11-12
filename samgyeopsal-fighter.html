@@ -3912,11 +3912,12 @@ function nqState() { const q = lsGet('sgf_nq', {}); return q; }
 function nqStep() { const q = nqState(); return NQ.findIndex(s => (q[s.id] || 0) < s.goal); }
 function nqAdd(id, v, max) {
   if (!isReleased() || isUnlocked(CHARS.find(c => c.name === '돼루토'))) return;
-  const i = nqStep(); if (i < 0 || NQ[i].id !== id) return;   // 지금 단계만 올라감
-  const q = nqState(); q[id] = max ? Math.max(q[id] || 0, v) : (q[id] || 0) + v; lsSet('sgf_nq', q);
-  if (q[id] >= NQ[i].goal) {
+  const st = NQ.find(s => s.id === id); if (!st) return;   // 4가지를 한꺼번에 진행 (예전: 지금 단계만 올라가서 다른 걸 해도 안 쌓이던 버그)
+  const q = nqState(), was = q[id] || 0; if (was >= st.goal) return;
+  q[id] = Math.min(st.goal, max ? Math.max(was, v) : was + v); lsSet('sgf_nq', q); cloudDirty();
+  if (q[id] >= st.goal) {
     if (nqStep() < 0) { lsSet('sgf_unlock_돼루토', true); cloudDirty(); popup({ icon: '🍥', title: '돼루토 해금!!', lines: ['퀘스트 4단계를 모두 끝냈어요!', '캐릭터 선택에서 돼루토를 고를 수 있어요'], big: true }); }
-    else { cloudDirty(); toast(`🍥 돼루토 퀘스트 ${i + 1}단계 완료! 다음: ${NQ[i + 1].name}`); }
+    else toast(`🍥 돼루토 퀘스트 완료: ${st.name} (${NQ.filter(s => (q[s.id] || 0) >= s.goal).length}/4)`);
   }
 }
 // ---- 업데이트 예고편 (공개 시각이 지나면 한 번 자동으로) ----
@@ -3988,7 +3989,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-5';
+const BUILD = '20261112-6';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4239,9 +4240,10 @@ function drawReward() {
   const nrc = CHARS.find(c => c.name === '돼루토'), qi = nqStep();
   if (isReleased() && nrc && !isUnlocked(nrc) && qi >= 0) {
     const q = nqState(), st = NQ[qi];
-    txt(`🍥 돼루토 퀘스트 ${qi + 1}/4 단계`, x0 + 12, 436, 14, '#ffab40', '#000', 3, 'left');
+    addHot(x0, 420, 440, 66, () => popup({ icon: '🍥', title: '돼루토 퀘스트 (4가지 다 하면 해금)', lines: NQ.map(s => `${(q[s.id] || 0) >= s.goal ? '✅' : '⬜'} ${s.name}  ${Math.min(q[s.id] || 0, s.goal)}/${s.goal}`) }));   // 눌러서 4가지 전부 보기
+    txt(`🍥 돼루토 퀘스트 ${NQ.filter(s => (q[s.id] || 0) >= s.goal).length}/4 완료 · 남은 것`, x0 + 12, 436, 14, '#ffab40', '#000', 3, 'left');
     txt(`${st.name}  (${Math.min(q[st.id] || 0, st.goal)}/${st.goal})`, x0 + 12, 462, fitSize(st.name, 14, 330), '#fff', null, 0, 'left');
-    for (let k = 0; k < 4; k++) { ctx.fillStyle = k < qi ? '#ff9100' : k === qi ? (gT % 40 < 20 ? '#ffd180' : '#ff9100') : 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.arc(x0 + 370 + k * 18, 450, 6, 0, Math.PI * 2); ctx.fill(); }
+    for (let k = 0; k < 4; k++) { ctx.fillStyle = (q[NQ[k].id] || 0) >= NQ[k].goal ? '#ff9100' : k === qi ? (gT % 40 < 20 ? '#ffd180' : '#ff9100') : 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.arc(x0 + 370 + k * 18, 450, 6, 0, Math.PI * 2); ctx.fill(); }
   } else {
   txt(`🎒 보유 아이템: ⚡필살 ${inv.use.meter || 0} · 🛡️체력 ${inv.use.hpup || 0} · 🍀부활 ${inv.use.revive || 0}`, x0 + 220, 440, 13, '#fff59d', null);
   txt(`💥 잭팟 ${RW.jack || 0}번 · 보상 기준 🪙 ${fmtN(rwBase())} (장사가 클수록 커져요)`, x0 + 220, 466, 12, '#ccc', null);
@@ -6439,7 +6441,7 @@ if (/autotest/.test(location.search)) {
       mode = 1; ranked = false; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step();
       const s0 = streak; forceWon = false; forceWin(); for (let n = 0; n < 400 && scene !== 'cutscene'; n++) step(); out.push(`forceWin: scene=${scene} streak ${s0}->${streak}`); if (scene !== 'cutscene' || streak !== s0 + 1) throw new Error('강제 승리 실패');
       scene = 'title'; startTrailer(); for (let n = 0; n < TRAILER_T + 5 && scene === 'trailer'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`trailer: end scene=${scene} pop=${POPQ.length + (POP ? 1 : 0)}`); if (scene !== 'title') throw new Error('예고편 실패'); POPQ.length = 0; POP = null;
-      localStorage.removeItem('sgf_unlock_돼루토'); lsSet('sgf_nq', {}); for (const st of NQ) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak');
+      localStorage.removeItem('sgf_unlock_돼루토'); lsSet('sgf_nq', {}); nqAdd('ranked', 1); nqAdd('shift', 1); if (nqState().ranked !== 1 || nqState().shift !== 1) throw new Error('퀘스트 동시 진행 실패'); for (const st of NQ) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak');
       out.push(`quest: step=${nqStep()} unlocked=${isUnlocked(NR)}`); if (!isUnlocked(NR)) throw new Error('돼루토 퀘스트 실패'); localStorage.removeItem('sgf_unlock_돼루토'); POPQ.length = 0;
       localStorage.removeItem('sgf_unlock_돼이비드'); RWS.slots = wheelSlots(); RWS.res = RWS.slots.findIndex(x => x.k === 'char'); wheelDone(); out.push(`wheel char: slot=${RWS.res} unlocked=${isUnlocked(DV)}`); if (RWS.res < 0 || !isUnlocked(DV)) throw new Error('룰렛 돼이비드 실패'); localStorage.removeItem('sgf_unlock_돼이비드'); POPQ.length = 0; POP = null;
       localStorage.removeItem('sgf_unlock_돼이비드'); RW.pity = PITY_N - 1; RW.bonus = 5; RWS.t = -1; spinWheel(); const pk = RWS.slots[RWS.res].k; for (let n = 0; n < RWS.T + 2; n++) updateReward(); out.push(`pity: res=${pk} pity=${RW.pity} unlocked=${isUnlocked(DV)}`); if (pk !== 'char' || !isUnlocked(DV)) throw new Error('200번 확정 실패'); localStorage.removeItem('sgf_unlock_돼이비드');
