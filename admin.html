@@ -98,6 +98,9 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
         <p class="muted" style="margin:0 0 6px">게임 타이틀 화면 아래에 떠요. 비우고 저장하면 공지가 없어져요.</p>
         <textarea id="noticeTxt" rows="2" maxlength="200" style="width:100%" placeholder="예: 오늘 밤 10시에 서버 점검이 있어요"></textarea>
         <div class="actions" style="margin-top:6px"><button id="noticeBtn" class="primary">공지 저장</button><button id="mresetBtn">🎯 일일 미션 초기화 (모두)</button></div>
+        <div style="margin-top:10px"><b>📣 화면 메시지</b> <span class="muted">모두의 게임 화면에 큰 창 + 위쪽에 흐르는 띠로 한 번 보여요 (싸우는 중에도)</span></div>
+        <div class="actions" style="margin-top:6px"><input id="bcTxt" maxlength="120" style="flex:1;min-width:220px" placeholder="예: 10분 뒤 서버 점검! 판을 마무리해 주세요"><select id="bcH"><option value="1">1시간</option><option value="6">6시간</option><option value="24" selected>하루</option><option value="72">3일</option></select><button id="bcBtn" class="primary">보내기</button><button id="bcOff">끄기</button></div>
+        <div id="bcNow" class="muted" style="margin-top:4px"></div>
       </section>
       <section class="card">
         <h3 style="margin:0 0 8px">🎉 이벤트</h3>
@@ -266,7 +269,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
 <div class="toast" id="toast"></div>
 <script>
 // 관리자 페이지도 새 버전이 올라오면 1분 안에 저절로 새로 불러옴 (브라우저가 10분 동안 옛 페이지를 들고 있어서)
-const ADMIN_BUILD = 'a-20261112-3';
+const ADMIN_BUILD = 'a-20261112-4';
 setInterval(() => { if (document.hidden) return; fetch('admin.html?t=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => { const m = t.match(/ADMIN_BUILD = '([^']+)'/); if (m && m[1] !== ADMIN_BUILD && !document.querySelector('[style*="z-index:99"]')) location.reload(); }).catch(() => {}); }, 60000);
 // 브라우저 창(confirm·prompt) 대신 페이지 안 창
 function uiAsk(msg, opt = {}) {
@@ -469,7 +472,7 @@ $('aDel').onclick = async () => {
 
 // ---- 공지 · 시즌 ----
 async function loadConfig() {
-  try { const c = await api('/admin/config'); $('noticeTxt').value = c.notice || ''; $('seasonNo').textContent = c.season; showEvent(c.event); showGift(c.gift); showRel(c.rel); await loadCharNames(); showBal(c.bal); } catch (e) { toast(e.message); }
+  try { const c = await api('/admin/config'); $('noticeTxt').value = c.notice || ''; $('seasonNo').textContent = c.season; showEvent(c.event); showGift(c.gift); showRel(c.rel); showBc(c.bcast); await loadCharNames(); showBal(c.bal); } catch (e) { toast(e.message); }
 }
 // ---- 이벤트 ----
 const evN = (ev, k) => ev ? +ev[k] || (ev[k + '2x'] ? 2 : 1) : 1;   // 예전 모양(coin2x)도 읽음
@@ -587,6 +590,10 @@ $('mresetBtn').onclick = async () => {
   if (!await uiConfirm('모든 사람의 오늘 일일 미션을 새로 뽑고, 진행·받은 것도 처음부터 할까요?')) return;
   try { await api('/admin/mreset', 'POST', {}); toast('일일 미션을 초기화했어요 (켜 둔 사람은 10초 안에)'); } catch (e) { toast(e.message); }
 };
+const showBc = bc => { $('bcNow').textContent = bc && bc.until > Date.now() ? `지금 보내는 중: "${bc.text}" · ${new Date(bc.until).toLocaleString('ko-KR')}까지` : '보내는 메시지 없음'; };
+const sendBc = async text => { try { const d = await api('/admin/broadcast', 'POST', { text, hours: +$('bcH').value }); showBc(d.bcast); toast(d.bcast ? '메시지를 보냈어요 (켜 둔 사람은 10초 안에)' : '메시지를 껐어요'); if (d.bcast) $('bcTxt').value = ''; } catch (e) { toast(e.message); } };
+$('bcBtn').onclick = () => { const t = $('bcTxt').value.trim(); if (!t) return toast('메시지를 써 주세요'); sendBc(t); };
+$('bcOff').onclick = () => sendBc('');
 $('noticeBtn').onclick = async () => {
   try { const d = await api('/admin/notice', 'POST', { text: $('noticeTxt').value }); toast(d.notice ? '공지를 올렸어요 (10초 안에 모두에게 보여요)' : '공지를 내렸어요'); } catch (e) { toast(e.message); }
 };

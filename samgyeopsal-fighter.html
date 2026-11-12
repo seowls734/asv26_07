@@ -733,7 +733,7 @@ function authExpired(banned, msg) { setAuth({ guest: true }); toast(banned ? '�
 // 공지 · 랭킹 시즌 · 이벤트 · 선물 · 내 계정 기록 바뀜을 10초마다 한 번에 확인 (게임을 보고 있을 때만)
 // 관리자가 바꾼 게 10초 안에, 새로고침 없이 반영됨
 let IS_ADMIN = false, IS_TESTER = false;   // 테스트 계정이면 서버가 알려 줌 → 공개 전 돼지까지 모두 해금 (관리자 계정은 일반 플레이어와 같음)
-let notice = '', EVT = null, GIFT = null;   // EVT: { coin, tp, ty, jackpot, spins, luck, daily, msg, until, id }
+let notice = '', EVT = null, GIFT = null; let BCAST = null, bcastT = 0;   // 관리자 메시지 (위쪽 띠는 30초 동안)   // EVT: { coin, tp, ty, jackpot, spins, luck, daily, msg, until, id }
 const evLive = () => !!(EVT && (!EVT.until || Date.now() < EVT.until));
 const evMul = k => { if (!evLive()) return 1; const n = +EVT[k] || (EVT[k + '2x'] ? 2 : 1); return Math.max(1, n); };
 const evOn = k => k.endsWith('2x') ? evMul(k.slice(0, -2)) > 1 : evLive() && !!EVT[k];
@@ -777,6 +777,7 @@ function fetchConfig() {
       popup({ icon: '🎉', title: '이벤트 시작!', lines: [...evParts(), EVT.msg || '', EVT.until ? `⏰ ${new Date(EVT.until).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}까지` : ''].filter(Boolean) });
     }
     GIFT = d.gift || null; claimGift();
+    if (d.bcast && d.bcast.id && (!d.bcast.until || Date.now() < d.bcast.until)) { BCAST = d.bcast; if (lsGet('sgf_bcast', 0) !== d.bcast.id) { lsSet('sgf_bcast', d.bcast.id); bcastT = 60 * 30; popup({ icon: '📣', title: '관리자 메시지', lines: String(d.bcast.text).match(/.{1,26}/g) || [''], big: true }); SFX.bell(); } } else BCAST = null;   // 📣 관리자 화면 메시지
     const s = +d.season || 0;
     if (s > lsGet('sgf_season', 0)) {
       const had = tp > 0 || lsGet('sgf_rbest', 0) > 0;
@@ -2903,16 +2904,20 @@ const SHOP = [   // 2026-11-12: 가격 10배로 올림 · 비싼 새 물건 추�
   { id: 'fastSpin', type: 'use', name: '룰렛 빨리 돌리기', price: 1e11, desc: '영구: 행운 룰렛이 금방 멈춰요 (한 번만 사면 됨)' },
   { id: 'skinBox', type: 'use', name: '🎨 스킨 상자', price: 1000000, desc: '랜덤 돼지의 전용 스킨 1개 · 중복이면 30% 환급' },
   { id: 'skinBox10', type: 'use', name: '🎨 스킨 상자 10개', price: 9000000, desc: '10번 열기 (1개 값 할인)' },
+  { id: 'skinBoxP', type: 'use', name: '💎 프리미엄 스킨 상자', price: 1000000000, desc: '영웅 이상 확정 (전설 25%)' },
+  { id: 'honor', type: 'use', name: '🏅 명예 등급 올리기', price: 1000000000, desc: '등급마다 10배 · 이름 앞에 🏅 표시' },
   { id: 'ttRich', type: 'title', name: '💰 졸부', price: 1000000 },
   { id: 'ttChef', type: 'title', name: '🔥 철판의 신', price: 50000000 },
   { id: 'ttKing', type: 'title', name: '👑 돼지 재벌', price: 1000000000 },
   { id: 'ttSpace', type: 'title', name: '🌌 우주 최강 돼지', price: 100000000000 },
   { id: 'ttLegend', type: 'title', name: '🏆 살아있는 전설', price: 10000000000000 }
 ];
+const honorLv = () => +(inv && inv.honor) || 0;   // 🏅 명예 등급
+const honorTag = () => honorLv() ? `🏅${honorLv()} ` : '';
 const titleName = () => { const t = inv.eq && inv.eq.title && SHOP.find(x => x.id === inv.eq.title); return t ? t.name : ''; };
 
-const itPrice = it => Math.round(it.price * (1 - (evLive() ? Math.min(90, +EVT.sale || 0) : 0) / 100));   // 이벤트 할인
-const USE_ICON = { skinBox: '🎨', skinBox10: '🎁', fastSpin: '💨', meter: '⚡', hpup: '🛡️', revive: '💖', bigRevive: '💎', rankShield: '🏅', fullMeter: '🔥', luckyCharm: '🍀', tix10: '🎟️' };
+const itPrice = it => Math.round((it.id === 'honor' ? 1e9 * 10 ** honorLv() : it.price) * (1 - (evLive() ? Math.min(90, +EVT.sale || 0) : 0) / 100));   // 이벤트 할인
+const USE_ICON = { skinBoxP: '💎', honor: '🏅', skinBox: '🎨', skinBox10: '🎁', fastSpin: '💨', meter: '⚡', hpup: '🛡️', revive: '💖', bigRevive: '💎', rankShield: '🏅', fullMeter: '🔥', luckyCharm: '🍀', tix10: '🎟️' };
 const COS_IDS = SHOP.filter(s => s.type !== 'use').map(s => s.id);
 const withCos = (ch, cos = inv.eq) => { const r = withCos0(ch, cos), ps = typeof pigSkinEq === 'function' ? pigSkinEq(ch) : null; if (ps) r.look = { ...r.look, ...ps.pal, skinFx: ps }; return r; };   // 🎨 그 돼지에 장착한 전용 스킨
 const withCos0 = (ch, cos = inv.eq) => ({ ...ch, look: { ...ch.look, hat: COS_IDS.includes(cos && cos.hat) ? cos.hat : null, fx: COS_IDS.includes(cos && cos.fx) ? cos.fx : null } });
@@ -2999,6 +3004,8 @@ function shopAct(i) {
     if (coins < itPrice(it)) { SFX.block(); toast('코인이 부족해요'); return; }
     addCoins(-itPrice(it));
     if (it.id === 'fastSpin' && (inv.use.fastSpin || 0) > 0) { addCoins(itPrice(it)); SFX.block(); toast('이미 갖고 있어요 (영구)'); return; }
+    if (it.id === 'skinBoxP') { saveInv(); openSkinBox(1, 2); SFX.bell(); return; }
+    if (it.id === 'honor') { const h = honorLv() + 1; inv.honor = h; saveInv(); cloudDirty(); SFX.bell(); popup({ icon: '🏅', title: `명예 등급 Lv.${h}!`, lines: [`다음 등급: 🪙 ${fmtN(1e9 * 10 ** h)}`, '이름 앞에 🏅 표시가 붙어요'], big: true }); return; }
     if (it.id === 'skinBox' || it.id === 'skinBox10') { saveInv(); openSkinBox(it.id === 'skinBox10' ? 10 : 1); SFX.bell(); return; }   // 🎨 스킨 상자 열기
     if (it.id === 'tix10') { RW.bonus += 10; rwSave(); SFX.coin(); toast(`🎟️ 룰렛 티켓 10장! (보유 ${RW.bonus}장)`); saveInv(); cloudDirty(); return; }
     inv.use[it.id] = (inv.use[it.id] || 0) + 1; SFX.coin(); toast(`${it.name} 구매! (보유 ${inv.use[it.id]}개)`);
@@ -3970,7 +3977,7 @@ function drawTitle() {
   else txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
   const best = Math.max(lsGet('sgf_rbest', 0), getRank().filter(r => r.name === playerName && r.rk).reduce((m, r) => Math.max(m, r.streak), 0));   // 랭킹과 같게: 랭크전 최고 연승도 같이 봄
   // 티어 배지 + 상태 줄을 한 덩어리로 가운데 정렬 (숫자가 길어져도 배지와 겹치지 않게, 너무 길면 글자를 줄임)
-  const stat = `👤 ${titleName() ? titleName() + ' ' : ''}${playerName}${isMember() ? '' : ' [N]'}  ·🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`;
+  const stat = `👤 ${honorTag()}${titleName() ? titleName() + ' ' : ''}${playerName}${isMember() ? '' : ' [N]'}  ·🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`;
   ctx.font = `900 12px ${FONT}`; const bw = ctx.measureText(`🏅 ${TIERS[tierOf(tp)][0]}`).width + 16;
   const ss = fitSize(stat, 14, W - 60 - bw), sw = (ctx.font = `900 ${ss}px ${FONT}`, ctx.measureText(stat).width), sx = W / 2 - (bw + 10 + sw) / 2;
   drawTierBadge(sx, 138, tp, 12, 'left');
@@ -4422,7 +4429,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-36';
+const BUILD = '20261112-38';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -5087,7 +5094,8 @@ function drawBig2Trailer() {
 // ================= 🐷 돼지 도감 · 강화 (돈 쓰는 곳) =================
 // 돼지마다 Lv.0~10: 한 단계마다 체력·공격력 +3% (연승 모드·랭크전 등 혼자 하는 판에서만, 온라인 1:1은 공평하게 그대로)
 // 비용: 50만 × 2.3^레벨 (Lv.10까지 돼지 하나에 약 13억)
-const PIG_MAX = 10;
+const PIG_MAX = 20, PIG_TR = 10;   // Lv.11~20은 초월 (단계마다 +2%)
+const pigMul = lv => 1 + 0.03 * Math.min(lv, PIG_TR) + 0.02 * Math.max(0, lv - PIG_TR);
 const pigLvAll = () => lsGet('sgf_piglv', {});
 const pigLv = name => +(pigLvAll()[name] || 0);
 const pigCost = lv => Math.round(500000 * 2.3 ** lv / 1000) * 1000;
@@ -5097,7 +5105,9 @@ function upgradePig(c) {
   const cost = pigCost(lv); if (coins < cost) { SFX.block(); toast(`코인이 부족해요 (${fmtN(cost)} 필요)`); return; }
   addCoins(-cost); const all = pigLvAll(); all[c.name] = lv + 1; lsSet('sgf_piglv', all); cloudDirty();
   SFX.coin(); burst(760, 200, 30, ['#ffd740', '#fff'], 10);
-  if (lv + 1 === PIG_MAX) popup({ icon: '🌟', title: `${c.name} 최고 레벨!!`, lines: ['Lv.10 · 체력·공격력 +30%'], big: true }); else toast(`🐷 ${c.name} Lv.${lv + 1}! 체력·공격력 +${(lv + 1) * 3}%`);
+  if (lv + 1 === PIG_MAX) popup({ icon: '🌌', title: `${c.name} 초월 완료!!`, lines: [`Lv.${PIG_MAX} · 체력·공격력 +${Math.round((pigMul(PIG_MAX) - 1) * 100)}%`], big: true });
+  else if (lv + 1 === PIG_TR) popup({ icon: '🌟', title: `${c.name} Lv.10!`, lines: ['체력·공격력 +30%', '이제 Lv.20까지 초월 강화를 할 수 있어요'], big: true });
+  else toast(`🐷 ${c.name} Lv.${lv + 1}! 체력·공격력 +${Math.round((pigMul(lv + 1) - 1) * 100)}%`);
 }
 const PG = { sel: 0 };
 function openPigs() { PG.sel = 0; scene = 'pigs'; }
@@ -5146,14 +5156,14 @@ function drawPigs() {
     txt(got ? '✅ 보유' : `🔒 ${c.how || (c.unlock != null ? `랭크전 ${TIERS[c.unlock] ? TIERS[c.unlock][0] : ''} 티어 달성` : '')}`, x0 + 165, 132, fitSize(got ? '보유' : (c.how || '잠김'), 12, 310), got ? '#69f0ae' : '#ff8a80', null);
     const sk = c.skills || [c.skill], lines = sk.map((s, i) => `${['U', '↓+U', '←→+U'][i]} ${s.name}`).concat([`필살 ${c.ult.name}`]);
     lines.forEach((l, i) => txt(l, x0 + 16, 160 + i * 22, fitSize(l, 13, 300), i === lines.length - 1 ? '#ffe082' : '#e0e0e0', null, 0, 'left'));
-    const hp = Math.round(c.hp * (1 + 0.03 * lv)), pw = Math.round(c.power * 100 * (1 + 0.03 * lv));
+    const hp = Math.round(c.hp * pigMul(lv)), pw = Math.round(c.power * 100 * pigMul(lv));
     txt(`❤️ 체력 ${hp} · 👊 공격력 ${pw}% · 💨 속도 ${Math.round(c.speed * 100)}%`, x0 + 165, 268, fitSize('가'.repeat(26), 13, 310), '#fff', null);
     // 레벨 칸 10개
-    for (let k = 0; k < PIG_MAX; k++) { ctx.fillStyle = k < lv ? (lv >= PIG_MAX ? '#ffd740' : '#29b6f6') : 'rgba(255,255,255,0.12)'; rr(x0 + 20 + k * 29, 290, 24, 14, 4); ctx.fill(); }
-    txt(`Lv.${lv} / ${PIG_MAX}  (단계마다 체력·공격력 +3%)`, x0 + 165, 320, 12, '#bbb', null);
+    for (let k = 0; k < PIG_MAX; k++) { ctx.fillStyle = k < lv ? (k >= PIG_TR ? '#e040fb' : lv >= PIG_MAX ? '#ffd740' : '#29b6f6') : 'rgba(255,255,255,0.12)'; rr(x0 + 20 + k * 14.5, 290, 12, 14, 4); ctx.fill(); }
+    txt(`Lv.${lv} / ${PIG_MAX}  (1~10: +3%씩 · 11~20 초월: +2%씩)`, x0 + 165, 320, 12, '#bbb', null);
     const can = got && lv < PIG_MAX, cost = pigCost(lv);
     ctx.fillStyle = !got ? '#555' : lv >= PIG_MAX ? '#8d6e00' : coins >= cost ? '#2e7d32' : '#7f1d1d'; rr(x0 + 30, 340, 270, 46, 12); ctx.fill();
-    const bl = !got ? '🔒 얻어야 강화할 수 있어요' : lv >= PIG_MAX ? '🌟 최고 레벨!' : `⬆ 강화하기 · 🪙 ${fmtN(cost)}`;
+    const bl = !got ? '🔒 얻어야 강화할 수 있어요' : lv >= PIG_MAX ? '🌌 초월 완료!' : `${lv >= PIG_TR ? '🌌 초월' : '⬆ 강화'}하기 · 🪙 ${fmtN(cost)}`;
     txt(bl, x0 + 165, 363, fitSize(bl, 17, 250), '#fff', '#000', 3);
     if (can) addHot(x0 + 30, 340, 270, 46, () => upgradePig(c));
     if (AWAKE[c.name] && c.name !== '이타돼리') { const A = AWAKE[c.name], q = awkOf(c.name), d = A.steps.filter(s => (q[s.id] || 0) >= s.goal).length; txt(isAwake(c.name) ? `⚡ ${A.title}` : `⚡ 각성 조건 ${d}/${A.steps.length} (보상 센터에서 확인)`, x0 + 165, 406, fitSize(A.title + '가가가가', 13, 300), '#ff8a80', null); }
@@ -5223,10 +5233,11 @@ function cyclePigSkin(c) {
   inv.pskin = { ...(inv.pskin || {}), [c.name]: nx ? nx.key : null }; saveInv(); cloudDirty(); SFX.select();
   toast(nx ? `🎨 ${c.name}: ${nx.name} 장착!` : `🎨 ${c.name}: 기본 모습`);
 }
-function openSkinBox(n = 1) {
+function openSkinBox(n = 1, minRk = 0) {   // minRk 2: 프리미엄 상자 (영웅 이상)
   const res = [];
   for (let k = 0; k < n; k++) {
     let r = Math.random() * 100, rk = 0; for (let j = 0; j < SKIN_RANK.length; j++) { if (r < SKIN_RANK[j][2]) { rk = j; break; } r -= SKIN_RANK[j][2]; rk = j; }
+    if (rk < minRk) rk = Math.random() < 0.25 ? 3 : 2;
     const pool = []; for (const c of CHARS) for (const s of pigSkins(c)) if (s.rare === rk) pool.push([c, s]);
     const [c, s] = pick(pool.length ? pool : [[CHARS[0], pigSkins(CHARS[0])[0]]]), id = 'ps:' + c.name + ':' + s.key, dup = !!inv.own[id];
     if (dup) addCoins(Math.round(SKIN_BOX_PRICE * 0.3)); else inv.own[id] = true;
@@ -5241,13 +5252,15 @@ function openSkinBox(n = 1) {
 // ================= 🛒 수량 골라 사기 (게임 안 창) =================
 // 소모품을 고르면 개수 창이 뜸: −10 · −1 · +1 · +10 · 최대 · 사기 / 취소 (키보드: ←→ ±1 · ↑↓ ±10 · Enter 사기 · Esc 취소)
 let qm = null;   // { i: 상점 칸, n: 개수 }
-const qtyMax = it => Math.max(1, Math.min(999, Math.floor(coins / Math.max(1, itPrice(it)))));
+const qtyMax = it => it.id === 'honor' ? 1 : Math.max(1, Math.min(999, Math.floor(coins / Math.max(1, itPrice(it)))));
 function openQty(i) { qm = { i, n: 1 }; SFX.select(); }
 function buyQty() {
-  const it = SHOP[qm.i], n = qm.n, total = itPrice(it) * n;
+  const it = SHOP[qm.i], n = it.id === "honor" ? 1 : qm.n, total = itPrice(it) * n;
   if (coins < total) { SFX.block(); toast(`코인이 부족해요 (${fmtN(total)} 필요)`); return; }
   addCoins(-total);
   if (it.id === 'skinBox' || it.id === 'skinBox10') openSkinBox(n * (it.id === 'skinBox10' ? 10 : 1));
+  else if (it.id === 'skinBoxP') openSkinBox(n, 2);
+  else if (it.id === 'honor') { for (let i = 0; i < n; i++) inv.honor = honorLv() + 1; toast(`🏅 명예 등급 Lv.${honorLv()}!`); }
   else if (it.id === 'tix10') { RW.bonus += 10 * n; rwSave(); toast(`🎟️ 룰렛 티켓 ${10 * n}장! (보유 ${RW.bonus}장)`); }
   else { inv.use[it.id] = (inv.use[it.id] || 0) + n; toast(`${it.name} ${n}개 구매! (보유 ${inv.use[it.id]}개)`); }
   saveInv(); cloudDirty(); SFX.coin(); qm = null;
@@ -5840,7 +5853,7 @@ const tierOf = v => { let i = 0; TIERS.forEach((t, k) => { if (v >= t[1]) i = k;
 const fmtN = n => {
   n = Math.round(n); const a = Math.abs(n), s = n < 0 ? '-' : '';
   if (a < 1000) return s + a;
-  const [d, u] = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']].find(x => a >= x[0]), v = a / d;
+  const [d, u] = [[1e33, 'Dc'], [1e30, 'No'], [1e27, 'Oc'], [1e24, 'Sp'], [1e21, 'Sx'], [1e18, 'Qi'], [1e15, 'Qa'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']].find(x => a >= x[0]), v = a / d;   // T 다음: Qa(천조) · Qi · Sx · Sp · Oc · No · Dc
   return s + (v < 10 ? Math.floor(v * 100) / 100 : v < 100 ? Math.floor(v * 10) / 10 : Math.floor(v)) + u;
 };
 function drawTierBadge(x, y, v, size = 14, align = 'center') {
@@ -6439,7 +6452,7 @@ function startMatch() {
     if (inv.use.meter > 0) { inv.use.meter--; p1.meter = 50; toast('⚡ 필살 게이지 50%로 시작!'); }
     if (inv.use.fullMeter > 0) { inv.use.fullMeter--; p1.meter = 100; toast('🔥 필살 게이지 100%로 시작!'); }
     p1.lucky = false; if (inv.use.luckyCharm > 0) { inv.use.luckyCharm--; p1.lucky = true; toast('🍀 황금 행운 부적! 이기면 승리 코인 5배'); }
-    { const lv = pigLv(p1.ch.name); if (lv) { p1.lvMul = 1 + 0.03 * lv; p1.hpMul = (p1.hpMul || 1) * p1.lvMul; } }   // 🐷 돼지 강화
+    { const lv = pigLv(p1.ch.name); if (lv) { p1.lvMul = pigMul(lv); p1.hpMul = (p1.hpMul || 1) * p1.lvMul; } }   // 🐷 돼지 강화
     if (p1.ch.name === '이타돼리') applyItForm(p1, itForm());   // 기본 · 모듈로 · 스쿠나
     if (awkOn(p1.ch.name) && (p1.ch.name !== '이타돼리' || p1.itForm === 'sukuna')) { p1.awk = true; p1.hpMul = (p1.hpMul || 1) * AWAKE[p1.ch.name].hp; toast(`⚡ ${AWAKE[p1.ch.name].title}`); }   // 각성한 돼지
     saveInv();
@@ -7479,7 +7492,7 @@ function drawHUD() {
     ctx.fillStyle = '#222'; ctx.fillRect(x0, y + bh + 4, bw, 5);
     ctx.fillStyle = f.stamina < 35 ? '#ff7043' : '#66bb6a'; ctx.fillRect(dir > 0 ? x0 : x0 + bw - sw, y + bh + 4, sw, 5);
     const skn = (cursed(f) && f.ch.curseSkills ? f.ch.curseSkills[0] : f.ch.skill).name;
-    const fnm = (f === p1 && mode === 1 && titleName() ? `[${titleName()}] ` : '') + f.name; txt(fnm, ax, y + bh + 22, fitSize(fnm, 18, bw - 90), '#fff', '#000', 4, al);
+    const fnm = (f === p1 && mode === 1 ? honorTag() + (titleName() ? `[${titleName()}] ` : '') : '') + f.name; txt(fnm, ax, y + bh + 22, fitSize(fnm, 18, bw - 90), '#fff', '#000', 4, al);
     for (let i = 0; i < 2; i++) {
       const cx = dir > 0 ? x0 + bw - 10 - i * 24 : x0 + 10 + i * 24, cy = y + bh + 22;
       ctx.fillStyle = f.wins > i ? '#ff93ac' : '#444'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
@@ -7841,6 +7854,7 @@ function draw() {
   }
   if (mode === 5 && ['intro', 'fight', 'roundEnd'].includes(scene)) drawTutorial();   // 튜토리얼 설명 칸
   drawTour(); if (tutOffer && scene === 'title') drawTutOffer();
+  if (BCAST && bcastT > 0) { bcastT--; ctx.save(); ctx.fillStyle = 'rgba(183,28,28,0.92)'; ctx.fillRect(0, 0, W, 26); ctx.font = `900 15px ${FONT}`; const msg = '📣 관리자: ' + BCAST.text, tw = ctx.measureText(msg).width, x = W - ((gT * 2) % (tw + W)); txt(msg, x, 13, 15, '#fff', '#000', 3, 'left'); ctx.restore(); }   // 위쪽 흐르는 관리자 메시지 띠
   drawPopup();
   if (mode === 3 && NET.ready && NET.remote[NET.f] === undefined && performance.now() - NET.lastRecv > 300) txt('상대 기다리는 중...', W / 2, H / 2 + 120, 20, '#fff', '#000', 5);
 }
@@ -8022,7 +8036,7 @@ if (/autotest/.test(location.search)) {
         delete inv.own.ttRich; if (inv.eq) inv.eq.title = null; coins = 1e10;
         shopAct(SHOP.findIndex(x => x.id === 'ttRich')); out.push(`title: ${titleName()}`); if (titleName() !== '💰 졸부') throw new Error('칭호 실패'); draw(); scene = 'title'; draw(); shopAct(SHOP.findIndex(x => x.id === 'ttRich')); }
       { const c = CHARS.find(x => x.name === '돼타로'), sk = pigSkins(c); out.push(`pig skins 돼타로: ${sk.map(x => x.name).join(', ')}`); if (sk.length !== 3 || sk[2].name !== '스타 뚱타로') throw new Error('돼지 전용 스킨 실패'); const other = pigSkins(CHARS[0]); if (other.some(x => sk.some(y => y.name === x.name))) throw new Error('스킨이 겹침');
-        inv.own['ps:돼타로:sig'] = true; inv.pskin = {}; cyclePigSkin(c); const lk = withCos(c).look; out.push(`skin eq: ${pigSkinEq(c) && pigSkinEq(c).name} body=${lk.body}`); if (!pigSkinEq(c) || lk.body !== sk[2].pal.body) throw new Error('전용 스킨 장착 실패'); if (withCos(CHARS[0]).look.body !== CHARS[0].look.body) throw new Error('다른 돼지에 스킨이 묻음');
+        for (const k in inv.own) if (k.startsWith('ps:돼타로')) delete inv.own[k]; inv.own['ps:돼타로:sig'] = true; inv.pskin = {}; cyclePigSkin(c); const lk = withCos(c).look; out.push(`skin eq: ${pigSkinEq(c) && pigSkinEq(c).name} body=${lk.body}`); if (!pigSkinEq(c) || lk.body !== sk[2].pal.body) throw new Error('전용 스킨 장착 실패'); if (withCos(CHARS[0]).look.body !== CHARS[0].look.body) throw new Error('다른 돼지에 스킨이 묻음');
         mode = 0; p1.setChar(withCos(c)); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 420; p2.x = 520; dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 10 }); draw(); openPigs(); PG.sel = CHARS.indexOf(c); draw(); inv.own.skHell = true; inv.skinRefund = false; const cc = coins; refundOldSkins(); if (coins - cc !== SKIN_BOX_PRICE || inv.own.skHell) throw new Error('공용 스킨 환급 실패'); inv.pskin = {}; scene = 'title'; }
       localStorage.removeItem('sgf_unlock_볼트돈'); RWS.slots = wheelSlots(); RWS.res = RWS.slots.findIndex(x => x.k === 'char'); wheelDone(); out.push(`wheel char: slot=${RWS.res} unlocked=${isUnlocked(DV)}`); if (RWS.res < 0 || !isUnlocked(DV)) throw new Error('룰렛 볼트돈 실패'); localStorage.removeItem('sgf_unlock_볼트돈'); POPQ.length = 0; POP = null;
       localStorage.removeItem('sgf_unlock_볼트돈'); RW.pity = PITY_N - 1; RW.bonus = 5; RWS.t = -1; spinWheel(); const pk = RWS.slots[RWS.res].k; for (let n = 0; n < RWS.T + 2; n++) updateReward(); out.push(`pity: res=${pk} pity=${RW.pity} unlocked=${isUnlocked(DV)}`); if (pk !== 'char' || !isUnlocked(DV)) throw new Error('200번 확정 실패'); localStorage.removeItem('sgf_unlock_볼트돈');

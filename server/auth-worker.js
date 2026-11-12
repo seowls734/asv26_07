@@ -83,10 +83,10 @@ async function init(db) {
 async function getConf(db, k, d) { const r = await db.prepare('SELECT v FROM config WHERE k = ?').bind(k).first(); return r ? r.v : d; }
 // 공지 · 시즌 · 이벤트 · 선물을 한 번에 읽음 (게임이 10초마다 물어봐서 쿼리 1번으로)
 async function pubConf(db) {
-  const r = (await db.prepare("SELECT k, v FROM config WHERE k IN ('notice', 'season', 'event', 'gift', 'bal', 'mreset', 'rel')").all()).results || [];
+  const r = (await db.prepare("SELECT k, v FROM config WHERE k IN ('notice', 'season', 'event', 'gift', 'bal', 'mreset', 'rel', 'bcast')").all()).results || [];
   const c = Object.fromEntries(r.map(x => [x.k, x.v]));
   const pj = s => { try { return JSON.parse(s || 'null'); } catch (e) { return null; } };
-  return { notice: c.notice || '', season: +c.season || 0, event: pj(c.event), gift: pj(c.gift), bal: pj(c.bal), mreset: +c.mreset || 0, rel: pj(c.rel) || {} };
+  return { notice: c.notice || '', season: +c.season || 0, event: pj(c.event), gift: pj(c.gift), bal: pj(c.bal), mreset: +c.mreset || 0, rel: pj(c.rel) || {}, bcast: pj(c.bcast) };
 }
 const setConf = (db, k, v) =>db.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run();
 // 정지: banned=1 이고 ban_until이 0(영구)이거나 아직 안 지났으면 정지 중
@@ -224,6 +224,11 @@ async function admin(req, env, db, path) {
     for (const [k, v] of Object.entries(b.bal || {}).slice(0, 60)) { if (!v || typeof v !== 'object') continue; const o = {}; for (const f of ['hp', 'power', 'speed', 'ultRate', 'cd']) if (+v[f] && +v[f] !== 100) o[f] = lim(v[f]); if (Object.keys(o).length) bal[String(k).slice(0, 20)] = o; }
     await setConf(db, 'bal', JSON.stringify({ v: now, c: bal }));
     return json({ ok: true, bal: { v: now, c: bal } });
+  }
+  if (path === '/admin/broadcast' && req.method === 'POST') {   // 📣 관리자 화면 메시지: 모두의 화면에 팝업 + 위쪽 띠 (빈 글이면 끔)
+    const t = String(b.text || '').trim().slice(0, 120), hours = Math.max(1, Math.min(24 * 7, +b.hours || 24));
+    const bc = t ? { id: now, text: t, until: now + hours * 3600000 } : null;
+    await setConf(db, 'bcast', JSON.stringify(bc)); return json({ ok: true, bcast: bc });
   }
   if (path === '/admin/notice' && req.method === 'POST') {   // 게임 타이틀에 뜨는 공지 (빈 글이면 공지 없음)
     const t = String(b.text || '').trim().slice(0, 200);
