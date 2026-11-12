@@ -126,7 +126,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
       <section class="card">
         <h3 style="margin:0 0 8px">🚀 업데이트 공개</h3>
         <p class="muted" style="margin:0 0 6px">누르면 모든 사람 게임에 10초 안에 공개돼요. 싸우는 중인 사람은 그 판이 승리로 처리되고, 예고편이 나와요. <b>한 번 켜면 다시 끌 수 없어요.</b></p>
-        <div class="actions"><button id="relItadori" class="primary">👊 새 돼지 이타돼리 공개</button></div>
+        <div class="actions"><button id="relItadori" class="primary">👊 새 돼지 이타돼리 공개</button><button id="relBig1" class="primary">🎉 대규모 업데이트 공개 (훈제돈·우주꿀돈·핑크하트)</button></div>
         <p id="relNow" class="muted" style="margin:6px 0 0">-</p>
       </section>
       <section class="card">
@@ -508,7 +508,11 @@ $('giftOff').onclick = async () => {
 $('evOff').onclick = async () => {
   try { await api('/admin/event', 'POST', {}); showEvent(null); toast('이벤트를 껐어요'); } catch (e) { toast(e.message); }
 };
-function showRel(rel) { rel = rel || {}; const on = !!rel.itadori; $('relNow').textContent = on ? `✅ 이타돼리 공개됨 (${when(rel.itadori)}) · 되돌릴 수 없어요` : '아직 공개 안 함'; $('relItadori').disabled = on; $('relItadori').textContent = on ? '👊 이타돼리 공개됨' : '👊 새 돼지 이타돼리 공개'; }
+function showRel(rel) { rel = rel || {}; const b1 = !!rel.big1; $('relBig1').disabled = b1; $('relBig1').textContent = b1 ? `🎉 대규모 업데이트 공개됨 (${when(rel.big1)})` : '🎉 대규모 업데이트 공개 (훈제돈·우주꿀돈·핑크하트)'; const on = !!rel.itadori; $('relNow').textContent = on ? `✅ 이타돼리 공개됨 (${when(rel.itadori)}) · 되돌릴 수 없어요` : '아직 공개 안 함'; $('relItadori').disabled = on; $('relItadori').textContent = on ? '👊 이타돼리 공개됨' : '👊 새 돼지 이타돼리 공개'; }
+$('relBig1').onclick = async () => {
+  if (!confirm('대규모 업데이트(새 돼지 3마리)를 모두에게 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
+  try { const d = await api('/admin/release', 'POST', { id: 'big1' }); showRel(d.rel); toast('대규모 업데이트를 공개했어요! (10초 안에 모두에게)'); } catch (e) { toast(e.message); }
+};
 $('relItadori').onclick = async () => {
   if (!confirm('이타돼리를 모두에게 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
   try { const d = await api('/admin/release', 'POST', { id: 'itadori' }); showRel(d.rel); toast('이타돼리를 공개했어요! (10초 안에 모두에게)'); } catch (e) { toast(e.message); }
