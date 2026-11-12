@@ -75,15 +75,16 @@ async function init(db) {
   for (const c of ['ban_until INTEGER DEFAULT 0', 'ban_reason TEXT', 'totp TEXT', 'totp_on INTEGER DEFAULT 0', 'admin_edit INTEGER DEFAULT 0'])   // 정지 기간·사유, 2단계 인증
     try { await db.prepare('ALTER TABLE users ADD COLUMN ' + c).run(); } catch (e) {}
   await db.prepare('CREATE TABLE IF NOT EXISTS config (k TEXT PRIMARY KEY, v TEXT)').run();   // 공지 · 랭킹 시즌 번호
+  await db.prepare('CREATE TABLE IF NOT EXISTS presence (id TEXT PRIMARY KEY, t INTEGER, login TEXT, scene TEXT)').run();   // 지금 접속 중 (게임이 1분마다 알림)
   ready = true;
 }
 async function getConf(db, k, d) { const r = await db.prepare('SELECT v FROM config WHERE k = ?').bind(k).first(); return r ? r.v : d; }
 // 공지 · 시즌 · 이벤트 · 선물을 한 번에 읽음 (게임이 10초마다 물어봐서 쿼리 1번으로)
 async function pubConf(db) {
-  const r = (await db.prepare("SELECT k, v FROM config WHERE k IN ('notice', 'season', 'event', 'gift')").all()).results || [];
+  const r = (await db.prepare("SELECT k, v FROM config WHERE k IN ('notice', 'season', 'event', 'gift', 'bal')").all()).results || [];
   const c = Object.fromEntries(r.map(x => [x.k, x.v]));
   const pj = s => { try { return JSON.parse(s || 'null'); } catch (e) { return null; } };
-  return { notice: c.notice || '', season: +c.season || 0, event: pj(c.event), gift: pj(c.gift) };
+  return { notice: c.notice || '', season: +c.season || 0, event: pj(c.event), gift: pj(c.gift), bal: pj(c.bal) };
 }
 const setConf = (db, k, v) =>db.prepare('INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run();
 // 정지: banned=1 이고 ban_until이 0(영구)이거나 아직 안 지났으면 정지 중
@@ -159,7 +160,9 @@ async function admin(req, env, db, path) {
       db.prepare('SELECT COUNT(*) n FROM users').first(), db.prepare('SELECT COUNT(*) n FROM users WHERE banned = 1 AND (ban_until IS NULL OR ban_until = 0 OR ban_until > ?)').bind(now).first(),
       db.prepare('SELECT COUNT(*) n FROM users WHERE created > ?').bind(day).first(), db.prepare('SELECT COUNT(*) n FROM users WHERE saved > ?').bind(day).first(),
       db.prepare('SELECT COUNT(*) n FROM sessions').first()]);
-    return json({ users: a.n, banned: b.n, newToday: c.n, activeToday: d.n, sessions: e.n, admins });
+    const on = (await db.prepare('SELECT id, login, scene, t FROM presence WHERE t > ? ORDER BY t DESC LIMIT 200').bind(now - 130000).all()).results || [];
+    db.prepare('DELETE FROM presence WHERE t < ?').bind(now - 86400000).run().catch(() => {});
+    return json({ users: a.n, banned: b.n, newToday: c.n, activeToday: d.n, sessions: e.n, admins, online: on.length, onlineList: on });
   }
   if (path === '/admin/users' && req.method === 'GET') {
     const q = normLogin(url.searchParams.get('q')), off = Math.max(0, +url.searchParams.get('offset') || 0), lim = Math.min(100, Math.max(1, +url.searchParams.get('limit') || 50));
@@ -185,10 +188,10 @@ async function admin(req, env, db, path) {
     const mul = (v, old, max) => { const n = Math.round(+v || (old ? 2 : 1)); return Math.max(1, Math.min(max, n)); };
     const ev = { coin: mul(b.coin, b.coin2x, 10), tp: mul(b.tp, b.tp2x, 5), ty: mul(b.ty, b.ty2x, 10),
       jackpot: Math.max(0, Math.min(50, Math.round(+b.jackpot || 0))), spins: Math.max(0, Math.min(10, Math.round(+b.spins || 0))),
-      luck: !!b.luck, daily: !!b.daily,
+      luck: !!b.luck, daily: !!b.daily, sale: Math.max(0, Math.min(90, Math.round(+b.sale || 0))), tix: Math.max(0, Math.min(10, Math.round(+b.tix || 0))),
       msg: String(b.msg || '').trim().slice(0, 60), until: hours ? now + hours * 3600000 : 0, id: now };
     ev.coin2x = ev.coin > 1; ev.tp2x = ev.tp > 1; ev.ty2x = ev.ty > 1;   // 아직 새로고침 안 한 옛 게임도 알아듣게
-    const on = ev.coin > 1 || ev.tp > 1 || ev.ty > 1 || ev.jackpot > 0 || ev.spins > 0 || ev.luck || ev.daily;
+    const on = ev.coin > 1 || ev.tp > 1 || ev.ty > 1 || ev.jackpot > 0 || ev.spins > 0 || ev.luck || ev.daily || ev.sale > 0 || ev.tix > 0;
     await setConf(db, 'event', on ? JSON.stringify(ev) : 'null');
     return json({ ok: true, event: on ? ev : null });
   }
@@ -196,10 +199,18 @@ async function admin(req, env, db, path) {
     const coins = Math.max(0, Math.min(1e12, Math.round(+b.coins || 0))), spins = Math.max(0, Math.min(20, Math.round(+b.spins || 0)));
     const items = Math.max(0, Math.min(10, Math.round(+b.items || 0)));
     const hours = Math.max(1, Math.min(24 * 30, +b.hours || 72));
-    const g = { id: now, coins, spins, items, msg: String(b.msg || '').trim().slice(0, 60), until: now + hours * 3600000 };
-    const on = coins > 0 || spins > 0 || items > 0;
+    const ITEMS = ['bigRevive', 'rankShield', 'fullMeter', 'luckyCharm', 'revive', 'meter', 'hpup'];
+    const item = ITEMS.includes(b.item) ? b.item : '', itemN = item ? Math.max(1, Math.min(20, Math.round(+b.itemN || 1))) : 0, ch = String(b.char || '').trim().slice(0, 20);
+    const g = { id: now, coins, spins, items, item, itemN, char: ch, msg: String(b.msg || '').trim().slice(0, 60), until: now + hours * 3600000 };
+    const on = coins > 0 || spins > 0 || items > 0 || !!item || !!ch;
     await setConf(db, 'gift', on ? JSON.stringify(g) : 'null');
     return json({ ok: true, gift: on ? g : null });
+  }
+  if (path === '/admin/balance' && req.method === 'POST') {   // 캐릭터 밸런스 패치: { 이름: { hp, power, speed, ultRate, cd } } (100 = 그대로, %)
+    const bal = {}; const lim = v => Math.max(30, Math.min(300, Math.round(+v || 100)));
+    for (const [k, v] of Object.entries(b.bal || {}).slice(0, 60)) { if (!v || typeof v !== 'object') continue; const o = {}; for (const f of ['hp', 'power', 'speed', 'ultRate', 'cd']) if (+v[f] && +v[f] !== 100) o[f] = lim(v[f]); if (Object.keys(o).length) bal[String(k).slice(0, 20)] = o; }
+    await setConf(db, 'bal', JSON.stringify({ v: now, c: bal }));
+    return json({ ok: true, bal: { v: now, c: bal } });
   }
   if (path === '/admin/notice' && req.method === 'POST') {   // 게임 타이틀에 뜨는 공지 (빈 글이면 공지 없음)
     const t = String(b.text || '').trim().slice(0, 200);
@@ -390,9 +401,17 @@ export default {
     if (path === '/config' && req.method === 'GET') {
       const c = await pubConf(db);
       const m = (req.headers.get('Authorization') || '').match(/^Bearer ([0-9a-f]{64})$/);
+      let login = '';
       if (m) {
-        const u = await db.prepare('SELECT u.saved, u.admin_edit FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
-        if (u) { c.saved = u.saved || 0; c.adminEdit = u.admin_edit || 0; }
+        const u = await db.prepare('SELECT u.login, u.saved, u.admin_edit FROM sessions s JOIN users u ON u.uid = s.uid WHERE s.tok = ?').bind(await sha(m[1])).first();
+        if (u) { c.saved = u.saved || 0; c.adminEdit = u.admin_edit || 0; login = u.login; }
+      }
+      // 지금 접속 중 알림 (?p=기기번호&n=이름&s=화면): 게임이 1분마다 한 번 보냄 → 관리자 화면의 '지금 접속'
+      const q = new URL(req.url).searchParams, p = String(q.get('p') || '').slice(0, 40);
+      if (/^[0-9a-z]{6,40}$/i.test(p)) {
+        const nm = login || ('게스트 ' + String(q.get('n') || '').slice(0, 16));
+        await db.prepare('INSERT INTO presence (id, t, login, scene) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET t = excluded.t, login = excluded.login, scene = excluded.scene')
+          .bind(p, Date.now(), nm, String(q.get('s') || '').slice(0, 20)).run();
       }
       return json(c);
     }

@@ -85,6 +85,13 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
   <!-- 관리 화면 -->
   <section id="app" style="display:none">
     <div class="stats" id="stats"></div>
+    <div class="card" style="margin-bottom:14px"><b>🟢 지금 접속 중</b> <span class="muted">(1~2분 안에 게임을 켜 둔 사람 · 15초마다 새로고침)</span><div id="onlineList" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">-</div></div>
+    <section class="card" style="margin-bottom:14px">
+      <h3 style="margin:0 0 8px">⚖️ 캐릭터 밸런스 패치</h3>
+      <p class="muted" style="margin:0 0 6px">숫자는 % 예요 (100 = 원래대로, 120 = 20% 더 셈). 저장하면 게임을 켜 둔 모든 사람에게 10초 안에 적용되고 <b>다음 판부터</b> 바뀌어요. 스킬 대기시간은 낮을수록 자주 써요.</p>
+      <div style="overflow:auto;max-height:340px"><table id="balTbl"><thead><tr><th>돼지</th><th>❤️ 체력</th><th>👊 공격력</th><th>💨 속도</th><th>💥 필살 게이지</th><th>⏱️ 스킬 대기</th></tr></thead><tbody></tbody></table></div>
+      <div class="actions" style="margin-top:6px"><button id="balSave" class="primary">⚖️ 밸런스 저장 (모두에게 적용)</button><button id="balReset">전부 100으로</button></div>
+    </section>
     <div class="grid" style="margin-bottom:14px">
       <section class="card">
         <h3 style="margin:0 0 8px">📢 공지</h3>
@@ -100,9 +107,10 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
           <label>🏅 티어 점수 <select id="evTp"><option value="1">-</option><option>2</option><option>3</option><option>5</option></select>배</label>
           <label>🏮 장사 매출 <select id="evTy"><option value="1">-</option><option>2</option><option>3</option><option>5</option><option>10</option></select>배</label>
           <label>💥 잭팟(이기면 코인 10배) <select id="evJack"><option value="0">-</option><option>5</option><option>10</option><option>20</option><option>30</option><option>50</option></select>%</label>
-          <label>🎡 룰렛 무료 <select id="evSpins"><option value="0">-</option><option>1</option><option>2</option><option>3</option><option>5</option><option>10</option></select>번 더 (하루)</label>
+          <label>🎟️ 룰렛 티켓 하루 <select id="evSpins"><option value="0">-</option><option>1</option><option>2</option><option>3</option><option>5</option><option>10</option></select>장 더</label>
           <label><input type="checkbox" id="evLuck"> 🍀 룰렛 보상 2배</label>
           <label><input type="checkbox" id="evDaily"> 📅 출석 보상 2배</label>
+          <label>🛒 상점 할인 <select id="evSale"><option value="0">-</option><option>10</option><option>20</option><option>30</option><option>50</option><option>70</option></select>%</label>
         </div>
         <div class="actions" style="margin-top:6px">
           <button data-preset="fever">🔥 피버 타임 (1시간 · 코인3·장사3·잭팟10)</button>
@@ -120,8 +128,13 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
         <p class="muted" style="margin:0 0 6px">모든 사람이 <b>한 번씩</b> 받아요. 게임을 켜 둔 사람은 10초 안에 축하 팝업과 함께, 안 켠 사람은 기간 안에 켜면 받아요. 새로 뿌리면 이전 선물은 끝나요. <b id="giftNow">-</b></p>
         <div class="bar" style="margin:0">
           <input id="gCoins" type="number" min="0" placeholder="🪙 코인" title="코인">
-          <input id="gSpins" type="number" min="0" max="20" placeholder="🎡 무료 룰렛 (번)" title="무료 룰렛 횟수">
+          <input id="gSpins" type="number" min="0" max="20" placeholder="🎟️ 룰렛 티켓 (장)" title="룰렛 티켓 장수">
           <input id="gItems" type="number" min="0" max="10" placeholder="🎒 아이템 3종 (각 개수)" title="필살 50%·강철 체력·부활권 각 몇 개">
+        </div>
+        <div class="bar" style="margin:8px 0 0">
+          <select id="gItem"><option value="">🎒 특별 아이템 (없음)</option><option value="bigRevive">💎 대형 부활권</option><option value="rankShield">🏅 랭크 보호권</option><option value="fullMeter">🔥 필살 게이지 100%</option><option value="luckyCharm">🍀 황금 행운 부적</option><option value="revive">💖 부활권</option></select>
+          <input id="gItemN" type="number" min="1" max="20" placeholder="개수" style="max-width:80px">
+          <select id="gChar"><option value="">🐷 돼지 선물 (없음)</option></select>
         </div>
         <div class="bar" style="margin:8px 0 0">
           <input id="gMsg" maxlength="60" placeholder="선물 메시지 (예: 접속해 줘서 고마워요!)">
@@ -293,8 +306,9 @@ function start() {
 async function loadStats() {
   try {
     const s = await api('/admin/stats');
-    $('stats').innerHTML = [['전체 회원', s.users], ['오늘 가입', s.newToday], ['오늘 접속(저장)', s.activeToday], ['로그인된 기기', s.sessions], ['정지된 계정', s.banned]]
+    $('stats').innerHTML = [['🟢 지금 접속', s.online ?? '-'], ['전체 회원', s.users], ['오늘 가입', s.newToday], ['오늘 접속(저장)', s.activeToday], ['로그인된 기기', s.sessions], ['정지된 계정', s.banned]]
       .map(([a, b]) => `<div class="stat"><b>${full(b)}</b><span>${a}</span></div>`).join('');
+    $('onlineList').innerHTML = (s.onlineList || []).length ? (s.onlineList || []).map(o => `<span class="tag on" title="${esc(o.scene || '')}">${esc(o.login || '?')} · ${esc(SCENE_KO[o.scene] || o.scene || '')}</span>`).join(' ') : '<span class="muted">지금 접속한 사람이 없어요</span>';
   } catch (e) { toast(e.message); }
 }
 async function loadUsers() {
@@ -420,7 +434,7 @@ $('aDel').onclick = async () => {
 
 // ---- 공지 · 시즌 ----
 async function loadConfig() {
-  try { const c = await api('/admin/config'); $('noticeTxt').value = c.notice || ''; $('seasonNo').textContent = c.season; showEvent(c.event); showGift(c.gift); } catch (e) { toast(e.message); }
+  try { const c = await api('/admin/config'); $('noticeTxt').value = c.notice || ''; $('seasonNo').textContent = c.season; showEvent(c.event); showGift(c.gift); await loadCharNames(); showBal(c.bal); } catch (e) { toast(e.message); }
 }
 // ---- 이벤트 ----
 const evN = (ev, k) => ev ? +ev[k] || (ev[k + '2x'] ? 2 : 1) : 1;   // 예전 모양(coin2x)도 읽음
@@ -428,10 +442,10 @@ const setSel = (id, v) => { const el = $(id); el.value = String(v); if (el.value
 function showEvent(ev) {
   const on = ev && (!ev.until || Date.now() < ev.until);
   const parts = on ? [evN(ev, 'coin') > 1 && `코인 ${evN(ev, 'coin')}배`, evN(ev, 'tp') > 1 && `TP ${evN(ev, 'tp')}배`, evN(ev, 'ty') > 1 && `장사 ${evN(ev, 'ty')}배`,
-    ev.jackpot > 0 && `잭팟 ${ev.jackpot}%`, ev.spins > 0 && `룰렛 +${ev.spins}`, ev.luck && '룰렛 2배', ev.daily && '출석 2배'].filter(Boolean) : [];
+    ev.jackpot > 0 && `잭팟 ${ev.jackpot}%`, ev.spins > 0 && `룰렛 +${ev.spins}`, ev.luck && '룰렛 2배', ev.daily && '출석 2배', ev.sale > 0 && `할인 ${ev.sale}%`].filter(Boolean) : [];
   $('evNow').textContent = parts.length ? `지금: ${parts.join(' · ')}${ev.until ? ` (${when(ev.until)}까지)` : ' (끌 때까지)'}` : '지금: 이벤트 없음';
   setSel('evCoin', on ? evN(ev, 'coin') : 1); setSel('evTp', on ? evN(ev, 'tp') : 1); setSel('evTy', on ? evN(ev, 'ty') : 1);
-  setSel('evJack', on ? ev.jackpot || 0 : 0); setSel('evSpins', on ? ev.spins || 0 : 0);
+  setSel('evJack', on ? ev.jackpot || 0 : 0); setSel('evSpins', on ? ev.spins || 0 : 0); setSel('evSale', on ? ev.sale || 0 : 0);
   $('evLuck').checked = !!(on && ev.luck); $('evDaily').checked = !!(on && ev.daily); $('evMsg').value = on ? ev.msg || '' : '';
 }
 const EV_PRESET = {
@@ -446,20 +460,40 @@ document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
   toast('채워 넣었어요. "이벤트 켜기"를 누르면 시작돼요');
 });
 $('evOn').onclick = async () => {
-  const b = { coin: +$('evCoin').value, tp: +$('evTp').value, ty: +$('evTy').value, jackpot: +$('evJack').value, spins: +$('evSpins').value,
+  const b = { coin: +$('evCoin').value, tp: +$('evTp').value, ty: +$('evTy').value, jackpot: +$('evJack').value, spins: +$('evSpins').value, sale: +$('evSale').value,
     luck: $('evLuck').checked, daily: $('evDaily').checked, msg: $('evMsg').value, hours: +$('evHours').value || 0 };
-  if (b.coin <= 1 && b.tp <= 1 && b.ty <= 1 && !b.jackpot && !b.spins && !b.luck && !b.daily) { toast('켤 이벤트를 하나 이상 골라 주세요'); return; }
+  if (b.coin <= 1 && b.tp <= 1 && b.ty <= 1 && !b.jackpot && !b.spins && !b.luck && !b.daily && !b.sale) { toast('켤 이벤트를 하나 이상 골라 주세요'); return; }
   try { const d = await api('/admin/event', 'POST', b); showEvent(d.event); toast('이벤트를 켰어요 (10초 안에 모두에게 적용)'); } catch (e) { toast(e.message); }
 };
+// ---- 지금 접속 · 밸런스 패치 ----
+const SCENE_KO = { title: '타이틀', select: '돼지 고르기', fight: '싸움', intro: '싸움', roundEnd: '싸움', cutscene: '요리 컷신', vs: '대전 준비', opening: '오프닝', market: '시장', tycoon: '포장마차', bank: '은행', ranking: '랭킹', reward: '보상 센터', online: '온라인', betpick: 'AI 베팅', endings: '엔딩', story: '스토리', trailer: '예고편', keys: '키 설정' };
+setInterval(() => { if (!document.hidden && $('app').style.display !== 'none') loadStats(); }, 15000);
+let CHAR_NAMES = [];
+async function loadCharNames() {   // 게임 파일에서 돼지 이름을 읽어 옴 (새 돼지가 생겨도 자동으로)
+  try { const t = await (await fetch('index.html?t=' + Date.now(), { cache: 'no-store' })).text(); CHAR_NAMES = [...t.matchAll(/\{ name: '([^']+)', title: '/g)].map(m => m[1]); } catch (e) { CHAR_NAMES = []; }
+  const sel = $('gChar'); if (sel && sel.options.length <= 1) CHAR_NAMES.forEach(n => sel.add(new Option(n, n)));
+}
+const BAL_F = ['hp', 'power', 'speed', 'ultRate', 'cd'];
+function showBal(bal) {
+  const C = (bal && bal.c) || {};
+  $('balTbl').querySelector('tbody').innerHTML = CHAR_NAMES.map(n => `<tr data-n="${esc(n)}"><td><b>${esc(n)}</b></td>${BAL_F.map(f => `<td><input type="number" min="30" max="300" step="5" data-f="${f}" value="${(C[n] && C[n][f]) || 100}" style="width:70px"></td>`).join('')}</tr>`).join('') || '<tr><td colspan="6" class="muted">돼지 목록을 못 읽었어요</td></tr>';
+}
+$('balSave').onclick = async () => {
+  const bal = {};
+  $('balTbl').querySelectorAll('tbody tr[data-n]').forEach(tr => { const o = {}; tr.querySelectorAll('input').forEach(i => { const v = +i.value || 100; if (v !== 100) o[i.dataset.f] = v; }); if (Object.keys(o).length) bal[tr.dataset.n] = o; });
+  if (!confirm(`밸런스를 저장할까요? 바뀐 돼지 ${Object.keys(bal).length}마리`)) return;
+  try { const d = await api('/admin/balance', 'POST', { bal }); showBal(d.bal); toast('밸런스 패치 저장! (10초 안에 모두에게, 다음 판부터)'); } catch (e) { toast(e.message); }
+};
+$('balReset').onclick = () => { $('balTbl').querySelectorAll('input').forEach(i => { i.value = 100; }); toast('전부 100으로 채웠어요. 저장을 눌러야 적용돼요'); };
 // ---- 선물 뿌리기 ----
 function showGift(g) {
   const on = g && (!g.until || Date.now() < g.until);
-  $('giftNow').textContent = on ? `지금: ${[g.coins && `🪙${g.coins.toLocaleString()}`, g.spins && `🎡${g.spins}번`, g.items && `🎒각${g.items}개`].filter(Boolean).join(' · ')} (${when(g.until)}까지)` : '지금: 뿌린 선물 없음';
+  $('giftNow').textContent = on ? `지금: ${[g.coins && `🪙${g.coins.toLocaleString()}`, g.spins && `🎟️${g.spins}장`, g.items && `🎒각${g.items}개`, g.item && `${g.item}×${g.itemN}`, g.char && `🐷${g.char}`].filter(Boolean).join(' · ')} (${when(g.until)}까지)` : '지금: 뿌린 선물 없음';
 }
 $('giftOn').onclick = async () => {
-  const b = { coins: +$('gCoins').value || 0, spins: +$('gSpins').value || 0, items: +$('gItems').value || 0, msg: $('gMsg').value, hours: +$('gHours').value || 72 };
-  if (!b.coins && !b.spins && !b.items) { toast('코인·룰렛·아이템 중 하나 이상 넣어 주세요'); return; }
-  if (!confirm(`모든 사람에게 보낼까요?\n🪙 ${b.coins.toLocaleString()} · 🎡 ${b.spins}번 · 🎒 각 ${b.items}개`)) return;
+  const b = { coins: +$('gCoins').value || 0, spins: +$('gSpins').value || 0, items: +$('gItems').value || 0, item: $('gItem').value, itemN: +$('gItemN').value || 1, char: $('gChar').value, msg: $('gMsg').value, hours: +$('gHours').value || 72 };
+  if (!b.coins && !b.spins && !b.items && !b.item && !b.char) { toast('코인·티켓·아이템·돼지 중 하나 이상 넣어 주세요'); return; }
+  if (!confirm(`모든 사람에게 보낼까요?\n🪙 ${b.coins.toLocaleString()} · 🎟️ ${b.spins}장 · 🎒 각 ${b.items}개${b.item ? ` · ${b.item} ×${b.itemN}` : ''}${b.char ? ` · 🐷 ${b.char}` : ''}`)) return;
   try { const d = await api('/admin/gift', 'POST', b); showGift(d.gift); toast('선물을 보냈어요 (켜 둔 사람은 10초 안에 받아요)'); } catch (e) { toast(e.message); }
 };
 $('giftOff').onclick = async () => {

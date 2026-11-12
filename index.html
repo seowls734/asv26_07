@@ -598,7 +598,7 @@ const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
 // 구글 로그인용 OAuth 클라이언트 ID (공개값). 비어 있으면 구글 버튼을 안 보여 줌. server/auth-worker.js의 DEFAULT_GOOGLE_CLIENT_ID와 같아야 함
 const GOOGLE_CLIENT_ID = '36016988229-39ku26haf3v904rslpfvh5vnjlb3fc3t.apps.googleusercontent.com';
 const AUTH_TEST = /autotest|view=|shot=|nettest/i.test(location.search);   // 자동 테스트에서는 회원 서버에 저장 안 함
-const SAVE_SKIP = ['sgf_auth', 'sgf_pid', 'sgf_homeTip', 'sgf_pidDropped', 'sgf_tyseen'];   // 기기마다 다른 값 → 계정 저장에서 뺌
+const SAVE_SKIP = ['sgf_dev', 'sgf_auth', 'sgf_pid', 'sgf_homeTip', 'sgf_pidDropped', 'sgf_tyseen'];   // 기기마다 다른 값 → 계정 저장에서 뺌
 let auth = lsGet('sgf_auth', null);   // null: 아직 선택 안 함 · { guest: true } · { uid, login, token, syncT }
 const isMember = () => !!(auth && auth.token);
 function setAuth(a) { auth = a; try { localStorage.setItem('sgf_auth', JSON.stringify(a)); } catch (e) {} }
@@ -674,16 +674,33 @@ const evOn = k => k.endsWith('2x') ? evMul(k.slice(0, -2)) > 1 : evLive() && !!E
 function evParts() {
   if (!evLive()) return [];
   return [evMul('coin') > 1 && `승리 코인 ${evMul('coin')}배`, evMul('tp') > 1 && `티어 점수 ${evMul('tp')}배`, evMul('ty') > 1 && `장사 매출 ${evMul('ty')}배`,
-    EVT.jackpot > 0 && `잭팟 ${EVT.jackpot}%`, EVT.spins > 0 && `룰렛 무료 +${EVT.spins}`, EVT.luck && '룰렛 보상 2배', EVT.daily && '출석 보상 2배'].filter(Boolean);
+    EVT.jackpot > 0 && `잭팟 ${EVT.jackpot}%`, EVT.spins > 0 && `룰렛 무료 +${EVT.spins}`, EVT.luck && '룰렛 보상 2배', EVT.daily && '출석 보상 2배', EVT.sale > 0 && `상점 ${EVT.sale}% 할인`].filter(Boolean);
 }
 const evText = () => { const p = evParts(); return p.length ? '🎉 이벤트: ' + p.join(' · ') + (EVT.msg ? ` · ${EVT.msg}` : '') : ''; };
-let cfgBusy = false, cfgN = 0;
+let cfgBusy = false, cfgN = 0, cfgPing = 0;
+// ⚖️ 관리자 밸런스 패치: 캐릭터마다 체력·공격력·속도·필살 게이지·스킬 대기시간을 % 로 (100 = 원래대로). 다음 판부터 적용
+let BASE_ST = null, balV = -1;
+function applyBal(b) {
+  const v = (b && b.v) || 0; if (v === balV) return;
+  if (!BASE_ST) BASE_ST = CHARS.map(c => ({ hp: c.hp, power: c.power, speed: c.speed, ultRate: c.ultRate, cds: [c.skill.cd, ...(c.skills || []).map(s => s.cd)] }));
+  const C = (b && b.c) || {};
+  CHARS.forEach((c, i) => {
+    const o = C[c.name] || {}, B = BASE_ST[i], p = k => (+o[k] || 100) / 100;
+    c.hp = Math.round(B.hp * p('hp')); c.power = B.power * p('power'); c.speed = B.speed * p('speed'); c.ultRate = B.ultRate * p('ultRate');
+    c.skill.cd = Math.round(B.cds[0] * p('cd')); (c.skills || []).forEach((s, j) => { s.cd = Math.round(B.cds[j + 1] * p('cd')); });
+  });
+  if (balV > 0 && v) toast('⚖️ 밸런스 패치가 적용됐어요 (다음 판부터)');
+  balV = v;
+}
 setInterval(() => { if (!document.hidden) fetchConfig(); }, 10000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchConfig(); });   // 다시 보면 바로 확인
 function fetchConfig() {
   if (AUTH_TEST || cfgBusy) return;
   cfgBusy = true;
-  authFetch('/config').then(d => {
+  if (!lsGet('sgf_dev', null)) lsSet('sgf_dev', Math.random().toString(36).slice(2, 12) + Date.now().toString(36));
+  const ping = cfgPing++ % 6 === 0 ? `?p=${lsGet('sgf_dev', '')}&n=${encodeURIComponent(playerName)}&s=${scene}` : '';   // 1분마다 '지금 접속 중' 알림 (관리자 화면)
+  authFetch('/config' + ping).then(d => {
+    applyBal(d.bal);
     notice = String(d.notice || '');
     const old = EVT; EVT = d.event || null;
     if (EVT && evLive() && (!old || old.id !== EVT.id) && lsGet('sgf_evseen', 0) !== (EVT.id || EVT.until || 1)) {   // 새 이벤트 시작 → 축하 팝업 (한 번만)
@@ -2534,19 +2551,26 @@ function addDish(dish, meat, stars) {
   if (fridge.length > 30) fridge.shift();
   saveFridge();
 }
-const SHOP = [
-  { id: 'sunglass', type: 'hat', name: '선글라스', price: 120 },
-  { id: 'flower', type: 'hat', name: '꽃 머리핀', price: 100 },
-  { id: 'chef', type: 'hat', name: '셰프 모자', price: 150 },
-  { id: 'phones', type: 'hat', name: '헤드폰', price: 180 },
-  { id: 'crown', type: 'hat', name: '황금 왕관', price: 400 },
-  { id: 'fxfire', type: 'fx', name: '불꽃 오라', price: 250 },
-  { id: 'fxbolt', type: 'fx', name: '번개 오라', price: 350 },
-  { id: 'fxrainbow', type: 'fx', name: '무지개 오라', price: 500 },
-  { id: 'meter', type: 'use', name: '필살 게이지 50%', price: 60, desc: '다음 연승 경기 시작 시' },
-  { id: 'hpup', type: 'use', name: '강철 체력 +15%', price: 80, desc: '다음 연승 경기 1판' },
-  { id: 'revive', type: 'use', name: '부활권', price: 300, desc: '연승 모드에서 져도 1번 이어하기' }
+const SHOP = [   // 2026-11-12: 가격 10배로 올림 · 비싼 새 물건 추가
+  { id: 'sunglass', type: 'hat', name: '선글라스', price: 1200 },
+  { id: 'flower', type: 'hat', name: '꽃 머리핀', price: 1000 },
+  { id: 'chef', type: 'hat', name: '셰프 모자', price: 1500 },
+  { id: 'phones', type: 'hat', name: '헤드폰', price: 1800 },
+  { id: 'crown', type: 'hat', name: '황금 왕관', price: 40000 },
+  { id: 'fxfire', type: 'fx', name: '불꽃 오라', price: 2500 },
+  { id: 'fxbolt', type: 'fx', name: '번개 오라', price: 3500 },
+  { id: 'fxrainbow', type: 'fx', name: '무지개 오라', price: 50000 },
+  { id: 'meter', type: 'use', name: '필살 게이지 50%', price: 600, desc: '다음 연승 경기 시작 시' },
+  { id: 'hpup', type: 'use', name: '강철 체력 +15%', price: 800, desc: '다음 연승 경기 1판' },
+  { id: 'revive', type: 'use', name: '부활권', price: 3000, desc: '연승 모드에서 져도 1번 이어하기' },
+  { id: 'bigRevive', type: 'use', name: '대형 부활권', price: 150000, desc: '이어하기 + 건 돈·티어 점수 안 잃음' },
+  { id: 'rankShield', type: 'use', name: '랭크 보호권', price: 40000, desc: '랭크전에서 져도 티어 점수 그대로' },
+  { id: 'fullMeter', type: 'use', name: '필살 게이지 100%', price: 20000, desc: '다음 연승 경기 바로 필살기' },
+  { id: 'luckyCharm', type: 'use', name: '황금 행운 부적', price: 80000, desc: '다음 경기 이기면 승리 코인 5배' },
+  { id: 'tix10', type: 'use', name: '룰렛 티켓 10장', price: 25000, desc: '🎁 보상 센터 행운 룰렛용' }
 ];
+const itPrice = it => Math.round(it.price * (1 - (evLive() ? Math.min(90, +EVT.sale || 0) : 0) / 100));   // 이벤트 할인
+const USE_ICON = { meter: '⚡', hpup: '🛡️', revive: '💖', bigRevive: '💎', rankShield: '🏅', fullMeter: '🔥', luckyCharm: '🍀', tix10: '🎟️' };
 const COS_IDS = SHOP.filter(s => s.type !== 'use').map(s => s.id);
 const withCos = (ch, cos = inv.eq) => ({ ...ch, look: { ...ch.look, hat: COS_IDS.includes(cos && cos.hat) ? cos.hat : null, fx: COS_IDS.includes(cos && cos.fx) ? cos.fx : null } });
 // ---- 스킬 효과음 (합성음만, 음성 없음) ----
@@ -2621,14 +2645,16 @@ function sellDish(i) {
 function shopAct(i) {
   const it = SHOP[i]; if (!it) return;
   if (it.type === 'use') {
-    if (coins < it.price) { SFX.block(); toast('코인이 부족해요'); return; }
-    addCoins(-it.price); inv.use[it.id] = (inv.use[it.id] || 0) + 1; SFX.coin(); toast(`${it.name} 구매! (보유 ${inv.use[it.id]}개)`);
+    if (coins < itPrice(it)) { SFX.block(); toast('코인이 부족해요'); return; }
+    addCoins(-itPrice(it));
+    if (it.id === 'tix10') { RW.bonus += 10; rwSave(); SFX.coin(); toast(`🎟️ 룰렛 티켓 10장! (보유 ${RW.bonus}장)`); saveInv(); cloudDirty(); return; }
+    inv.use[it.id] = (inv.use[it.id] || 0) + 1; SFX.coin(); toast(`${it.name} 구매! (보유 ${inv.use[it.id]}개)`);
   } else if (inv.own[it.id]) {
     inv.eq[it.type] = inv.eq[it.type] === it.id ? null : it.id; SFX.select();
     toast(inv.eq[it.type] ? `${it.name} 장착!` : `${it.name} 해제`);
   } else {
-    if (coins < it.price) { SFX.block(); toast('코인이 부족해요'); return; }
-    addCoins(-it.price); inv.own[it.id] = true; inv.eq[it.type] = it.id; SFX.coin(); toast(`${it.name} 구매 + 장착!`);
+    if (coins < itPrice(it)) { SFX.block(); toast('코인이 부족해요'); return; }
+    addCoins(-itPrice(it)); inv.own[it.id] = true; inv.eq[it.type] = it.id; SFX.coin(); toast(`${it.name} 구매 + 장착!`);
   }
   saveInv();
 }
@@ -2661,16 +2687,20 @@ const TY_MEAT = {
   h: { name: '항정살', base: 70, cook: 290, raw: '#f0b7aa', fat: '#ffffff' }
 };
 const TY_UP = [
-  { id: 'grade', name: '🥩 고기 등급', max: 15, cost: l => Math.round(500 * 2.6 ** l), desc: l => `판매가 ×${fmtN(2 ** l)} → ×${fmtN(2 ** (l + 1))}` },
+  { id: 'grade', name: '🥩 고기 등급', max: 20, cost: l => Math.round(500 * 2.6 ** l), desc: l => `판매가 ×${fmtN(2 ** l)} → ×${fmtN(2 ** (l + 1))}` },
   { id: 'grill', name: '🔥 불판 늘리기', max: 3, cost: l => 800 * 3 ** l, desc: l => `불판 ${3 + l}칸 → ${4 + l}칸` },
-  { id: 'rep', name: '📣 가게 소문', max: 6, cost: l => 1000 * 3 ** l, desc: () => '손님이 더 자주 오고 더 오래 기다려요' },
+  { id: 'rep', name: '📣 가게 소문', max: 10, cost: l => 1000 * 3 ** l, desc: () => '손님이 더 자주 오고 더 오래 기다려요' },
   { id: 'staff', name: '🐷 알바 고용', max: 5, cost: l => [5000, 60000, 400000, 2500000, 15000000][l],
     desc: l => ['알바가 손님에게 알아서 서빙 (알바비 있음)', '알바가 고기도 알아서 굽고 집어요', '사이드 담당: 찌개·계란찜·냉면을 알아서 만들어요', '숙련 알바: 알바들이 2배 빨라져요', '매니저: 손님이 25% 더 오래 기다리고 팁↑'][l] },
   { id: 'menu', name: '📜 새 메뉴: 항정살', max: 1, cost: () => 20000, desc: () => '비싼 항정살 주문이 들어와요 (1개 70×등급)' },
   { id: 'side', name: '🍲 사이드 메뉴', max: 4, cost: l => [3000, 20000, 80000, 300000][l], desc: l => `${Object.values(TY_SIDE)[l].icon} ${Object.values(TY_SIDE)[l].name} 추가 · 고기랑 같이 주문하면 더 벌어요` },
-  { id: 'deco', name: '🪑 인테리어', max: 5, cost: l => 20000 * 4 ** l, desc: () => '손님이 더 오래 기다리고 VIP가 더 자주 와요' },
-  { id: 'chain', name: '🏢 체인점 열기', max: 12, cost: l => 1e8 * 2 ** l, desc: l => `${l}곳 → ${l + 1}곳 · 영업 끝날 때마다 체인점마다 그날 매출의 40%` },
+  { id: 'deco', name: '🪑 인테리어', max: 10, cost: l => 20000 * 4 ** l, desc: () => '손님이 더 오래 기다리고 VIP가 더 자주 와요' },
+  { id: 'sauce', name: '🧂 비법 양념', max: 8, cost: l => Math.round(30000 * 3.2 ** l), desc: l => `모든 고기 판매가 +${l * 10}% → +${(l + 1) * 10}%` },
+  { id: 'neon', name: '🏮 네온 간판', max: 6, cost: l => Math.round(200000 * 4 ** l), desc: l => `영업 끝 보너스 매출 +${l * 5}% → +${(l + 1) * 5}%` },
+  { id: 'chain', name: '🏢 체인점 열기', max: 16, cost: l => 1e8 * 2 ** l, desc: l => `${l}곳 → ${l + 1}곳 · 영업 끝날 때마다 체인점마다 그날 매출의 40%` },
+  { id: 'brand', name: '👑 본사 브랜드', max: 6, cost: l => Math.round(1e9 * 4 ** l), desc: l => `모든 체인점 수익 +${l * 25}% → +${(l + 1) * 25}%` },
   { id: 'idle', name: '🌙 무인 영업', max: 1, cost: () => 1e10, desc: () => '사 두면 게임을 꺼 두거나 유튜브를 봐도 영업이 계속 돼요 (자동 영업 안 켜도 됨)' },
+  { id: 'branch', name: '🏙️ 체인점별 강화', max: 0, cost: () => 0, desc: () => '체인점마다 다른 특별 강화 (들어가서 고르기)' },
 ];
 // 사이드 메뉴: 음료는 바로 나가고, 찌개·계란찜·냉면은 냄비에서 만들어서(다 되면 탭) 고기랑 같이 서빙
 const TY_SIDE = {
@@ -2694,7 +2724,7 @@ const TY_TOWN = ['강남', '홍대', '부산 서면', '대구 동성로', '제�
 // 가게 등급: 지금까지 번 돈(총매출)으로 올라감
 const TY_RANK = [['🏮 길거리 포장마차', 0], ['🍖 작은 고깃집', 50000], ['🏠 동네 맛집', 1000000], ['⭐ 소문난 맛집', 10000000], ['🏢 고깃집 프랜차이즈', 100000000], ['👑 전국 1등 고기 체인', 1000000000]];
 const TY_SHIFT = 60 * 90;
-const TYU0 = () => ({ grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, side: 0, deco: 0, chain: 0, chains: [], idle: 0, lastT: 0, rating: 3, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false });
+const TYU0 = () => ({ sauce: 0, neon: 0, brand: 0, br: {}, grill: 0, grade: 0, rep: 0, staff: 0, menu: 0, side: 0, deco: 0, chain: 0, chains: [], idle: 0, lastT: 0, rating: 3, best: 0, shifts: 0, total: 0, cust: 0, hist: [], auto: false });
 let tyU = Object.assign(TYU0(), lsGet('sgf_tycoon', {}));
 const saveTyU = () => lsSet('sgf_tycoon', tyU);
 const TY = { phase: 'lobby', sel: 0, t: 0, left: 0, slots: [], meat: 's', tray: { s: [], m: [], h: [] }, cust: [], earned: 0, served: 0, missed: 0, burnt: 0, vip: 0, spawn: 0, combo: 0, wage: null, autoT: 0, banner: 0 };
@@ -2710,7 +2740,8 @@ const TY_STAFF_PCT = [0, 0.04, 0.07, 0.09, 0.11, 0.12];   // 알바 수에 따�
 function tyWage(earned, served) {
   const staff = Math.round((earned * TY_STAFF_PCT[tyU.staff] + tyU.staff * served * 0.5 * 2 ** tyU.grade) * tyRaise());
   const boss = tyU.auto ? Math.round(earned * 0.05 * tyRaise()) : 0;
-  return { staff, boss, total: staff + boss };
+  const wc = Math.max(0.5, 1 - 0.03 * brSum('wage'));   // 체인점(알바 특화)이 알바비를 줄여 줌
+  return { staff: Math.round(staff * wc), boss: Math.round(boss * wc), total: Math.round(staff * wc) + Math.round(boss * wc) };
 }
 function openTycoon() { if (!(tyU.auto && TY.phase !== 'lobby')) { TY.phase = 'lobby'; TY.autoT = 180; } TY.sel = 0; scene = 'tycoon'; }   // 자동 영업 중이면 하던 영업 화면 그대로
 // 자동 영업은 장사 화면을 안 보고 있어도 계속 돌아감 (싸움·시장 등 어디서든). 소리·효과·입력 없이 조용히 진행하고, 영업이 끝나면 알림만
@@ -2767,8 +2798,9 @@ function tyEnd() {
   nqAdd('shift', 1);
   const w = tyWage(TY.earned, TY.served), pay = Math.min(coins, w.total);
   addCoins(-pay); TY.wage = { ...w, paid: pay };
-  TY.chainInc = Math.round(TY.earned * 0.4 * tyU.chain);   // 체인점 수익
+  TY.chainInc = Math.round(TY.earned * 0.4 * brIncome() * (1 + 0.25 * (tyU.brand || 0)));   // 체인점 수익 (체인점별 강화 · 본사 브랜드)   // 체인점 수익
   TY.bonus = TY.earned >= TY.goal ? Math.round(TY.goal * 0.2) : 0;   // 목표 달성 보너스
+  TY.bonus += Math.round(TY.earned * (0.05 * (tyU.neon || 0) + 0.03 * brSum('tip')));   // 네온 간판 · 체인점(팁 특화)
   addCoins(TY.chainInc + TY.bonus);
   if (TY.stars.length) tyU.rating = Math.round((tyU.rating * 0.6 + tyStarAvg() * 0.4) * 10) / 10;
   tyU.shifts++; tyU.best = Math.max(tyU.best, TY.earned); tyU.total += TY.earned + TY.chainInc; tyU.cust += TY.served;
@@ -2776,6 +2808,7 @@ function tyEnd() {
   TY.phase = 'result'; TY.autoT = 240; SFX.bell();
 }
 function tyBuy(u) {
+  if (u.id === 'branch') return;   // 체인점별 강화는 따로 들어가서
   const l = tyU[u.id];
   if (l >= u.max) { SFX.block(); toast('이미 최고 단계예요'); return; }
   const c = u.cost(l);
@@ -2787,6 +2820,51 @@ function tyBuy(u) {
     toast(`🏢 꿀꿀 포차 ${town}점 오픈! (체인점 ${tyU.chain}곳)`); return;
   }
   saveTyU(); SFX.coin(); toast(`${u.name} ${tyU[u.id]}단계!`);
+}
+// ---- 🏙️ 체인점별 강화: 동네마다 특화가 달라요 (수익 · 팁 · VIP · 알바) ----
+const BR_SPEC = {
+  '강남': ['💎 VIP 라운지', 'vip'], '홍대': ['🎸 버스킹 무대', 'tip'], '부산 서면': ['🐟 수산시장 직거래', 'income'], '대구 동성로': ['🔥 막창 콜라보', 'income'],
+  '제주': ['🐷 흑돼지 농장', 'income'], '인천 송도': ['✈️ 공항 지점', 'tip'], '대전 둔산': ['🍞 빵집 콜라보', 'tip'], '광주 충장로': ['🎨 예술 거리 축제', 'vip'],
+  '수원': ['🏯 성곽 야경 테라스', 'vip'], '전주 한옥마을': ['🍚 한옥 비빔 세트', 'income'], '강릉': ['☕ 커피 거리 디저트', 'tip'], '울산': ['⚓ 조선소 단체 회식', 'income'],
+  '판교': ['💻 IT 회식 예약제', 'wage'], '여의도': ['📈 증권가 점심 특선', 'vip'], '잠실': ['⚾ 야구장 배달', 'tip'], '해운대': ['🏖️ 바닷가 무인 키오스크', 'wage']
+};
+const BR_FX = { income: l => `이 체인점 수익 +${l * 30}%`, tip: l => `영업 끝 보너스 매출 +${l * 3}%`, vip: l => `VIP 손님 +${l}%`, wage: l => `알바비 -${l * 3}%` };
+const brSpec = t => BR_SPEC[t] || ['🏪 동네 단골 이벤트', ['income', 'tip', 'vip', 'wage'][hashStr(t) % 4]];
+const brLv = t => ((tyU.br || {})[t] || 0);
+const BR_MAX = 10;
+const brCost = (t, l) => Math.round(5e7 * 2.6 ** l * (1 + 0.2 * (tyU.chains || []).indexOf(t)));
+function brSum(kind) { return (tyU.chains || []).reduce((a, t) => a + (brSpec(t)[1] === kind ? brLv(t) : 0), 0); }
+function brIncome() { return (tyU.chains || []).reduce((a, t) => a + 1 + 0.1 * brLv(t) + (brSpec(t)[1] === 'income' ? 0.3 * brLv(t) : 0), 0); }   // 모든 체인점은 단계마다 +10%, 수익 특화는 +30% 더
+function updateBranch() {
+  const L = tyU.chains || [], n = L.length;
+  if (pressed.KeyW || pressed.ArrowUp) { TY.bsel = (TY.bsel + n - 1) % n; SFX.select(); }
+  if (pressed.KeyS || pressed.ArrowDown) { TY.bsel = (TY.bsel + 1) % n; SFX.select(); }
+  if (pressed.Enter || pressed.Space || pressed.KeyI) {
+    const t = L[TY.bsel], l = brLv(t);
+    if (l >= BR_MAX) { SFX.block(); toast('이미 최고 단계예요'); }
+    else { const c = brCost(t, l); if (coins < c) { SFX.block(); toast(`코인이 부족해요 (${fmtN(c)} 필요)`); } else { addCoins(-c); tyU.br = { ...(tyU.br || {}), [t]: l + 1 }; saveTyU(); SFX.coin(); burst(W / 2, 140 + TY.bsel * 26, 20, ['#ffd740', '#ce93d8'], 8); toast(`${t}점 ${brSpec(t)[0]} ${l + 1}단계!`); } }
+  }
+  if (pressed.Escape) { TY.phase = 'lobby'; SFX.select(); }
+  TY.autoT = Math.max(TY.autoT, 300);
+}
+function drawBranch() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1a1030'); g.addColorStop(1, '#3a1a20'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  txt('🏙️ 체인점별 강화', W / 2, 30, 28, '#ffe082', '#000', 7);
+  txt(`🪙 ${fmtN(coins)}  ·  체인점 ${(tyU.chains || []).length}곳  ·  동네마다 특화가 달라요`, W / 2, 62, 14, '#fff59d', null);
+  const L = tyU.chains || [], VIS = 14, off = clamp(TY.bsel - 7, 0, Math.max(0, L.length - VIS));
+  L.forEach((t, i) => {
+    if (i < off || i >= off + VIS) return;
+    const y = 80 + (i - off) * 30, on = TY.bsel === i, [nm, kind] = brSpec(t), l = brLv(t);
+    ctx.fillStyle = on ? 'rgba(255,145,0,0.5)' : 'rgba(255,255,255,0.07)'; rr(40, y, 880, 27, 7); ctx.fill();
+    txt(`${t}점`, 54, y + 14, 13, '#fff', null, 0, 'left');
+    txt(nm, 190, y + 14, 13, '#ce93d8', null, 0, 'left');
+    txt(`Lv.${l}/${BR_MAX}  ${BR_FX[kind](l)}${l < BR_MAX ? '  →  ' + BR_FX[kind](l + 1) : ''}`, 420, y + 14, 12, '#ddd', null, 0, 'left');
+    if (l < BR_MAX) { const c = brCost(t, l); txt(`🪙 ${fmtN(c)}`, 906, y + 14, 13, coins >= c ? '#69f0ae' : '#ff8a80', null, 0, 'right'); } else txt('최고!', 906, y + 14, 13, '#ffd740', null, 0, 'right');
+    addHot(40, y, 880, 27, () => { if (TY.bsel === i) pressed.Enter = true; else TY.bsel = i; });
+  });
+  txt(TOUCH ? '탭해서 고르기 · 한 번 더 탭하면 강화' : 'W/S 고르기 · Enter 강화 · Esc 돌아가기', W / 2, 516, 13, '#aaa', null);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 10, 100, 34, 8); ctx.fill(); txt('← 돌아가기', 64, 27, 13, '#fff', null);
+  addHot(14, 10, 100, 34, () => { pressed.Escape = true; });
 }
 function tyToggleAuto() { tyU.auto = !tyU.auto; saveTyU(); SFX.select(); toast(tyU.auto ? '🤖 자동 영업 켬: 점장이 굽고·집고·서빙하고 다음 영업도 알아서 시작해요 (점장 월급 있음)' : '🤖 자동 영업 끔');
   if (tyU.auto && TY.phase === 'lobby') tyStart();   // 켜면 바로 영업 시작
@@ -2823,7 +2901,7 @@ function tyServe(j) {
   const qs = tr.splice(0, c.n), pay = (qs.reduce((s, q) => s + tyPrice(c.k) * q, 0) + (c.side ? tySidePrice(c.side) : 0)) * (c.vip ? 3 : 1);
   TY.combo = Math.min(5, TY.combo + 1);
   const tip = 0.5 * (TY.ev && TY.ev.tip || 1) * (tyU.staff >= 5 ? 1.2 : 1);
-  const total = Math.round((pay + pay * tip * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)) * evMul('ty'));   // 이벤트: 장사 N배   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
+  const total = Math.round((pay + pay * tip * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)) * evMul('ty') * (1 + 0.1 * (tyU.sauce || 0)));   // 이벤트: 장사 N배   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
   const avgQ = qs.reduce((a, b) => a + b, 0) / qs.length;
   TY.stars.push(clamp(2 + 3 * (c.pat / c.max) + (avgQ > 1.2 ? 0.5 : avgQ < 1 ? -0.5 : 0), 1, 5));
   addCoins(total); TY.earned += total; TY.served++; if (c.vip) TY.vip++; TY.cust.splice(j, 1); SFX.coin();
@@ -2861,11 +2939,12 @@ function tyBotSide() {
 }
 function tyBotPlace() { const e = TY.slots.findIndex(c => !c); if (e >= 0) { tyPlaceBest(e); return true; } return false; }
 function updateTycoon() {
+  if (TY.phase === 'branch') { updateBranch(); return; }
   if (TY.phase === 'lobby') {
     const n = TY_UP.length + 2;   // 0 영업 시작 · 1~5 업그레이드 · 6 자동 영업
     if (pressed.KeyW || pressed.ArrowUp) { TY.sel = (TY.sel + n - 1) % n; SFX.select(); }
     if (pressed.KeyS || pressed.ArrowDown) { TY.sel = (TY.sel + 1) % n; SFX.select(); }
-    if (pressed.Enter || pressed.Space || pressed.KeyI) { if (TY.sel === 0) tyStart(); else if (TY.sel === n - 1) tyToggleAuto(); else tyBuy(TY_UP[TY.sel - 1]); }
+    if (pressed.Enter || pressed.Space || pressed.KeyI) { if (TY.sel === 0) tyStart(); else if (TY.sel === n - 1) tyToggleAuto(); else if (TY_UP[TY.sel - 1].id === 'branch') { if (!(tyU.chains || []).length) { SFX.block(); toast('체인점을 먼저 열어 주세요 (🏢 체인점 열기)'); } else { TY.phase = 'branch'; TY.bsel = 0; SFX.confirm(); } return; } else tyBuy(TY_UP[TY.sel - 1]); }
     if (pressed.KeyR) tyToggleAuto();
     if (pressed.Escape) { openMarket(); return; }
     if (Object.keys(pressed).some(k => pressed[k])) TY.autoT = Math.max(TY.autoT, 300);   // 업그레이드 고르는 중엔 자동 시작 미룸
@@ -2901,7 +2980,7 @@ function updateTycoon() {
     TY.spawn = Math.max(55, 250 - 28 * tyU.rep) * (ev.spawn || 1) / rate * (0.7 + Math.random() * 0.6) | 0;
     const used = TY.cust.map(c => c.seat), free = [0, 1, 2, 3].filter(s => !used.includes(s));
     if (free.length) {
-      const vip = Math.random() < (0.08 + 0.02 * tyU.deco) * (ev.vip || 1), ch = CHARS[pickShown()];
+      const vip = Math.random() < (0.08 + 0.02 * tyU.deco + 0.01 * brSum('vip')) * (ev.vip || 1), ch = CHARS[pickShown()];
       const mx = ((1000 + 160 * tyU.rep) * (1 + 0.12 * tyU.deco) * (tyU.staff >= 5 ? 1.25 : 1) * (vip ? 0.6 : 1)) | 0;   // 기다려 주는 시간
       const r = Math.random(), k = tyU.menu && r < 0.22 ? 'h' : r < 0.6 ? 's' : 'm';
       const sides = tySides(), side = sides.length && Math.random() < (ev.side || 0.45) ? pick(sides) : null;
@@ -2947,6 +3026,7 @@ function tyDrawShop(x, y, w) {
   for (let i = 0; i < 2 + r; i++) { const lx = x + 20 + i * (w - 40) / Math.max(1, 1 + r); ctx.fillStyle = `rgba(255,${110 + (i % 2) * 70},60,${0.6 + 0.3 * Math.sin(gT * 0.06 + i)})`; ell(lx, y + 64, 9, 12); ctx.fill(); }
 }
 function drawTycoon() {
+  if (TY.phase === 'branch') { drawBranch(); return; }
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2b1420'); g.addColorStop(1, '#120a10');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   for (let i = 0; i < 9; i++) { const x = 60 + i * 105; ctx.fillStyle = `rgba(255,${120 + (i % 2) * 60},60,${0.5 + 0.2 * Math.sin(gT * 0.05 + i)})`; ell(x, 18, 14, 18); ctx.fill(); }   // 포장마차 등불
@@ -2981,17 +3061,20 @@ function drawTycoon() {
     txt(`손님이 많을수록 알바비도 올라요 (예: 매출 ${fmtN(1000 * 2 ** tyU.grade)}·손님 20명 → ${fmtN(ex.total)})`, 40, 424, fitSize(`손님이 많을수록 알바비도 올라요 (예: 매출 ${fmtN(1000 * 2 ** tyU.grade)}·손님 20명 → ${fmtN(ex.total)})`, 12, 380), '#ccc', null, 0, 'left');
     // 오른쪽: 영업 시작 · 업그레이드 · 자동 영업
     const rows = [['🔔 영업 시작! (90초)', `1개당 ${tyKinds().map(k => `${TY_MEAT[k].name} ${fmtN(tyPrice(k))}`).join(' · ')}`, null]]
-      .concat(TY_UP.map(u => { const l = tyU[u.id]; return [`${u.name}  Lv.${l}/${u.max}`, l >= u.max ? '최고 단계!' : u.desc(l), l >= u.max ? null : u.cost(l)]; }))
+      .concat(TY_UP.map(u => { const l = tyU[u.id]; if (u.id === 'branch') return [`${u.name}  (${(tyU.chains || []).length}곳)`, u.desc(), null]; return [`${u.name}  Lv.${l}/${u.max}`, l >= u.max ? '최고 단계!' : u.desc(l), l >= u.max ? null : u.cost(l)]; }))
       .concat([[`🤖 자동 영업 ${tyU.auto ? 'ON' : 'OFF'} ${TOUCH ? '' : '[R]'}`, '점장이 다 하고 영업도 계속 이어서 (점장 월급: 매출의 5%)', null]]);
+    const VIS = 11, off = clamp(TY.sel - 5, 0, Math.max(0, rows.length - VIS));   // 줄이 많으면 고른 줄 따라 스크롤
+    if (off > 0) txt('▲', 698, 66, 12, '#ffcc80', null); if (off + VIS < rows.length) txt('▼', 698, 526, 12, '#ffcc80', null);
     rows.forEach(([a, b, c], i) => {
-      const y = 74 + i * 41, on = TY.sel === i, x = 456, last = i === rows.length - 1;
+      if (i < off || i >= off + VIS) return;
+      const y = 74 + (i - off) * 41, on = TY.sel === i, x = 456, last = i === rows.length - 1;
       ctx.fillStyle = on ? (i === 0 ? '#e53935' : 'rgba(255,145,0,0.5)') : last && tyU.auto ? 'rgba(67,160,71,0.55)' : 'rgba(255,255,255,0.08)'; rr(x, y, 484, 37, 9); ctx.fill();
       if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 484, 37, 9); ctx.stroke(); }
       txt(a, x + 14, y + 12, 13, '#fff', null, 0, 'left'); txt(b, x + 14, y + 27, fitSize(b, 10, c !== null ? 340 : 450), '#ddd', null, 0, 'left');
       if (c !== null) txt(`${fmtN(c)}`, x + 470, y + 19, 15, coins >= c ? '#69f0ae' : '#ff8a80', null, 0, 'right');
       addHot(x, y, 484, 37, () => { TY.sel = i; pressed.Enter = true; });
     });
-    txt(TOUCH ? '탭해서 시작·업그레이드' : 'W/S 고르기 · Enter 시작/구매 · R 자동 영업 · Esc 시장으로', 690, 530, 12, '#aaa', null);
+    txt(TOUCH ? '탭해서 시작·업그레이드' : 'W/S 고르기 · Enter 시작/구매 · R 자동 영업 · Esc 시장으로', 690, 536, 12, '#aaa', null);
     if (tyU.auto) txt(`🤖 자동 영업 ON: ${Math.ceil(Math.max(0, TY.autoT) / 60)}초 뒤 점장이 영업을 시작해요`, W / 2, 30, 16, '#69f0ae', '#000', 4);
     return;
   }
@@ -3269,18 +3352,18 @@ function drawMarket() {
   } else {
     txt(`보유: 필살50% ${inv.use.meter || 0} · 강철체력 ${inv.use.hpup || 0} · 부활권 ${inv.use.revive || 0}   (꾸미기는 내 돼지에게 표시, 온라인 상대에게도 보여요)`, W / 2, 118, 13, '#fff59d', null);
     SHOP.forEach((it, i) => {
-      const x = 70 + (i % 4) * 208, y = 134 + (i / 4 | 0) * 122, on = mk.sel === i, own = !!inv.own[it.id], eq = inv.eq[it.type] === it.id;
-      ctx.fillStyle = on ? 'rgba(120,70,40,0.92)' : 'rgba(25,12,40,0.85)'; rr(x, y, 196, 112, 12); ctx.fill();
-      if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 196, 112, 12); ctx.stroke(); }
-      addHot(x, y, 196, 112, () => { if (mk.sel === i) pressed.Enter = true; else mk.sel = i; });
-      if (it.type === 'use') txt({ meter: '⚡', hpup: '🛡️', revive: '💖' }[it.id], x + 44, y + 52, 36, '#fff', null);
-      else { const lk = { ...CHARS[0].look, hat: it.type === 'hat' ? it.id : null, fx: it.type === 'fx' ? it.id : null }; ctx.save(); ctx.beginPath(); ctx.rect(x, y, 100, 112); ctx.clip(); drawPig(x + 40, y + 104, 1, lk, { scale: 0.55, t: gT }); ctx.restore(); }
-      txt(it.name, x + 145, y + 30, fitSize(it.name, 15, 92), '#fff', null);   // 카드(오른쪽 끝 x+196) 밖으로 안 나가게
-      txt(it.type === 'use' ? `보유 ${inv.use[it.id] || 0}` : eq ? '장착 중' : own ? '보유 (탭=장착)' : '', x + 145, y + 54, 12, eq ? '#69f0ae' : '#bbb', null);
-      if (it.desc) txt(it.desc, x + 98, y + 100, 10, '#aaa', null);
-      if (!own || it.type === 'use') txt(`🪙 ${fmtN(it.price)}`, x + 145, y + 78, 16, coins >= it.price ? '#ffd740' : '#ff8a80', null);
+      const CH = SHOP.length > 12 ? 88 : 112, x = 70 + (i % 4) * 208, y = 134 + (i / 4 | 0) * (CH + 6), on = mk.sel === i, own = !!inv.own[it.id], eq = inv.eq[it.type] === it.id;
+      ctx.fillStyle = on ? 'rgba(120,70,40,0.92)' : 'rgba(25,12,40,0.85)'; rr(x, y, 196, CH, 12); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 196, CH, 12); ctx.stroke(); }
+      addHot(x, y, 196, CH, () => { if (mk.sel === i) pressed.Enter = true; else mk.sel = i; });
+      if (it.type === 'use') txt(USE_ICON[it.id] || '🎁', x + 44, y + CH / 2 - 4, 34, '#fff', null);
+      else { const lk = { ...CHARS[0].look, hat: it.type === 'hat' ? it.id : null, fx: it.type === 'fx' ? it.id : null }; ctx.save(); ctx.beginPath(); ctx.rect(x, y, 100, CH); ctx.clip(); drawPig(x + 40, y + CH - 8, 1, lk, { scale: 0.55, t: gT }); ctx.restore(); }
+      txt(it.name, x + 145, y + (CH > 100 ? 30 : 20), fitSize(it.name, 15, 92), '#fff', null);   // 카드(오른쪽 끝 x+196) 밖으로 안 나가게
+      txt(it.type === 'use' ? `보유 ${inv.use[it.id] || 0}` : eq ? '장착 중' : own ? '보유 (탭=장착)' : '', x + 145, y + (CH > 100 ? 54 : 40), 12, eq ? '#69f0ae' : '#bbb', null);
+      if (it.desc) txt(it.desc, x + 98, y + CH - 12, fitSize(it.desc, 10, 186), '#aaa', null);
+      if (!own || it.type === 'use') txt(`🪙 ${fmtN(itPrice(it))}`, x + 145, y + (CH > 100 ? 78 : 60), 16, coins >= itPrice(it) ? '#ffd740' : '#ff8a80', null);
     });
-    txt('Enter / 탭: 구매 · 장착/해제', W / 2, 516, 14, '#aaa', null);
+    txt('Enter / 탭: 구매 · 장착/해제', W / 2, 526, 14, '#aaa', null);
   }
 }
 
@@ -3557,12 +3640,57 @@ function drawTitle() {
   txt(TOUCH ? '📱 버튼으로 조작 · 메뉴는 탭!' : 'W/S 메뉴 이동 · Enter 선택 · 숫자키 바로가기 · M 배경음', W / 2, 518, 12, '#80d8ff', null);
   txt(`🔊 ${musicMuted ? '꺼짐' : '켜짐'}`, W - 16, 20, 13, '#ccc', '#000', 3, 'right');
   addHot(W - 90, 6, 84, 28, () => { toggleMute(); });
+  if (!TOUCH) { ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(W - 112, 36, 100, 26, 8); ctx.fill(); txt('⌨️ 키 설정', W - 62, 49, 13, '#fff', null); addHot(W - 112, 36, 100, 26, () => openKeys()); }   // 키 바꾸기
   if (toastT > 0) {
     ctx.globalAlpha = clamp(toastT / 20); ctx.fillStyle = 'rgba(0,0,0,0.85)'; rr(W / 2 - 230, 446, 460, 32, 10); ctx.fill();
     txt(toastMsg, W / 2, 462, 15, '#fff', null); ctx.globalAlpha = 1;
   }
 }
 
+// ================= ⌨️ 키 설정: 공격·이동 키를 마음대로 바꾸기 (1P 키보드) =================
+const KEY_ACTS = [['left', '← 왼쪽 이동'], ['right', '→ 오른쪽 이동'], ['up', '↑ 점프'], ['down', '↓ 앉기'], ['lp', '👊 약펀치'], ['rp', '👊 강펀치'], ['lk', '🦵 약킥'], ['rk', '🦵 강킥'],
+  ['grab', '🤼 업어치기'], ['skill', '✨ 스킬'], ['ultD', '💥 필살기'], ['tf', '🔥 변신']];
+const KEY_DEF = { ...MAP1 };
+Object.assign(MAP1, lsGet('sgf_keys', {}));
+const keyName = c => !c ? '-' : c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, '숫자패드 ').replace(/^Arrow/, '방향 ').replace('Left', '←').replace('Right', '→').replace('Up', '↑').replace('Down', '↓').replace('ShiftLeft', '왼 Shift').replace('Space', '스페이스');
+const KS = { sel: 0, wait: false, back: 'title' };
+function openKeys() { KS.sel = 0; KS.wait = false; KS.back = scene; scene = 'keys'; }
+function updateKeys() {
+  if (KS.wait) {
+    const c = Object.keys(pressed).find(k => pressed[k] && !k.startsWith('Mouse'));
+    if (!c) return;
+    if (c === 'Escape') { KS.wait = false; SFX.block(); return; }
+    const act = KEY_ACTS[KS.sel][0], old = MAP1[act], other = Object.keys(MAP1).find(k => k !== act && MAP1[k] === c);
+    if (other) MAP1[other] = old;   // 이미 다른 동작에 쓰던 키면 서로 바꿈
+    MAP1[act] = c; KS.wait = false; lsSet('sgf_keys', { ...MAP1 }); SFX.confirm();
+    toast(other ? `${keyName(c)} 키를 서로 바꿨어요` : `${KEY_ACTS[KS.sel][1]} = ${keyName(c)}`);
+    return;
+  }
+  const n = KEY_ACTS.length;
+  if (pressed.ArrowUp) { KS.sel = (KS.sel + n - 1) % n; SFX.select(); }
+  if (pressed.ArrowDown) { KS.sel = (KS.sel + 1) % n; SFX.select(); }
+  if (pressed.Enter || pressed.Space) { KS.wait = true; SFX.select(); }
+  if (pressed.Backspace || pressed.Delete) { Object.assign(MAP1, KEY_DEF); lsSet('sgf_keys', { ...MAP1 }); SFX.confirm(); toast('키를 처음대로 되돌렸어요'); }
+  if (pressed.Escape) { scene = 'title'; SFX.select(); }
+}
+function drawKeys() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#101828'); g.addColorStop(1, '#2a1030'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  txt('⌨️ 키 설정', W / 2, 32, 30, '#ffe082', '#000', 7);
+  txt('바꿀 동작을 고르고 Enter → 쓰고 싶은 키를 누르세요 (Esc 취소)', W / 2, 66, 14, '#ccc', null);
+  KEY_ACTS.forEach(([k, label], i) => {
+    const col = i < 6 ? 0 : 1, row = i % 6, x = 120 + col * 380, y = 90 + row * 58, on = KS.sel === i;
+    ctx.fillStyle = on ? (KS.wait ? 'rgba(255,82,82,0.6)' : 'rgba(255,145,0,0.5)') : 'rgba(255,255,255,0.08)'; rr(x, y, 340, 48, 10); ctx.fill();
+    txt(label, x + 16, y + 24, 16, '#fff', null, 0, 'left');
+    const kn = on && KS.wait ? (gT % 40 < 25 ? '키를 누르세요...' : '') : keyName(MAP1[k]);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(x + 190, y + 8, 138, 32, 8); ctx.fill();
+    txt(kn, x + 259, y + 24, fitSize(kn, 16, 128), MAP1[k] !== KEY_DEF[k] ? '#69f0ae' : '#fff59d', null);
+    addHot(x, y, 340, 48, () => { KS.sel = i; KS.wait = true; });
+  });
+  txt('↑↓ 고르기 · Enter 바꾸기 · Backspace 처음대로 · Esc 나가기', W / 2, 470, 13, '#80d8ff', null);
+  txt('같은 키를 고르면 두 동작의 키가 서로 바뀌어요 · 2P(방향키·숫자패드)는 그대로', W / 2, 494, 12, '#aaa', null);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(14, 10, 100, 34, 8); ctx.fill(); txt('← 나가기', 64, 27, 14, '#fff', null);
+  addHot(14, 10, 100, 34, () => { if (!KS.wait) pressed.Escape = true; });
+}
 // ================= 🆕 신캐릭터 업데이트 (2026-11-12 오후 3:40 공개) =================
 // 돼이비드: 사이버 돼지. 스킬 3개(U / ↓+U / →+U) · 필살기 '사이버 외골격' 20초 · 행운 룰렛에서 얻음
 // 돼루토: 닌자 돼지. 스킬 3개 · U 분신술(분신 2마리가 대신 싸움, 한 대 맞으면 둘 다 펑) · 필살기 '구미호 모드' · 퀘스트로 얻음
@@ -3791,7 +3919,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-1540';
+const BUILD = '20261112-2';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4047,6 +4175,8 @@ function claimGift() {
   if (gf.coins > 0) { addCoins(gf.coins); lines.push(`🪙 +${fmtN(gf.coins)} 코인`); }
   if (gf.spins > 0) { RW.bonus += gf.spins; lines.push(`🎟️ 룰렛 티켓 +${gf.spins}장`); }
   if (gf.items > 0) { for (const k of ['meter', 'hpup', 'revive']) inv.use[k] = (inv.use[k] || 0) + gf.items; saveInv(); lines.push(`🎒 아이템 3종 각 +${gf.items}개`); }
+  if (gf.item && gf.itemN > 0) { inv.use[gf.item] = (inv.use[gf.item] || 0) + gf.itemN; saveInv(); const it = SHOP.find(s => s.id === gf.item); lines.push(`${USE_ICON[gf.item] || '🎁'} ${it ? it.name : gf.item} +${gf.itemN}개`); }
+  if (gf.char) { const c = CHARS.find(x => x.name === gf.char); if (c && !lsGet('sgf_unlock_' + c.name, false)) { lsSet('sgf_unlock_' + c.name, true); lines.push(`🐷 새 돼지 ${c.name} 해금!!`); } }
   if (gf.msg) lines.push(gf.msg);
   rwSave(); cloudDirty();
   popup({ icon: '🎁', title: '관리자 선물 도착!', lines, big: true });
@@ -4202,7 +4332,8 @@ function afterMatchEconomy(w) {
   const me = mode === 1 ? p1 : NET.me, win = w === me, before = tp;
   if (mode === 1 && win) lsSet("sgf_best", Math.max(lsGet("sgf_best", 0), streak));
   if (mode === 1 && ranked) {   // 티어 점수·랭킹 기록은 랭크전에서만
-    const res = rankedResult(win, false, cut.revived); lsSet("sgf_rkpending", false);   // 판이 정상으로 끝남
+    const keep = !win && (cut.bigRev || (inv.use.rankShield > 0 && (inv.use.rankShield--, saveInv(), true)));   // 대형 부활권 · 랭크 보호권: 티어 점수 그대로
+    const res = keep ? '🛡️ 티어 점수 보호!' : rankedResult(win, false, cut.revived); lsSet("sgf_rkpending", false);   // 판이 정상으로 끝남
     cut.tp = { before, after: tp, d: tp - before, msg: res };
     if (win) lsSet("sgf_rbest", Math.max(lsGet("sgf_rbest", 0), streak));   // 랭크전 최고 연승
     lsSet('sgf_ranked', true);   // 랭크전을 한 판이라도 함 → 랭킹에 올림
@@ -4715,6 +4846,8 @@ function startMatch() {
   if (mode === 1) {
     if (inv.use.hpup > 0) { inv.use.hpup--; p1.hpMul = 1.15; toast('🛡️ 강철 체력! 체력 +15%'); }
     if (inv.use.meter > 0) { inv.use.meter--; p1.meter = 50; toast('⚡ 필살 게이지 50%로 시작!'); }
+    if (inv.use.fullMeter > 0) { inv.use.fullMeter--; p1.meter = 100; toast('🔥 필살 게이지 100%로 시작!'); }
+    p1.lucky = false; if (inv.use.luckyCharm > 0) { inv.use.luckyCharm--; p1.lucky = true; toast('🍀 황금 행운 부적! 이기면 승리 코인 5배'); }
     saveInv();
   }
 
@@ -4818,6 +4951,7 @@ function step() {
   else if (scene === 'endings') updateEndings();
   else if (scene === 'reward') updateReward();
   else if (scene === 'trailer') updateTrailer();
+  else if (scene === 'keys') updateKeys();
   else if (scene === 'tycoon') updateTycoon();
   else if (scene === 'opening') {
     sceneT++; updateOpening();
@@ -4936,14 +5070,15 @@ function startCutscene(w, l) {
   if (mode === 1) {
     if (w === p1) {
       streak++;
-      cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1) * evMul('coin');   // 금한돈: 승리 코인 3배
+      cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1) * evMul('coin'); if (p1.lucky) { cut.earn.win *= 5; p1.lucky = false; }   // 황금 행운 부적   // 금한돈: 승리 코인 3배
       cut.earn.win += jackpotRoll(cut.earn.win); rwProgress('win'); if (ranked) rwProgress('ranked');   // 잭팟 이벤트 · 일일 미션
       if (ranked) nqAdd('ranked', 1); else nqAdd('streak', streak, true);   // 돼루토 퀘스트
       if (bet > 0) cut.earn.bet = bet * (betSel === 2 ? 3 : 2);
       addCoins(cut.earn.win + cut.earn.bet);
     } else {
       if (bet > 0) cut.earn.bet = -bet;
-      if (inv.use.revive > 0) { inv.use.revive--; saveInv(); cut.revived = true; }
+      if (inv.use.bigRevive > 0) { inv.use.bigRevive--; saveInv(); cut.revived = true; cut.bigRev = true; if (bet > 0) { addCoins(bet); cut.earn.bet = 0; } toast('💎 대형 부활권! 건 돈·티어 점수 그대로 이어서'); }   // 대형 부활권: 돈·랭크 안 잃음
+      else if (inv.use.revive > 0) { inv.use.revive--; saveInv(); cut.revived = true; }
       else { runOver = true; rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now() }); }
     }
     bet = 0;
@@ -5685,7 +5820,7 @@ function drawFighter(f) {
 function keyHint(f, which) {
   if (mode === 0 || mode === 4 || (mode === 3 ? f !== NET.me : f === p2)) return '';
   if (TOUCH) return { ult: '[필살기 버튼]', skill: '[스킬 버튼]', tf: '[변신 버튼]' }[which] || '';   // 모바일은 버튼으로 안내
-  const m = { ult: 'Y', skill: 'U', tf: 'T' };   // 한 번에 누르는 단축키로 안내
+  const m = { ult: keyName(MAP1.ultD), skill: keyName(MAP1.skill), tf: keyName(MAP1.tf) };   // 키 설정에서 바꾼 키로   // 한 번에 누르는 단축키로 안내
   return `[${m[which]}]`;
 }
 function drawHUD() {
@@ -6026,6 +6161,7 @@ function draw() {
   else if (scene === 'endings') drawEndings();
   else if (scene === 'reward') drawReward();
   else if (scene === 'trailer') drawTrailer();
+  else if (scene === 'keys') drawKeys();
   else if (scene === 'tycoon') drawTycoon();
   else if (scene === 'select') drawSelect();
   else if (scene === 'vs') drawVs();
@@ -6195,6 +6331,21 @@ if (/autotest/.test(location.search)) {
       localStorage.removeItem('sgf_unlock_돼이비드'); RWS.slots = wheelSlots(); RWS.res = RWS.slots.findIndex(x => x.k === 'char'); wheelDone(); out.push(`wheel char: slot=${RWS.res} unlocked=${isUnlocked(DV)}`); if (RWS.res < 0 || !isUnlocked(DV)) throw new Error('룰렛 돼이비드 실패'); localStorage.removeItem('sgf_unlock_돼이비드'); POPQ.length = 0; POP = null;
       RW.bonus = 0; RW.spinDay = dayKey(); RW.spins = 9; coins = 1e6; const c1 = coins; spinWheel(); out.push(`ticket buy: tix=${RW.bonus} coins-${c1 - coins}`); if (RW.bonus !== 1) throw new Error('티켓 사기 실패');
       mode = 1; scene = 'title'; }
+    // 🛒 비싼 물건 · 🏙️ 체인점별 강화 · ⚖️ 밸런스 · ⌨️ 키 설정 · 🎁 돼지/아이템 선물
+    { coins = 1e9; for (const id of ['bigRevive', 'rankShield', 'fullMeter', 'luckyCharm', 'tix10']) shopAct(SHOP.findIndex(s => s.id === id));
+      out.push(`shop2: use=${JSON.stringify(inv.use)} tix=${RW.bonus}`); if (!inv.use.bigRevive || !inv.use.luckyCharm) throw new Error('비싼 물건 구매 실패');
+      openMarket(); mk.tab = 1; draw();
+      mode = 1; ranked = true; tp = 500; bet = 100; coins = 1000; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step();
+      runOver = false; const tp0 = tp, br0 = inv.use.bigRevive, c0 = coins; startCutscene(p2, p1); out.push(`bigRevive: tp ${tp0}->${tp} coins+${coins - c0} left=${inv.use.bigRevive} runOver=${runOver}`);
+      if (tp !== tp0 || inv.use.bigRevive !== br0 - 1 || runOver || coins - c0 !== 100) throw new Error('대형 부활권 실패'); ranked = false; lsSet('sgf_rkpending', false);
+      tyU = TYU0(); tyU.chain = 3; tyU.chains = ['강남', '홍대', '판교']; coins = 1e12; openTycoon(); TY.sel = TY_UP.findIndex(u => u.id === 'branch') + 1; pressed.Enter = true; step(); out.push(`branch: phase=${TY.phase}`); if (TY.phase !== 'branch') throw new Error('체인점별 강화 화면 실패');
+      for (let k = 0; k < 3; k++) { TY.bsel = k; pressed.Enter = true; step(); } draw(); pressed.Escape = true; step(); draw();
+      out.push(`branch lv: ${JSON.stringify(tyU.br)} income=${brIncome().toFixed(2)} vip=${brSum('vip')} wage=${brSum('wage')} tip=${brSum('tip')}`); if (brSum('vip') !== 1 || brSum('wage') !== 1 || TY.phase !== 'lobby') throw new Error('체인점별 강화 실패');
+      for (const u of TY_UP) tyBuy(u); out.push(`ty up2: sauce=${tyU.sauce} neon=${tyU.neon} brand=${tyU.brand}`); tyU = TYU0(); saveTyU(); scene = 'title';
+      const hp0 = CHARS[0].hp; applyBal({ v: 5, c: { [CHARS[0].name]: { hp: 150, cd: 50 } } }); out.push(`bal: hp ${hp0}->${CHARS[0].hp} cd=${CHARS[0].skill.cd}`); if (CHARS[0].hp !== Math.round(hp0 * 1.5)) throw new Error('밸런스 패치 실패'); applyBal({ v: 6, c: {} }); if (CHARS[0].hp !== hp0) throw new Error('밸런스 되돌리기 실패');
+      openKeys(); KS.sel = 9; pressed.Enter = true; step(); pressed.KeyQ = true; step(); out.push(`keys: skill=${MAP1.skill}`); if (MAP1.skill !== 'KeyQ') throw new Error('키 설정 실패'); draw(); pressed.Backspace = true; step(); if (MAP1.skill !== 'KeyU') throw new Error('키 되돌리기 실패'); pressed.Escape = true; step();
+      localStorage.removeItem('sgf_unlock_돼루토'); const rv = inv.use.rankShield || 0; GIFT = { id: Date.now() + 5, coins: 0, spins: 0, items: 0, item: 'rankShield', itemN: 2, char: '돼루토', until: 0 }; claimGift();
+      out.push(`gift2: shield ${rv}->${inv.use.rankShield} naruto=${isUnlocked(CHARS.find(c => c.name === '돼루토'))}`); if (inv.use.rankShield !== rv + 2 || !lsGet('sgf_unlock_돼루토', false)) throw new Error('돼지·아이템 선물 실패'); localStorage.removeItem('sgf_unlock_돼루토'); POPQ.length = 0; POP = null; scene = 'title'; mode = 1; }
     // 🔄 새로고침 없이 계정 기록 반영 (관리자 수정 흉내)
     { const s = collectSave(); s.sgf_coin = '777777'; s.sgf_tp = '1234'; s.sgf_reward = JSON.stringify({ bonus: 3 }); scene = 'fight';
       remoteSave({ save: s, saved: Date.now() }); out.push(`live apply: coins=${coins} tp=${tp} bonus=${RW.bonus} pending=${!!pendingSave}`);
