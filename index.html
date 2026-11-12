@@ -494,85 +494,85 @@ const CHARS = [
   { name: '분홍이', title: '근본 삼겹살', type: '밸런스', hp: 102, power: 1.04, speed: 1.0, ultRate: 1.0, scale: 1.15,
     look: look('#ffb5c5', '#d9718c', '#ffd6df', '#ff93ac', '#7a3b4a', '#5a2030', '#e53935', ['band']),
     skill: { name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진해 상대를 띄움' },
-    skills: [{ name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진해 상대를 띄움' }, { name: '삼겹 굴리기', type: 'porkRoll', cd: 170, desc: '↓+U: 몸을 말아 굴러가며 넘어뜨림 · 무적' }, { name: '꿀꿀 함성', type: 'oinkWave', cd: 260, desc: '→+U: 큰 소리로 앞을 날려 버림 · 오래 기절' }],
+    skills: [{ name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진해 상대를 띄움' }, { name: '삼겹 굴리기', type: 'porkRoll', cd: 170, desc: '↓+U: 몸을 말아 굴러가며 넘어뜨림 · 무적' }, { name: '꿀꿀 함성', type: 'oinkWave', cd: 260, desc: '←→+U: 큰 소리로 앞을 날려 버림 · 오래 기절' }],
     tf: { name: '불꽃 분홍', type: 'fire', color: '#ff5722', desc: '공격력↑ · 화상' },
     ult: { name: '삼겹 폭풍 연타', type: 'rush', desc: '돌진 후 폭풍 연타' } },
   { name: '깜돌이', title: '제주 흑돼지', type: '파워', hp: 82, power: 1.03, speed: 0.9, ultRate: 0.95, scale: 1.2,
     look: look('#4b3d44', '#1f181b', '#62525a', '#7d6670', '#0d090b', '#0a0a0a', '#1e88e5', ['band', 'scar']),
     skill: { name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 · 막아도 가드를 부수는 돌진' },
-    skills: [{ name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 · 막아도 가드를 부수는 돌진' }, { name: '현무암 내려찍기', type: 'basaltSlam', cd: 220, desc: '↓+U: 땅을 내려찍어 넘어뜨림 (앉아도 맞음)' }, { name: '흑돼지 박치기', type: 'blackRam', cd: 200, desc: '→+U: 슈퍼아머 박치기' }],
+    skills: [{ name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 · 막아도 가드를 부수는 돌진' }, { name: '현무암 내려찍기', type: 'basaltSlam', cd: 220, desc: '↓+U: 땅을 내려찍어 넘어뜨림 (앉아도 맞음)' }, { name: '흑돼지 박치기', type: 'blackRam', cd: 200, desc: '←→+U: 슈퍼아머 박치기' }],
     tf: { name: '한라산 돌돼지', type: 'stone', color: '#9e9e9e', desc: '받는 피해↓ · 슈퍼아머' },
     ult: { name: '한라산 대분화', type: 'eruption', desc: '앞으로 용암 기둥' } },
   { name: '멧돌이', title: '산속 멧돼지', type: '돌격', hp: 110, power: 1.18, speed: 1.05, ultRate: 0.8, scale: 1.2,
     look: look('#a1887f', '#4e342e', '#bcaaa4', '#8d6e63', '#3e2723', '#2b1a14', '#ff9800', ['tusks', 'bristle']),
     skill: { name: '엄니 걸어당기기', type: 'launcher', cd: 140, desc: '엄니로 걸어 내 앞으로 끌어당김 · 긴 경직' },
-    skills: [{ name: '엄니 걸어당기기', type: 'launcher', cd: 140, desc: '엄니로 걸어 내 앞으로 끌어당김 · 긴 경직' }, { name: '흙먼지 돌진', type: 'dustCharge', cd: 200, desc: '↓+U: 낮게 돌진해 넘어뜨림' }, { name: '엄니 퍼올리기', type: 'tuskToss', cd: 240, desc: '→+U: 엄니로 퍼 올려 하늘 높이 띄움 · 슈퍼아머' }],
+    skills: [{ name: '엄니 걸어당기기', type: 'launcher', cd: 140, desc: '엄니로 걸어 내 앞으로 끌어당김 · 긴 경직' }, { name: '흙먼지 돌진', type: 'dustCharge', cd: 200, desc: '↓+U: 낮게 돌진해 넘어뜨림' }, { name: '엄니 퍼올리기', type: 'tuskToss', cd: 240, desc: '←→+U: 엄니로 퍼 올려 하늘 높이 띄움 · 슈퍼아머' }],
     tf: { name: '야생 폭주', type: 'wild', color: '#ff9800', desc: '이동·공격 속도↑' },
     ult: { name: '멧돼지 대돌진', type: 'charge', desc: '화면 끝까지 무적 돌진' } },
   { name: '꼬미', title: '미니피그', type: '스피드', hp: 84, power: 1.0, speed: 1.3, ultRate: 1.25, scale: 0.92,
     look: look('#ffe3d6', '#e0a58f', '#fff1ea', '#ffc2ad', '#8d5a4a', '#6d3a2a', '#ff4081', ['ribbon', 'spots']),
     skill: { name: '데굴데굴 구르기', type: 'roll', cd: 120, desc: '무적 하단 구르기' },
-    skills: [{ name: '데굴데굴 구르기', type: 'roll', cd: 120, desc: '무적 하단 구르기' }, { name: '꼬마 날아차기', type: 'miniKick', cd: 150, desc: '↓+U: 뛰어올라 차기' }, { name: '꼬마 질주', type: 'miniDash', cd: 170, desc: '→+U: 아주 빠르게 달려가며 2번 들이받기' }],
+    skills: [{ name: '데굴데굴 구르기', type: 'roll', cd: 120, desc: '무적 하단 구르기' }, { name: '꼬마 날아차기', type: 'miniKick', cd: 150, desc: '↓+U: 뛰어올라 차기' }, { name: '꼬마 질주', type: 'miniDash', cd: 170, desc: '←→+U: 아주 빠르게 달려가며 2번 들이받기' }],
     tf: { name: '분신술', type: 'clone', color: '#f8bbd0', desc: '분신이 추가타' },
     ult: { name: '미니피그 군단', type: 'stampede', desc: '꼬마 돼지 8마리 돌격' } },
   { name: '얼음이', title: '냉동 대패', type: '원거리', hp: 104, power: 1.04, speed: 1.0, ultRate: 1.0, scale: 1.1,
     look: look('#e3eef9', '#7f9bbf', '#f5f9ff', '#c5d8ef', '#4a6488', '#2c3e5a', '#4fc3f7', ['frost', 'scarf']),
     skill: { name: '대패 표창', type: 'iceProj', cd: 110, desc: '얼음 대패 투척 · 둔화' },
-    skills: [{ name: '대패 표창', type: 'iceProj', cd: 110, desc: '얼음 대패 투척 · 둔화' }, { name: '얼음 바닥', type: 'iceFloor', cd: 360, desc: '↓+U: 바닥을 얼려 밟으면 느려짐' }, { name: '빙결 펀치', type: 'frostPunch', cd: 170, desc: '→+U: 맞으면 느려지는 얼음 주먹' }],
+    skills: [{ name: '대패 표창', type: 'iceProj', cd: 110, desc: '얼음 대패 투척 · 둔화' }, { name: '얼음 바닥', type: 'iceFloor', cd: 360, desc: '↓+U: 바닥을 얼려 밟으면 느려짐' }, { name: '빙결 펀치', type: 'frostPunch', cd: 170, desc: '←→+U: 맞으면 느려지는 얼음 주먹' }],
     tf: { name: '급속 냉동', type: 'freeze', color: '#4fc3f7', desc: '적중 시 둔화' },
     ult: { name: '절대영도 대패썰기', type: 'absoluteZero', desc: '얼리고 대패로 썬다' } },
   { name: '족발왕', title: '태권 족발', type: '발차기', hp: 96, power: 1.05, speed: 1.1, ultRate: 1.05, scale: 1.15,
     look: look('#f0c595', '#a8703f', '#f8dcb8', '#e0a878', '#ffc107', '#5d3a1a', '#ffffff', ['band', 'belt']),
     skill: { name: '족발 회오리킥', type: 'spinKick', cd: 150, desc: '3연속 회전 킥' },
-    skills: [{ name: '족발 회오리킥', type: 'spinKick', cd: 150, desc: '3연속 회전 킥' }, { name: '족발 쓸어차기', type: 'lowSweep', cd: 160, desc: '↓+U: 낮게 쓸어 넘어뜨림' }, { name: '날아 옆차기', type: 'flyKick', cd: 190, desc: '→+U: 날아가며 강한 옆차기' }],
+    skills: [{ name: '족발 회오리킥', type: 'spinKick', cd: 150, desc: '3연속 회전 킥' }, { name: '족발 쓸어차기', type: 'lowSweep', cd: 160, desc: '↓+U: 낮게 쓸어 넘어뜨림' }, { name: '날아 옆차기', type: 'flyKick', cd: 190, desc: '←→+U: 날아가며 강한 옆차기' }],
     tf: { name: '무쇠 족발', type: 'ironHoof', color: '#ffd54f', desc: '발차기 피해 1.5배' },
     ult: { name: '천족난무', type: 'thousandKicks', desc: '돌진 후 발차기 난무' } },
   { name: '오겹장군', title: '스모 챔피언', type: '탱커', hp: 124, power: 0.95, speed: 0.8, ultRate: 0.85, scale: 1.3,
     look: look('#ffcab8', '#d08a74', '#ffe0d4', '#ffaa94', '#6d3a2a', '#5a2a1a', '#7b1fa2', ['mawashi', 'topknot'], 1.15),
     skill: { name: '뱃살 튕기기', type: 'counter', cd: 160, desc: '반격 자세' },
-    skills: [{ name: '뱃살 튕기기', type: 'counter', cd: 160, desc: '반격 자세' }, { name: '스모 밀치기', type: 'sumoPush', cd: 200, desc: '↓+U: 슈퍼아머로 멀리 밀어냄' }, { name: '뱃살 띄우기', type: 'bellyBump', cd: 220, desc: '→+U: 배로 튕겨 하늘로' }],
+    skills: [{ name: '뱃살 튕기기', type: 'counter', cd: 160, desc: '반격 자세' }, { name: '스모 밀치기', type: 'sumoPush', cd: 200, desc: '↓+U: 슈퍼아머로 멀리 밀어냄' }, { name: '뱃살 띄우기', type: 'bellyBump', cd: 220, desc: '←→+U: 배로 튕겨 하늘로' }],
     tf: { name: '오겹 거대화', type: 'giant', color: '#ce93d8', desc: '몸집·사거리↑ · 아머' },
     ult: { name: '스모 대압살', type: 'bodySlam', desc: '하늘에서 깔아뭉개기' } },
   { name: '양념이', title: '고추장 불돼지', type: '원거리', hp: 100, power: 1.05, speed: 1.0, ultRate: 0.95, scale: 1.12,
     look: look('#ff8a65', '#bf360c', '#ffab91', '#ff7043', '#5d1a0a', '#4a1000', '#ffeb3b', ['chili']),
     skill: { name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '포물선으로 던져 땅에서 펑! · 넓은 범위 화상' },
-    skills: [{ name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '포물선으로 던져 땅에서 펑! · 넓은 범위 화상' }, { name: '양념 뿌리기', type: 'chiliSpray', cd: 200, desc: '↓+U: 매운 양념 분사 · 화상' }, { name: '고추 미사일', type: 'chiliBomb', cd: 180, desc: '→+U: 곧게 날아가는 불 고추' }],
+    skills: [{ name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '포물선으로 던져 땅에서 펑! · 넓은 범위 화상' }, { name: '양념 뿌리기', type: 'chiliSpray', cd: 200, desc: '↓+U: 매운 양념 분사 · 화상' }, { name: '고추 미사일', type: 'chiliBomb', cd: 180, desc: '←→+U: 곧게 날아가는 불 고추' }],
     tf: { name: '청양 각성', type: 'spicy', color: '#ff1744', desc: '화염구 2연발 · 쿨↓' },
     ult: { name: '지옥불 양념 빔', type: 'beam', desc: '화면을 가르는 불 빔' } },
   { name: '항정', title: '그림자 닌자', type: '기술', hp: 86, power: 1.03, speed: 1.25, ultRate: 1.2, scale: 1.08,
     look: look('#b9a9cf', '#5e4b78', '#d5cae4', '#a593c2', '#2e2440', '#1a1028', '#4a148c', ['mask']),
     skill: { name: '항정 순보', type: 'teleport', cd: 130, desc: '상대 뒤로 순간이동' },
-    skills: [{ name: '항정 순보', type: 'teleport', cd: 130, desc: '상대 뒤로 순간이동' }, { name: '그림자 베기', type: 'shadowCut', cd: 180, desc: '↓+U: 빠른 3연속 베기' }, { name: '연막탄', type: 'smokeBomb', cd: 420, desc: '→+U: 연기 속에서 1초 동안 무적' }],
+    skills: [{ name: '항정 순보', type: 'teleport', cd: 130, desc: '상대 뒤로 순간이동' }, { name: '그림자 베기', type: 'shadowCut', cd: 180, desc: '↓+U: 빠른 3연속 베기' }, { name: '연막탄', type: 'smokeBomb', cd: 420, desc: '←→+U: 연기 속에서 1초 동안 무적' }],
     tf: { name: '그림자 모드', type: 'shadow', color: '#7e57c2', desc: '30% 회피 · 속도↑' },
     ult: { name: '비전 · 천살', type: 'thousandCuts', desc: '보이지 않는 천 번 베기' } },
   { name: '목살', title: '복싱 챔프', type: '펀치', hp: 92, power: 1.08, speed: 1.05, ultRate: 0.9, scale: 1.15,
     look: look('#ffb59e', '#c75b39', '#ffd2c4', '#ff9a80', '#6d2a1a', '#4a1a0a', '#ffd600', ['band', 'gloves']),
     skill: { name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼 · 점프한 상대 격추' },
-    skills: [{ name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼 · 점프한 상대 격추' }, { name: '보디 블로', type: 'bodyBlow', cd: 170, desc: '↓+U: 배를 노려 오래 기절' }, { name: '원투 스트레이트', type: 'jabCombo', cd: 170, desc: '→+U: 빠른 3연타' }],
+    skills: [{ name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼 · 점프한 상대 격추' }, { name: '보디 블로', type: 'bodyBlow', cd: 170, desc: '↓+U: 배를 노려 오래 기절' }, { name: '원투 스트레이트', type: 'jabCombo', cd: 170, desc: '←→+U: 빠른 3연타' }],
     tf: { name: '챔피언 모드', type: 'champion', color: '#ffd600', desc: '펀치 피해·속도↑' },
     ult: { name: '메가톤 펀치', type: 'megaton', desc: '가드 파괴 한 방' } },
   { name: '갈비', title: '숯불 양념갈비', type: '리치', hp: 108, power: 1.08, speed: 0.95, ultRate: 0.9, scale: 1.15,
     look: look('#c8743f', '#7a3a18', '#e3a173', '#d98a58', '#4e2410', '#3a1a0a', '#ffb300', ['scar', 'belt']),
     skill: { name: '갈빗대 다리걸기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 다리를 후려 넘어뜨림 (하단)' },
-    skills: [{ name: '갈빗대 다리걸기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 다리를 후려 넘어뜨림 (하단)' }, { name: '숯 던지기', type: 'coalToss', cd: 200, desc: '↓+U: 뜨거운 숯을 포물선으로 · 화상' }, { name: '갈비뼈 창', type: 'ribSpear', cd: 160, desc: '→+U: 아주 멀리 닿는 찌르기' }],
+    skills: [{ name: '갈빗대 다리걸기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 다리를 후려 넘어뜨림 (하단)' }, { name: '숯 던지기', type: 'coalToss', cd: 200, desc: '↓+U: 뜨거운 숯을 포물선으로 · 화상' }, { name: '갈비뼈 창', type: 'ribSpear', cd: 160, desc: '←→+U: 아주 멀리 닿는 찌르기' }],
     tf: { name: '숯불 직화', type: 'fire', color: '#ff7043', desc: '공격력↑ · 화상' },
     ult: { name: '숯불 소나기', type: 'coalRain', desc: '하늘에서 뜨거운 숯이 쏟아짐 · 화상' } },
   { name: '감자탕', title: '뼈해장국 장인', type: '지구력', hp: 128, power: 1.06, speed: 0.9, ultRate: 0.8, scale: 1.22,
     look: look('#e8b48a', '#9a5a32', '#f5d2b2', '#e09a6e', '#5d3a1a', '#4a2a10', '#d84315', ['band', 'scarf'], 1.08),
     skill: { name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 천천히 흐르는 국물 · 밟으면 여러 번 화상' },
-    skills: [{ name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 천천히 흐르는 국물 · 밟으면 여러 번 화상' }, { name: '뼈다귀 던지기', type: 'boneThrow', cd: 170, desc: '↓+U: 빙글빙글 날아가는 뼈' }, { name: '뜨끈한 국물', type: 'stewHeal', cd: 600, desc: '→+U: 국물 한 그릇 · 체력 10 회복' }],
+    skills: [{ name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 천천히 흐르는 국물 · 밟으면 여러 번 화상' }, { name: '뼈다귀 던지기', type: 'boneThrow', cd: 170, desc: '↓+U: 빙글빙글 날아가는 뼈' }, { name: '뜨끈한 국물', type: 'stewHeal', cd: 600, desc: '←→+U: 국물 한 그릇 · 체력 10 회복' }],
     tf: { name: '뚝배기 갑옷', type: 'stone', color: '#8d6e63', desc: '받는 피해↓ · 슈퍼아머' },
     ult: { name: '뚝배기 홍수', type: 'stewFlood', desc: '펄펄 끓는 국물 파도가 화면을 휩쓸어 감' } },
   { name: '냉삼', title: '냉동 삼겹살', type: '부메랑', hp: 94, power: 1.0, speed: 1.12, ultRate: 1.1, scale: 1.04,   // 얇게 얼린 레트로 냉동 삼겹살
     look: look('#fbe0dc', '#c98f8c', '#fff4f2', '#f4b8b4', '#7a4a4a', '#4a2a2a', '#4fc3f7', ['band', 'spots'], 0.96),
     skill: { name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' },
-    skills: [{ name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' }, { name: '냉동 슬라이스', type: 'frostSlice', cd: 170, desc: '↓+U: 낮게 4번 베기 · 느려짐' }, { name: '서리 미끄럼', type: 'frostDash', cd: 190, desc: '→+U: 미끄러지며 돌진 · 느려짐' }],
+    skills: [{ name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' }, { name: '냉동 슬라이스', type: 'frostSlice', cd: 170, desc: '↓+U: 낮게 4번 베기 · 느려짐' }, { name: '서리 미끄럼', type: 'frostDash', cd: 190, desc: '←→+U: 미끄러지며 돌진 · 느려짐' }],
     tf: { name: '급속 해동', type: 'thaw', color: '#80deea', desc: '체력 서서히 회복 · 이동 속도↑' },
     ult: { name: '냉삼 폭탄 투하', type: 'sliceRain', desc: '하늘에서 얼린 냉삼이 우수수' } },
   { name: '금한돈', title: '황금 돼지 부자', type: '부자', hp: 100, power: 1.0, speed: 0.96, ultRate: 0.9, scale: 1.12, unlock: 3, perk: '이기면 승리 코인 3배',   // unlock: 이 티어(3 = 골드)에 처음 오르면 영구 해금
     look: look('#ffd54f', '#b8860b', '#fff3c4', '#ffca28', '#6d4c00', '#4a3300', '#2e7d32', ['band', 'belt'], 1.04),
     skill: { name: '돈뿌리기', type: 'coinToss', cd: 120, desc: '동전 5개를 부채꼴로 흩뿌림' },
-    skills: [{ name: '돈뿌리기', type: 'coinToss', cd: 120, desc: '동전 5개를 부채꼴로 흩뿌림' }, { name: '돈다발 휘두르기', type: 'cashSwing', cd: 170, desc: '↓+U: 묵직한 돈다발로 후려침' }, { name: '골드 러시', type: 'goldDash', cd: 200, desc: '→+U: 금빛 무적 돌진' }],
+    skills: [{ name: '돈뿌리기', type: 'coinToss', cd: 120, desc: '동전 5개를 부채꼴로 흩뿌림' }, { name: '돈다발 휘두르기', type: 'cashSwing', cd: 170, desc: '↓+U: 묵직한 돈다발로 후려침' }, { name: '골드 러시', type: 'goldDash', cd: 200, desc: '←→+U: 금빛 무적 돌진' }],
     tf: { name: '황금 각성', type: 'gilded', color: '#ffd700', desc: '공격력↑ · 필살 게이지 빨리 참' },
     ult: { name: '황금 금고 떨구기', type: 'goldSafe', desc: '머리 위로 금고 쿵! 그림자 보고 피하기' } },
   // 관리자가 선물로 주는 돼지 (unlock: 'admin' → 관리자 페이지에서 sgf_unlock_돼타로를 켜 줘야 쓸 수 있음. legacy: 예전 이름 '무뚝돈'으로 받은 사람도 그대로 해금)
@@ -589,57 +589,57 @@ const CHARS = [
   { name: '볼트돈', title: '공장에서 탈출한 사이보그 돼지', type: '로봇', hp: 96, power: 1.08, speed: 1.12, ultRate: 0.85, scale: 1.12, unlock: 'admin', legacy: '돼이비드', how: '🎁 보상 센터 행운 룰렛에서 얻어요', perk: '룰렛 한정 돼지',
     look: look('#b0bec5', '#455a64', '#cfd8dc', '#90a4ae', '#263238', '#37474f', '#ff1744', ['robot', 'antenna', 'bold'], 1.04),
     skill: { name: '오버클럭', type: 'sande', cd: 720, desc: 'U: 4초 동안 상대가 아주 느려짐' },
-    skills: [{ name: '오버클럭', type: 'sande', cd: 720, desc: 'U: 회로를 과열시켜 4초 동안 상대가 아주 느려짐' }, { name: '레이저 채찍', type: 'monowire', cd: 200, desc: '↓+U: 멀리까지 닿는 레이저 3연타' }, { name: '로켓 대시', type: 'cyberDash', cd: 180, desc: '→+U: 발 로켓으로 무적 돌진 펀치' }],
+    skills: [{ name: '오버클럭', type: 'sande', cd: 720, desc: 'U: 회로를 과열시켜 4초 동안 상대가 아주 느려짐' }, { name: '레이저 채찍', type: 'monowire', cd: 200, desc: '↓+U: 멀리까지 닿는 레이저 3연타' }, { name: '로켓 대시', type: 'cyberDash', cd: 180, desc: '←→+U: 발 로켓으로 무적 돌진 펀치' }],
     tf: { name: '과부하 모드', type: 'wild', color: '#ff1744', desc: '속도·공격 속도↑' },
     ult: { name: '메가 강화 슈트', type: 'cyberSkel', desc: '20초 동안 거대한 슈트: 공격력↑ · 받는 피해 절반 · 몸집↑' } },
   // 돼루토: 주황 옷 · 이마 보호대를 한 닌자 돼지. 분신술로 분신 2마리가 대신 싸움. 필살기는 구미호 모드
   { name: '돼루토', title: '포기를 모르는 닌자 돼지', type: '닌자', hp: 100, power: 1.02, speed: 1.1, ultRate: 0.9, scale: 1.1, unlock: 'admin', how: '🎁 보상 센터의 돼루토 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
     look: look('#ffc9b5', '#c27a63', '#ffe3d6', '#f7a58f', '#3e2723', '#c79100', '#1a237e', ['ninja', 'spiky', 'whisker', 'hitai', 'bold'], 1),
     skill: { name: '분신술', type: 'kageClone', cd: 540, desc: 'U: 분신 2마리가 대신 싸움 (한 대 맞으면 둘 다 펑)' },
-    skills: [{ name: '분신술', type: 'kageClone', cd: 540, desc: 'U: 분신 2마리가 대신 싸움 · 한 대 맞으면 펑' }, { name: '회오리 구슬', type: 'rasen', cd: 240, desc: '↓+U: 회오리 구슬을 들고 상대에게 달려가 날려 버림' }, { name: '쿠나이 던지기', type: 'kunai', cd: 120, desc: '→+U: 빠른 쿠나이 3개' }],
+    skills: [{ name: '분신술', type: 'kageClone', cd: 540, desc: 'U: 분신 2마리가 대신 싸움 · 한 대 맞으면 펑' }, { name: '회오리 구슬', type: 'rasen', cd: 240, desc: '↓+U: 회오리 구슬을 들고 상대에게 달려가 날려 버림' }, { name: '쿠나이 던지기', type: 'kunai', cd: 120, desc: '←→+U: 빠른 쿠나이 3개' }],
     tf: { name: '선인 모드', type: 'champion', color: '#ff6d00', desc: '펀치 피해·속도↑' },
     ult: { name: '구미호 모드', type: 'gumiho', desc: '아홉 꼬리 폭발 + 12초 동안 강해짐' } },
   // 이타돼리: 저주를 몸에 품은 돼지 고등학생 (관리자가 '업데이트 공개'를 누르면 모두 해금 · 한 번 켜면 못 끔)
   { name: '이타돼리', title: '저주를 품은 돼지 고등학생', type: '격투', hp: 106, power: 1.06, speed: 1.08, ultRate: 0.9, scale: 1.12, unlock: 'admin', relId: 'itadori', quest: true, how: '공개 후 10일 안에 이타돼리 퀘스트를 깨면 얻어요 (🎁 보상 센터)', perk: '퀘스트 한정 돼지',
     look: look('#ffc9b8', '#b5715d', '#ffe3d8', '#f4a18e', '#3e2723', '#4e342e', '#c62828', ['hoodie', 'hoodup', 'bold'], 1.03),
     skill: { name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' },
-    skills: [{ name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' }, { name: '검은 번개', type: 'blackBolt', cd: 260, desc: '↓+U: 연타로 이어 쓰면 반드시 검은 번개(2.5배) · 아니면 50%' }, { name: '피의 관통탄', type: 'bloodShot', cd: 200, desc: '→+U: 아주 빠른 피의 화살 3개 · 꿰뚫고 지나감' }],
+    skills: [{ name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' }, { name: '검은 번개', type: 'blackBolt', cd: 260, desc: '↓+U: 연타로 이어 쓰면 반드시 검은 번개(2.5배) · 아니면 50%' }, { name: '피의 관통탄', type: 'bloodShot', cd: 220, desc: '←→+U: 상대를 쫓아가는 피의 유도탄 3발' }],
     blackFlash: true,   // 평타에도 검은 번개 (12% · 저주왕 25%)
     tf: { name: '집중 모드', type: 'champion', color: '#c62828', desc: '펀치 피해·속도↑' },
-    ult: { name: '베어 가르기', type: 'dismantle', desc: '보이지 않는 칼날을 한꺼번에 날려 화면을 베어 가름 → 마지막 십자 베기' } },
+    ult: { name: '베어 가르기', type: 'dismantle', desc: '온 힘을 담은 거대한 칼날 한 번 · 화면 어디든 닿고 막을 수 없음' } },
   // 🎉 대규모 업데이트 (relId 'big1': 관리자가 공개하면 모두 무료)
   // 훈제돈: 흰 셰프 모자 · 앞치마 · 콧수염의 바비큐 셰프. 불·소스·꼬치로 싸움
   { name: '훈제돈', title: '불맛 바비큐 셰프', type: '요리사', hp: 104, power: 1.05, speed: 0.98, ultRate: 0.95, scale: 1.16, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
     look: look('#e8a88f', '#9c5a45', '#f6cbb9', '#de8a73', '#3e2723', '#4e342e', '#ff6f00', ['toque', 'apron', 'mustache', 'bold'], 1.08),
     skill: { name: '플람베 화염', type: 'flambe', cd: 200, desc: 'U: 앞으로 불을 뿜어 4번 · 화상' },
-    skills: [{ name: '플람베 화염', type: 'flambe', cd: 200, desc: 'U: 앞으로 불을 뿜어 4번 · 화상' }, { name: '비법 소스 덫', type: 'sauceTrap', cd: 360, desc: '↓+U: 바닥에 소스 → 밟으면 느려짐 (7초)' }, { name: '꼬치 찌르기', type: 'skewer', cd: 150, desc: '→+U: 아주 멀리 닿는 꼬치' }],
+    skills: [{ name: '플람베 화염', type: 'flambe', cd: 200, desc: 'U: 앞으로 불을 뿜어 4번 · 화상' }, { name: '비법 소스 덫', type: 'sauceTrap', cd: 360, desc: '↓+U: 바닥에 소스 → 밟으면 느려짐 (7초)' }, { name: '꼬치 찌르기', type: 'skewer', cd: 150, desc: '←→+U: 아주 멀리 닿는 꼬치' }],
     tf: { name: '센 불 모드', type: 'fire', color: '#ff6f00', desc: '공격력↑ · 화상' },
     ult: { name: '바비큐 파티', type: 'bbqParty', desc: '상대 발밑에 숯불 그릴 → 불기둥 세 번 + 화상' } },
   // 우주꿀돈: 유리 헬멧 · 흰 우주복의 우주비행사 돼지. 중력을 다룸
   { name: '우주꿀돈', title: '달에서 온 우주비행사', type: '중력', hp: 98, power: 1.03, speed: 1.02, ultRate: 0.9, scale: 1.1, unlock: 'admin', relId: 'big1', quest: true, how: '🎁 보상 센터의 우주꿀돈 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
     look: look('#ffc4cf', '#c47a8a', '#ffe0e6', '#f5a3b3', '#37474f', '#5d4037', '#7c4dff', ['spacesuit', 'helmet', 'bold'], 1.02),
     skill: { name: '저중력 띄우기', type: 'lowGrav', cd: 220, desc: 'U: 상대를 둥실 높이 띄움' },
-    skills: [{ name: '저중력 띄우기', type: 'lowGrav', cd: 220, desc: 'U: 상대를 둥실 높이 띄움' }, { name: '블랙홀 구슬', type: 'blackHole', cd: 420, desc: '↓+U: 천천히 날아가며 상대를 빨아들이는 구슬' }, { name: '로켓 박치기', type: 'rocketHead', cd: 180, desc: '→+U: 등 로켓으로 무적 돌진' }],
+    skills: [{ name: '저중력 띄우기', type: 'lowGrav', cd: 220, desc: 'U: 상대를 둥실 높이 띄움' }, { name: '블랙홀 구슬', type: 'blackHole', cd: 420, desc: '↓+U: 천천히 날아가며 상대를 빨아들이는 구슬' }, { name: '로켓 박치기', type: 'rocketHead', cd: 180, desc: '←→+U: 등 로켓으로 무적 돌진' }],
     tf: { name: '무중력 모드', type: 'wild', color: '#7c4dff', desc: '속도·공격 속도↑' },
     ult: { name: '유성우', type: 'meteor', desc: '하늘에서 유성이 우수수 떨어짐' } },
   // 핑크하트: 분홍 양갈래 머리 · 리본 · 프릴 무대 옷의 돼지 아이돌. 노래로 싸움
   { name: '핑크하트', title: '무대 위의 돼지 아이돌', type: '음악', hp: 94, power: 0.98, speed: 1.1, ultRate: 1.0, scale: 1.06, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
     look: look('#ffd1dc', '#d48aa0', '#ffe8ee', '#ffb3c6', '#4a2a35', '#ad1457', '#ff4081', ['twintail', 'idoldress', 'bold'], 0.98),
     skill: { name: '음표 파동', type: 'noteWave', cd: 160, desc: 'U: 음표 3개를 날림' },
-    skills: [{ name: '음표 파동', type: 'noteWave', cd: 160, desc: 'U: 음표 3개를 날림' }, { name: '응원 회복', type: 'cheer', cd: 600, desc: '↓+U: 팬들의 응원으로 체력 14 회복' }, { name: '하트 윙크', type: 'wink', cd: 330, desc: '→+U: 맞으면 두근두근 오래 못 움직임' }],
+    skills: [{ name: '음표 파동', type: 'noteWave', cd: 160, desc: 'U: 음표 3개를 날림' }, { name: '응원 회복', type: 'cheer', cd: 600, desc: '↓+U: 팬들의 응원으로 체력 14 회복' }, { name: '하트 윙크', type: 'wink', cd: 330, desc: '←→+U: 맞으면 두근두근 오래 못 움직임' }],
     tf: { name: '센터 모드', type: 'champion', color: '#ff4081', desc: '펀치 피해·속도↑' },
     ult: { name: '앙코르 콘서트', type: 'encore', desc: '무대 조명 아래 상대를 묶고 노래로 연타 → 피날레' } },
   // 🏴‍☠️ 대규모 업데이트 2 (relId 'big2'): 캡틴베이컨은 무료, 꿀린은 퀘스트
   { name: '캡틴베이컨', title: '일곱 바다의 해적 돼지', type: '해적', hp: 106, power: 1.04, speed: 0.98, ultRate: 0.92, scale: 1.16, unlock: 'admin', relId: 'big2', how: '관리자가 대규모 업데이트 2를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
     look: look('#f0b8a0', '#a36a55', '#fad6c6', '#e89a84', '#3e2723', '#3e2723', '#c62828', ['pircoat', 'tricorn', 'eyepatch', 'bold'], 1.06),
     skill: { name: '대포알', type: 'cannonShot', cd: 200, desc: 'U: 묵직한 대포알 한 발' },
-    skills: [{ name: '대포알', type: 'cannonShot', cd: 200, desc: 'U: 묵직한 대포알 한 발' }, { name: '갈고리 당기기', type: 'hookPull', cd: 220, desc: '↓+U: 멀리서 갈고리로 끌어당김' }, { name: '앵무새 습격', type: 'parrotRaid', cd: 240, desc: '→+U: 앵무새가 날아가 쪼아 댐 (3번)' }],
+    skills: [{ name: '대포알', type: 'cannonShot', cd: 200, desc: 'U: 묵직한 대포알 한 발' }, { name: '갈고리 당기기', type: 'hookPull', cd: 220, desc: '↓+U: 멀리서 갈고리로 끌어당김' }, { name: '앵무새 습격', type: 'parrotRaid', cd: 240, desc: '←→+U: 앵무새가 날아가 쪼아 댐 (3번)' }],
     tf: { name: '선장 모드', type: 'champion', color: '#c62828', desc: '펀치 피해·속도↑' },
     ult: { name: '일제 사격', type: 'broadside', desc: '해적선 대포알이 높이를 바꿔 가며 쏟아짐' } },
   { name: '꿀린', title: '탑에 사는 돼지 마법사', type: '마법', hp: 92, power: 1.0, speed: 1.0, ultRate: 0.88, scale: 1.08, unlock: 'admin', relId: 'big2', quest: true, how: '🎁 보상 센터의 꿀린 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
     look: look('#ffd3c4', '#c48a78', '#ffe8de', '#f7b3a0', '#311b92', '#eeeeee', '#7c4dff', ['robe', 'wizhat', 'beard', 'bold'], 1),
     skill: { name: '마법 구슬', type: 'magicOrb', cd: 180, desc: 'U: 상대를 따라가는 마법 구슬' },
-    skills: [{ name: '마법 구슬', type: 'magicOrb', cd: 180, desc: 'U: 상대를 따라가는 마법 구슬' }, { name: '개구리 저주', type: 'frogCurse', cd: 480, desc: '↓+U: 맞으면 4초 동안 작고 약하고 느려짐' }, { name: '점멸', type: 'blink', cd: 260, desc: '→+U: 상대 뒤로 순간 이동 · 원래 자리에서 마법 폭발' }],
+    skills: [{ name: '마법 구슬', type: 'magicOrb', cd: 180, desc: 'U: 상대를 따라가는 마법 구슬' }, { name: '개구리 저주', type: 'frogCurse', cd: 480, desc: '↓+U: 맞으면 4초 동안 작고 약하고 느려짐' }, { name: '점멸', type: 'blink', cd: 260, desc: '←→+U: 상대 뒤로 순간 이동 · 원래 자리에서 마법 폭발' }],
     tf: { name: '대마법사 모드', type: 'gilded', color: '#7c4dff', desc: '공격력↑ · 필살 게이지 빨리 참' },
     ult: { name: '거대화 물약', type: 'giantPotion', desc: '물약을 마시고 12초 동안 거대해짐 · 공격력↑ · 슈퍼아머' } }
 ];
@@ -862,7 +862,7 @@ const SKILLDEF = {
   kageClone:     { startup: 6, active: 1, recovery: 10, pose: 'counter', buff: true },
   rasen:         { startup: 6, active: 42, recovery: 18, dmg: 20, range: 150, height: 'mid', kb: 20, launch: -11, stun: 42, dash: 15, pose: 'punch', hitstop: 14, shake: 14, rasen: true, sfx: 'rasenHit', txt: ['회오리 구슬!!'] },
   lateFist:      { startup: 5, active: 4, recovery: 12, dmg: 9, range: 160, height: 'mid', kb: 4, stun: 30, pose: 'punch', hitstop: 8, shake: 6, txt: ['퍽!'] },
-  bloodShot:     { startup: 8, active: 1, recovery: 14, proj: { kind: 'blood', spread: 3, flat: true, speed: 22, dmg: 8, height: 'mid', w: 90, h: 14, life: 55, chip: 0.4 }, pose: 'punch' },   // 피의 관통탄: 화살 3개
+  bloodShot:     { startup: 8, active: 1, recovery: 14, proj: { kind: 'blood', spread: 3, flat: true, speed: 14, dmg: 8, height: 'mid', w: 40, h: 26, life: 110 }, pose: 'punch' },   // 피의 유도탄 3발 (상대를 쫓아감)
   fireArrow:     { startup: 14, active: 1, recovery: 20, proj: { kind: 'fire', speed: 14, dmg: 15, burn: 200, height: 'mid', w: 90, h: 30 }, pose: 'throw' },
   cleave:        { startup: 10, active: 6, recovery: 18, dmg: 16, range: 220, height: 'mid', kb: 15, launch: -9, stun: 32, pose: 'punch', hitstop: 14, shake: 14, cleave: true, txt: ['크게 베기!!'] },
   cannonShot:    { startup: 12, active: 1, recovery: 22, proj: { kind: 'cannon', speed: 10, dmg: 13, height: 'mid', kb: 12, w: 44, h: 44 }, pose: 'throw' },
@@ -1879,7 +1879,7 @@ function updateObjs(onlyTs) {   // onlyTs: 시간 정지 중 → 로드롤러처
       if (r !== 'miss') {
         o.hits++; o.lastHit = o.t;
         if (o.group) hitGroups.add(o.group);
-        if (!o.multi && !o.ult && o.kind !== 'blood') o.life = 0;   // 피의 관통탄은 꿰뚫고 지나감
+        if (!o.multi && !o.ult) o.life = 0;
         if (o.kind === 'blood' && f === p1 && mode === 1) awkAdd(f.ch.name, 'blood');
       }
     }
@@ -4067,10 +4067,10 @@ const NEW_CHARS = ['볼트돈', '돼루토'];
 { const c = CHARS.find(x => x.name === '볼트돈'); if (c) c.look.pixel = true; }   // 볼트돈만 도트 그림
 // 스킬 고르기: 여러 스킬이 있는 돼지는 U만 = 1번, ↓+U = 2번, 앞(→)+U = 3번
 function pickSkill(f) {
-  if (cursed(f) && f.ch.curseSkills) { const c = f.ch.curseSkills, i2 = f.inp || {}, fw2 = f.facing > 0 ? i2.right : i2.left; return i2.down ? c[1] : fw2 ? c[2] : c[0]; }   // 저주왕: 스킬 세트가 바뀜
+  if (cursed(f) && f.ch.curseSkills) { const c = f.ch.curseSkills, i2 = f.inp || {}, fw2 = i2.right || i2.left; return i2.down ? c[1] : fw2 ? c[2] : c[0]; }   // 저주왕: 스킬 세트가 바뀜
   const ss = f.ch.skills; if (!ss) return f.ch.skill;
-  const i = f.inp || {}, fw = f.facing > 0 ? i.right : i.left;
-  return i.down ? ss[1] : fw ? ss[2] : ss[0];
+  const i = f.inp || {}, side = i.right || i.left;   // 좌우 어느 쪽이든 누른 채 U = 세 번째 스킬 (보는 방향 상관없이)
+  return i.down ? ss[1] : side ? ss[2] : ss[0];
 }
 // 스킬을 쓸 때 특별한 효과
 function newSkillStart(f, s) {
@@ -4414,7 +4414,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-27';
+const BUILD = '20261112-29';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4578,14 +4578,16 @@ function itUpdate(f) {   // 매 프레임 (싸우는 돼지 update에서)
   }
 }
 // 베어 가르기 (저주왕 상태에서 필살기): 상대를 묶고 보이지 않는 칼날 14번 → 마지막 십자 베기
-function dismantleUlt(f, o, T) {
+function dismantleUlt(f, o, T) {   // 베어 가르기(해): 여러 번이 아니라 온 힘을 담은 거대한 칼날 한 번
   const s = f.sc / 1.15; f.vx = 0;
-  if (T === 4) { if (o.state !== 'ko' && Math.abs(o.x - f.x) < (f.awk ? 900 : 620)) { o.state = 'locked'; o.vx = 0; o.vy = 0; o.atk = null; } popText(f.x, f.y - 250 * s, '베어 가르기!!', '#ff1744', 34); }
-  const every = f.awk ? 4 : 6;   // 각성: 칼날이 더 많이
-  if (T > 6 && T < 90 && T % 9 === 0) for (let i = 0; i < (f.awk ? 6 : 4); i++) { const yy = rand(60, H - 80); parts.push({ x: rand(0, W), y: yy, a: rand(-0.5, 0.5), len: rand(160, 320), life: 10, max: 10, type: 'slash', vx: 0, vy: 0, g: 0 }); }   // 화면 곳곳이 베임
-  if (o.state === 'locked' && T > 6 && T < 90 && T % every === 0) { dealHit(f, o, { dmg: 2.4, height: 'mid', kb: 0, stun: 10, src: f.x, kind: 'ult', force: true, noReact: true, hitstop: 1, shake: 5, txt: ['촥', '싹', '베기'] }); for (let i = 0; i < 2; i++) slash(o.x + rand(-40, 40), o.y - rand(40, 170)); whipS(1.4, 0.4); }
-  if (T === 96) { dealHit(f, o, { dmg: 16, height: 'mid', launch: -15, kb: 16, stun: 44, src: f.x, kind: 'ult', force: true, hitstop: 18, shake: 20, txt: ['십자 베기!!'] }); for (let i = 0; i < 8; i++) slash(o.x, o.y - 100); }
-  if (T >= 110) ultEnd(f, o);
+  if (T === 4) { popText(f.x, f.y - 250 * s, '해.', '#ff1744', 40); whipS(0.6, 1); }
+  if (T === 16) {
+    const y0 = o.y - 95 * o.sc / 1.15;
+    for (let i = 0; i < 3; i++) parts.push({ x: o.x, y: y0 + (i - 1) * 6, a: -0.35 + i * 0.02, len: W * 1.6, life: 22, max: 22, type: 'slash', vx: 0, vy: 0, g: 0 });   // 화면을 가로지르는 거대한 칼날
+    burst(o.x, y0, 60, ['#fff', '#ff1744', '#000'], 16); bfT = 12; SFX.boom(); whipS(0.5, 1);
+    if (o.state !== 'ko') dealHit(f, o, { dmg: f.awk ? 40 : 34, height: 'mid', launch: -17, kb: 24, stun: 54, src: f.x, kind: 'ult', force: true, hitstop: 26, shake: 28, txt: ['해!!'] });
+  }
+  if (T >= 46) ultEnd(f, o);
 }
 function itUlt(f, o, T) {
   const s = f.sc / 1.15; f.vx = 0;
@@ -4619,7 +4621,7 @@ function drawItCut(f) {
   if (T > 35 && f.ch.ult.type === 'curseKing') drawCurse({ x: W * 0.38, y: H + 60, facing: 1, sc: f.ch.scale * (2.2 + T * 0.003), curseT: Math.min(60, (T - 35) * 3) });
   if (T > 70) for (let i = 0; i < 6; i++) { ctx.strokeStyle = `rgba(255,255,255,${0.8 - ((T * 3 + i * 20) % 60) / 80})`; ctx.lineWidth = 3; const y = 80 + i * 70; line(0, y + ((T * 13 + i * 50) % 60), W, y - 40 + ((T * 13 + i * 50) % 60)); }   // 보이지 않는 칼날
   ctx.save(); ctx.translate((1 - Math.min(1, T / 14)) * -W, 0); ctx.fillStyle = 'rgba(120,0,0,0.85)'; ctx.fillRect(0, 60, W, 70); txt(f.ch.ult.name, W / 2, 95, 46, '#fff', '#1a0000', 10); ctx.restore();
-  if (T > 40) txt(T < 75 ? '"...베어 가르겠다."' : '보이지 않는 칼날이 화면을 한꺼번에 벰', W / 2, H - 50, 22, '#ffcdd2', '#000', 6);
+  if (T > 40) txt(T < 75 ? '"...해."' : '온 힘을 담은 칼날 한 번으로 베어 가른다', W / 2, H - 50, 22, '#ffcdd2', '#000', 6);
   if (T > 102) { ctx.fillStyle = `rgba(255,23,68,${(T - 102) / 8})`; ctx.fillRect(0, 0, W, H); }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 30); ctx.fillRect(0, H - 18, W, 18);
 }
@@ -4867,7 +4869,7 @@ function drawBigTrailer() {
 const AWAKE = {
   '이타돼리': {
     title: '각성 · 베테랑 주술사', color: '#ff1744', hp: 1.2, power: 1.2,
-    note: '베어 가르기 칼날 더 많이·더 멀리 · 피의 관통탄 화살 5개',
+    note: '베어 가르기 위력 34 → 40 · 피의 유도탄 5발',
     steps: [
       { id: 'win', name: '이타돼리로 150번 이기기', goal: 150 },
       { id: 'bolt', name: '검은 번개 300번 터뜨리기 (평타·스킬 모두)', goal: 300 },
@@ -4958,6 +4960,11 @@ function big2SkillStart(f, s) {
 }
 function big2ObjTick(o) {
   const f = o.owner, d = f.opp;
+  if (o.kind === 'blood' && o.hits === 0) {   // 피의 유도탄: 상대를 쫓아감 (지나치면 돌아옴)
+    const tx = d.x, ty = d.y - 95 * d.sc / 1.15, ang = Math.atan2(ty - o.y, tx - o.x), sp = 14, cur = Math.atan2(o.vy, o.vx);
+    let da = ang - cur; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+    const na = cur + clamp(da, -0.13, 0.13); o.vx = Math.cos(na) * sp; o.vy = Math.sin(na) * sp;
+  }
   if (o.kind === 'orb') {   // 유도 마법 구슬: 상대 쪽으로 천천히 꺾임
     const ty = d.y - 95 * d.sc / 1.15; o.vy = clamp(o.vy + Math.sign(ty - o.y) * 0.35, -4, 4);
     if (Math.sign(d.x - o.x) !== Math.sign(o.vx) && Math.abs(d.x - o.x) > 40 && o.t > 20) o.vx *= 0.96;
@@ -4982,7 +4989,7 @@ function big2Ult(f, o, T) {
   }
 }
 function drawBig2Obj(o) {
-  if (o.kind === 'blood') { ctx.save(); ctx.shadowColor = '#ff1744'; ctx.shadowBlur = 16; ctx.strokeStyle = '#b71c1c'; ctx.lineWidth = 8; line(o.x - Math.sign(o.vx) * 80, o.y, o.x, o.y); ctx.strokeStyle = '#ff8a80'; ctx.lineWidth = 3; line(o.x - Math.sign(o.vx) * 80, o.y, o.x, o.y); ctx.restore(); return true; }
+  if (o.kind === 'blood') { const v = Math.hypot(o.vx, o.vy) || 1, tx = o.x - o.vx / v * 60, ty = o.y - o.vy / v * 60; ctx.save(); ctx.shadowColor = '#ff1744'; ctx.shadowBlur = 16; ctx.strokeStyle = '#b71c1c'; ctx.lineWidth = 8; line(tx, ty, o.x, o.y); ctx.strokeStyle = '#ff8a80'; ctx.lineWidth = 3; line(tx, ty, o.x, o.y); ctx.fillStyle = '#ff1744'; ctx.beginPath(); ctx.arc(o.x, o.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return true; }   // 날아가는 방향으로 꺾여 보임
   if (o.kind === 'orb') { ctx.save(); ctx.shadowColor = '#ea80fc'; ctx.shadowBlur = 20; const g = ctx.createRadialGradient(o.x, o.y, 2, o.x, o.y, 18); g.addColorStop(0, '#fff'); g.addColorStop(0.5, '#ea80fc'); g.addColorStop(1, 'rgba(124,77,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, 18, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return true; }
   if (o.kind === 'cannon') { ctx.save(); ctx.fillStyle = '#212121'; ctx.beginPath(); ctx.arc(o.x, o.y, 20, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(o.x - 6, o.y - 6, 6, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return true; }
   if (o.kind === 'parrot') {   // 앵무새: 날개를 퍼덕이며 날아감
@@ -5096,7 +5103,7 @@ function drawPigs() {
     txt(c.name, x0 + 165, 84, fitSize(c.name, 24, 300), '#fff', '#000', 5);
     txt(`${c.title} · ${c.type}`, x0 + 165, 110, fitSize(`${c.title} · ${c.type}`, 13, 310), '#ffcc80', null);
     txt(got ? '✅ 보유' : `🔒 ${c.how || (c.unlock != null ? `랭크전 ${TIERS[c.unlock] ? TIERS[c.unlock][0] : ''} 티어 달성` : '')}`, x0 + 165, 132, fitSize(got ? '보유' : (c.how || '잠김'), 12, 310), got ? '#69f0ae' : '#ff8a80', null);
-    const sk = c.skills || [c.skill], lines = sk.map((s, i) => `${['U', '↓+U', '→+U'][i]} ${s.name}`).concat([`필살 ${c.ult.name}`]);
+    const sk = c.skills || [c.skill], lines = sk.map((s, i) => `${['U', '↓+U', '←→+U'][i]} ${s.name}`).concat([`필살 ${c.ult.name}`]);
     lines.forEach((l, i) => txt(l, x0 + 16, 160 + i * 22, fitSize(l, 13, 300), i === lines.length - 1 ? '#ffe082' : '#e0e0e0', null, 0, 'left'));
     const hp = Math.round(c.hp * (1 + 0.03 * lv)), pw = Math.round(c.power * 100 * (1 + 0.03 * lv));
     txt(`❤️ 체력 ${hp} · 👊 공격력 ${pw}% · 💨 속도 ${Math.round(c.speed * 100)}%`, x0 + 165, 268, fitSize('가'.repeat(26), 13, 310), '#fff', null);
@@ -5205,7 +5212,7 @@ const TUT = [
   { t: () => (TOUCH ? '업어치기 버튼' : `${K('grab')} 키`) + '로 업어치기!\n가까이 붙어야 잡혀. 막고 있는 상대도 잡을 수 있어.', ok: T => T.grab >= 1 },
   { t: () => (TOUCH ? '스킬 버튼' : `${K('skill')} 키`) + '로 스킬!\n돼지마다 스킬이 다 달라. 쓰고 나면 잠깐 기다려야 해.', ok: T => T.skill.has(0) },
   { t: () => (TOUCH ? '조이스틱을 아래로 당긴 채 스킬 버튼!' : `${K('down')}를 누른 채 ${K('skill')}!`) + '\n두 번째 스킬이 나와.', ok: T => T.skill.has(1), prep: () => { p1.skillCD = 0; } },
-  { t: () => (TOUCH ? '조이스틱을 앞(상대 쪽)으로 민 채 스킬 버튼!' : `앞(상대 쪽) 방향키를 누른 채 ${K('skill')}!`) + '\n세 번째 스킬이야. 돼지마다 스킬이 3개씩!', ok: T => T.skill.has(2), prep: () => { p1.skillCD = 0; } },
+  { t: () => (TOUCH ? '조이스틱을 왼쪽이나 오른쪽으로 민 채 스킬 버튼!' : `왼쪽이나 오른쪽 방향키를 누른 채 ${K('skill')}!`) + '\n세 번째 스킬이야. 돼지마다 스킬이 3개씩!', ok: T => T.skill.has(2), prep: () => { p1.skillCD = 0; } },
   { t: () => '때리고 맞으면 아래 노란 필살 게이지가 차.\n꽉 차면 ' + (TOUCH ? '필살기 버튼' : `${K('ultD')} 키`) + '로 필살기! (지금 채워 줄게)\n필살기는 막을 수 없어!', ok: T => T.ult, prep: () => { p1.meter = 100; } },
   { t: () => '싸움은 다 배웠어! 정말 잘했어 👏\n이제 밖으로 나가서 메뉴를 하나씩 직접 보여 줄게.\n어디를 누르면 뭐가 되는지 다 알려 줄 테니 따라와!', tap: true, tour: true }
 ];
@@ -5237,7 +5244,7 @@ function tutTick() {
     if (['lp', 'rp', 'c_lp', 'c_rp', 'j_p'].includes(nm)) tut.punch++;
     if (['lk', 'rk', 'c_lk', 'c_rk', 'j_k'].includes(nm)) tut.kick++;
     if (nm === 'grab') tut.grab++;
-    if (a.skill) tut.skill.add(p1.inp && p1.inp.down ? 1 : (p1.inp && (p1.facing > 0 ? p1.inp.right : p1.inp.left)) ? 2 : 0);   // U · ↓+U · →+U
+    if (a.skill) tut.skill.add(p1.inp && p1.inp.down ? 1 : (p1.inp && (p1.inp.right || p1.inp.left)) ? 2 : 0);   // U · ↓+U · →+U
   }
   tut.prevAtk = a || null;
   if (p1.state === 'ult') tut.ult = true;
@@ -7338,7 +7345,7 @@ function drawHUD() {
     ctx.fillStyle = '#222'; rr(sx, H - 52, 120, 40, 8); ctx.fill();
     if (f.skillCD > 0) { const cdMax = f.ch.skill.cd; ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(sx, H - 52, 120 * (1 - f.skillCD / cdMax), 40); }
     else { ctx.strokeStyle = '#ffdd33'; ctx.lineWidth = 2; rr(sx, H - 52, 120, 40, 8); ctx.stroke(); }
-    txt(`스킬 ${keyHint(f, 'skill')}${f.ch.skills ? ' · ↓/→ +U' : ''}`, sx + 60, H - 42, fitSize(`스킬 ${keyHint(f, 'skill')} · ↓/→ +U`, 11, 114), '#bbb', null);
+    txt(`스킬 ${keyHint(f, 'skill')}${f.ch.skills ? ' · ↓ 또는 ←→ +U' : ''}`, sx + 60, H - 42, fitSize(`스킬 ${keyHint(f, 'skill')} · ↓ 또는 ←→ +U`, 11, 114), '#bbb', null);
     txt((cursed(f) && f.ch.curseSkills ? f.ch.curseSkills[0] : f.ch.skill).name, sx + 60, H - 24, fitSize((cursed(f) && f.ch.curseSkills ? f.ch.curseSkills[0] : f.ch.skill).name, 13, 112), f.skillCD > 0 ? '#888' : '#ffdd33', null);
     if (f.comboT > 0 && f.combo >= 2) txt(`${f.combo} HIT!`, dir > 0 ? 130 : W - 130, 140, 32, '#ffeb3b', '#c62828', 6);
   }
@@ -7831,7 +7838,7 @@ if (/autotest/.test(location.search)) {
       out.push(`quest: step=${nqStep()} unlocked=${isUnlocked(NR)}`); if (!isUnlocked(NR)) throw new Error('돼루토 퀘스트 실패'); localStorage.removeItem('sgf_unlock_돼루토'); POPQ.length = 0;
       for (const Q of QUESTS.slice(1)) { const c = CHARS.find(x => x.name === Q.ch); localStorage.removeItem('sgf_unlock_' + Q.ch); lsSet(Q.key, {}); const before = isUnlocked(c); for (const st of Q.steps) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`quest ${Q.ch}: before=${before} after=${isUnlocked(c)}`); if (before || !isUnlocked(c)) throw new Error(Q.ch + ' 퀘스트 실패'); localStorage.removeItem('sgf_unlock_' + Q.ch); POPQ.length = 0; POP = null; }
       if (!isUnlocked(CHARS.find(x => x.name === '훈제돈')) || !isUnlocked(CHARS.find(x => x.name === '핑크하트'))) throw new Error('무료 돼지 해금 실패');
-      { mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.curseT = 600; p1.inp = { right: true }; const cs = pickSkill(p1).type; out.push(`it skill3: ${cs}`); if (cs !== 'bloodShot') throw new Error('피의 관통탄 실패');
+      { mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.facing = -1; p1.curseT = 600; p1.inp = { right: true }; const cs = pickSkill(p1).type; p1.inp = { left: true }; if (pickSkill(p1).type !== 'bloodShot') throw new Error('왼쪽+U 세 번째 스킬 실패'); out.push(`it skill3: ${cs}`); if (cs !== 'bloodShot') throw new Error('피의 관통탄 실패');
         p1.x = 420; p2.x = 540; p2.state = 'idle'; const h0 = p2.hp; dealHit(p1, p2, { dmg: 5, kind: 'punch', src: p1.x, height: 'mid', stun: 20 }); for (let n = 0; n < 10; n++) step(); out.push(`arm extra: ${(h0 - p2.hp).toFixed(1)}`); if (!(h0 - p2.hp > 5.5)) throw new Error('팔 한 번 더 실패');
         p2.hp = p2.maxHp; p2.state = 'idle'; p1.state = 'idle'; p1.meter = 100; const h1 = p2.hp; startUlt(p1); for (let n = 0; n < IT_CUT + 120 && scene === 'fight'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`dismantle: type=${p1.ch.ult.type} dmg=${(h1 - p2.hp).toFixed(1)}`); if (p1.ch.ult.type !== 'dismantle' || !(h1 - p2.hp > 20 || scene !== 'fight')) throw new Error('베어 가르기 실패'); }
       { lsSet('sgf_tut_done', false); const c0 = coins; startTutorial(); for (let n = 0; n < 200 && scene !== 'fight'; n++) step(); for (let n = 0; n < 30; n++) step(); pressed.Enter = true; step(); const i1 = tut.i; keys[MAP1.right] = true; for (let n = 0; n < 120 && tut.i === i1; n++) { step(); if (n % 30 === 0) draw(); } keys[MAP1.right] = false; out.push(`tutorial: move step ${i1} -> ${tut.i}`); if (tut.i <= i1) throw new Error('튜토리얼 움직이기 실패');
@@ -8107,6 +8114,8 @@ else if (VIEW === 'suk') { mode = 1; ranked = false; lsSet('sgf_awake', { '이�
 else if (VIEW && VIEW.startsWith('tour')) { startTour(); const to = +VIEW.slice(4) || 0; for (let i = 0; i < to; i++) { tut.t = 20; tourNext(); } for (let i = 0; i < 20; i++) { tut.t = 1; step(); } step = () => {}; fadeA = 0; lastGrp = scene; }
 else if (VIEW === 'offer') { tutOffer = true; for (let i = 0; i < 10; i++) draw(); step = () => {}; }
 else if (VIEW && VIEW.startsWith('tut')) { startTutorial(); for (let i = 0; i < 130; i++) step(); tut.i = +VIEW.slice(3) || 0; tut.t = 40; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
+else if (VIEW === 'blood') { mode = 0; p1.setChar(CHARS.find(c => c.name === '이타돼리')); p2.setChar(CHARS[0]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 200; p2.x = 760; p2.y = GROUND - 120; p1.state = 'idle'; p1.inp = { right: true }; p1.facing = 1; startSkill(p1, false); for (let i = 0; i < 24; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
+else if (VIEW === 'haecut') { mode = 0; p1.setChar(CHARS.find(c => c.name === '이타돼리')); p2.setChar(CHARS[0]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; p1.state = 'idle'; startUlt(p1); for (let i = 0; i < IT_CUT + 18; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'b2') { mode = 0; p1.setChar(CHARS.find(c => c.name === '캡틴베이컨')); p2.setChar(CHARS.find(c => c.name === '꿀린')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 330; p2.x = 630; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'oldcut') { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; startUlt(p1); for (let i = 0; i < 50; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'big') { mode = 0; p1.setChar(CHARS.find(c => c.name === '훈제돈')); p2.setChar(CHARS.find(c => c.name === '우주꿀돈')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 300; p2.x = 660; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
