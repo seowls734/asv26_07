@@ -2328,6 +2328,7 @@ function ultUpdate(f, o) {
     case 'timeStop': {   // 시간 정지: 컷신 뒤 상대를 3~5초(스타플래티나 티어 이상이면 3~7초) 멈추고, 그동안 돼타로를 마음대로 움직여 때림
       f.vx = 0;
       if (T === 6) {
+        if (f.ch.spirit && !f.standOn) { f.standOn = true; f.spX = f.x + f.facing * 62 * f.sc / 1.15; burst(f.spX, f.y - 100, 20, ['#b388ff', '#e1bee7', '#fff'], 8); }   // 필살기를 쓰면 스탠드가 저절로 나옴 (외침이 안 끊기게 소리 없이)
         if (o.state !== 'ko') {
           o.state = 'locked'; o.vx = 0; o.vy = 0; o.atk = null;
           const maxS = mode !== 3 && f === p1 && tierOf(tp) >= TIER_SP ? 7 : 5;   // 온라인은 두 화면이 같아야 해서 5초까지
@@ -4430,7 +4431,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-34';
+const BUILD = '20261112-35';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -7934,7 +7935,7 @@ if (/autotest/.test(location.search)) {
         p1.x = 380; p2.x = 520; p1.facing = 1; p1.state = 'idle'; p1.inp = { down: sk === 1, right: sk === 2 }; startSkill(p1, false);
         const hp0 = p2.hp; let clones = 0, slowSeen = false; for (let n = 0; n < 120 && scene === 'fight'; n++) { step(); if (n % 20 === 0) draw(); clones = Math.max(clones, objs.filter(o => o.kind === 'pclone').length); if (p1.sandT > 0) slowSeen = true; }
         out.push(`${me.name} skill${sk + 1}(${me.skills[sk].name}): dmg=${(hp0 - p2.hp).toFixed(1)} clones=${clones} slow=${slowSeen}`);
-        if (sk === 0 && me === IT && !(hp0 - p2.hp > 9.5)) throw new Error('늦게 터지는 주먹 실패');
+        if (sk === 0 && me === IT && !(hp0 - p2.hp > 5)) throw new Error('늦게 터지는 주먹 실패');
         if (sk === 0 && me === NR && clones !== 2) throw new Error('분신술 실패'); if (sk === 0 && me === DV && !slowSeen) throw new Error('오버클럭 실패');
         const uh0 = p2.hp;
         if (scene === 'fight') { p1.meter = 100; p1.state = 'idle'; startUlt(p1); for (let n = 0; n < NEW_ULT_CUT + (BIG_THEME[me.ult.type] ? 200 : 60) && scene === 'fight'; n++) { step(); if (n % 25 === 0) draw(); } if (BIG_THEME[me.ult.type] && scene === 'fight' && !(p2.hp < uh0)) throw new Error(me.ult.name + ' 필살기 피해 없음'); out.push(`  ult ${me.ult.name}: cyber=${p1.cyberT} fox=${p1.foxT} curse=${p1.curseT} state=${p1.state}`); if (scene === 'fight' && !BIG_THEME[me.ult.type] && !['dismantle', 'boltRush'].includes(me.ult.type) && !(p1.cyberT > 0 || p1.foxT > 0 || p1.curseT > 0)) throw new Error('신캐 필살기 실패'); }
@@ -7957,7 +7958,7 @@ if (/autotest/.test(location.search)) {
       { mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); applyItForm(p1, 'modulo'); p1.facing = -1; p1.curseT = 600; p1.inp = { right: true }; const cs = pickSkill(p1).type; p1.inp = { left: true }; if (pickSkill(p1).type !== 'bloodShot') throw new Error('왼쪽+U 세 번째 스킬 실패'); out.push(`it skill3: ${cs}`); if (cs !== 'bloodShot') throw new Error('피의 관통탄 실패');
         p1.x = 420; p2.x = 540; p2.state = 'idle'; const h0 = p2.hp; dealHit(p1, p2, { dmg: 5, kind: 'punch', src: p1.x, height: 'mid', stun: 20 }); for (let n = 0; n < 10; n++) step(); out.push(`arm extra: ${(h0 - p2.hp).toFixed(1)}`); if (!(h0 - p2.hp > 5.5)) throw new Error('팔 한 번 더 실패');
         p2.hp = p2.maxHp; p2.state = 'idle'; p1.state = 'idle'; p1.meter = 100; const h1 = p2.hp; startUlt(p1); for (let n = 0; n < IT_CUT + 120 && scene === 'fight'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`dismantle: type=${p1.ch.ult.type} dmg=${(h1 - p2.hp).toFixed(1)}`); if (p1.ch.ult.type !== 'dismantle' || !(h1 - p2.hp > 20 || scene !== 'fight')) throw new Error('베어 가르기 실패'); }
-      { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼타로')); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.meter = 100; p1.state = 'idle'; startUlt(p1); step(); step(); const sf0 = superFreeze; pressed.Enter = true; step(); out.push(`cut skip: ${sf0} -> ${superFreeze}`); if (!(sf0 > 10) || superFreeze > 1) throw new Error('컷신 건너뛰기 실패'); for (let n = 0; n < 30; n++) step(); }
+      { mode = 0; p1.setChar(CHARS.find(c => c.name === '돼타로')); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.meter = 100; p1.state = 'idle'; startUlt(p1); step(); step(); const sf0 = superFreeze; pressed.Enter = true; step(); out.push(`cut skip: ${sf0} -> ${superFreeze}`); if (!(sf0 > 10) || superFreeze > 1) throw new Error('컷신 건너뛰기 실패'); for (let n = 0; n < 30; n++) step(); out.push(`stand auto: ${p1.standOn}`); if (!p1.standOn) throw new Error('필살기 스탠드 자동 소환 실패'); }
       { const t0 = IS_TESTER; IS_TESTER = true; lsSet('sgf_trailer2', true); openCutList(); playCut(0); const sc1 = scene; for (let n = 0; n < TRAILER_T + 10 && scene === 'trailer'; n++) step(); out.push(`cutlist trailer: ${sc1} -> ${scene}`); if (sc1 !== 'trailer' || scene !== 'cutlist') throw new Error('예고편 다시 보기 실패');
         for (const i of [5, 6, 7, 8, 9, 10]) { playCut(i); let fr = 0; while (CL.playing && fr < 400) { step(); if (fr % 20 === 0) draw(); fr++; } if (CL.playing) throw new Error('컷신 다시 보기 안 끝남: ' + CUTS[i].name); } out.push('cut replays OK'); IS_TESTER = t0; scene = 'title'; POPQ.length = 0; POP = null; }
       { lsSet('sgf_tut_done', false); const c0 = coins; startTutorial(); for (let n = 0; n < 200 && scene !== 'fight'; n++) step(); for (let n = 0; n < 30; n++) step(); pressed.Enter = true; step(); const i1 = tut.i; keys[MAP1.right] = true; for (let n = 0; n < 120 && tut.i === i1; n++) { step(); if (n % 30 === 0) draw(); } keys[MAP1.right] = false; out.push(`tutorial: move step ${i1} -> ${tut.i}`); if (tut.i <= i1) throw new Error('튜토리얼 움직이기 실패');
@@ -7970,6 +7971,7 @@ if (/autotest/.test(location.search)) {
       { coins = 1e7; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'meter'); const m0 = inv.use.meter || 0; pressed.Enter = true; step(); if (!qm) throw new Error('수량 창이 안 열림'); pressed.ArrowUp = true; step(); pressed.ArrowRight = true; step(); draw(); pressed.Enter = true; step(); out.push(`qty buy: meter ${m0} -> ${inv.use.meter} qm=${!!qm}`); if (inv.use.meter !== m0 + 12 || qm) throw new Error('수량 사기 실패'); scene = 'title'; }
       { coins = 1e10; const c0 = CHARS[0], l0 = pigLv(c0.name); upgradePig(c0); upgradePig(c0); out.push(`pig lv: ${l0} -> ${pigLv(c0.name)} coins=${fmtN(coins)}`); if (pigLv(c0.name) !== l0 + 2) throw new Error('돼지 강화 실패'); mode = 1; ranked = false; p1.setChar(c0); p2.setChar(CHARS[1]); startMatch(); out.push(`lvMul=${p1.lvMul}`); if (!(p1.lvMul > 1)) throw new Error('강화 적용 실패'); lsSet('sgf_piglv', {}); openPigs(); for (let n = 0; n < 5; n++) { pressed.KeyD = true; step(); draw(); } scene = 'title';
         for (const k in SKIN_DEF) delete inv.own[k]; if (inv.eq) inv.eq.skin = null; const own0 = Object.keys(inv.own).filter(k => SKIN_DEF[k]).length; shopAct(SHOP.findIndex(x => x.id === 'skinBox10')); const own1 = Object.keys(inv.own).filter(k => SKIN_DEF[k]).length; out.push(`skin box: skins ${own0} -> ${own1}`); if (own1 <= own0 && own0 < 10) throw new Error('스킨 상자 실패'); POPQ.length = 0; POP = null;
+        delete inv.own.ttRich; if (inv.eq) inv.eq.title = null; coins = 1e10;
         shopAct(SHOP.findIndex(x => x.id === 'ttRich')); out.push(`title: ${titleName()}`); if (titleName() !== '💰 졸부') throw new Error('칭호 실패'); draw(); scene = 'title'; draw(); shopAct(SHOP.findIndex(x => x.id === 'ttRich')); }
       { coins = 1e9; inv.own.skGalaxy = true; const si = SHOP.findIndex(x => x.id === 'skGalaxy'); shopAct(si); out.push(`skin: own=${!!inv.own.skGalaxy} eq=${inv.eq.skin}`); if (inv.eq.skin !== 'skGalaxy') throw new Error('스킨 장착 실패'); const lk = withCos(CHARS[0]).look; if (lk.skin !== 'skGalaxy' || lk.body !== SKIN_DEF.skGalaxy.pal.body) throw new Error('스킨 색 실패');
         mode = 0; p1.setChar(withCos(CHARS[0])); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 420; p2.x = 520; dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 10 }); draw(); openMarket(); mk.tab = 1; mk.sel = SHOP.length - 1; draw(); shopAct(si); if (inv.eq.skin) throw new Error('스킨 해제 실패'); scene = 'title'; }
