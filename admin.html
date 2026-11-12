@@ -255,6 +255,22 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
 </main>
 <div class="toast" id="toast"></div>
 <script>
+// 브라우저 창(confirm·prompt) 대신 페이지 안 창
+function uiAsk(msg, opt = {}) {
+  return new Promise(res => {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:99';
+    box.innerHTML = `<div style="background:var(--panel,#1e1420);border:1px solid var(--line,#444);border-radius:14px;padding:20px;width:min(420px,90vw);box-shadow:0 10px 40px #000"><div class="m" style="white-space:pre-wrap;margin-bottom:12px;line-height:1.5"></div>${opt.input ? '<input class="i" style="width:100%;margin-bottom:12px">' : ''}<div class="actions" style="justify-content:flex-end;display:flex;gap:8px"><button class="n">취소</button><button class="y primary">확인</button></div></div>`;
+    box.querySelector('.m').textContent = msg;
+    const inp = box.querySelector('.i'); if (inp) inp.value = opt.def || '';
+    const done = v => { box.remove(); res(v); };
+    box.querySelector('.y').onclick = () => done(inp ? inp.value : true);
+    box.querySelector('.n').onclick = () => done(inp ? null : false);
+    box.addEventListener('keydown', e => { if (e.key === 'Enter') box.querySelector('.y').click(); if (e.key === 'Escape') box.querySelector('.n').click(); });
+    document.body.appendChild(box); setTimeout(() => (inp || box.querySelector('.y')).focus(), 30);
+  });
+}
+const uiConfirm = m => uiAsk(m), uiPrompt = (m, d) => uiAsk(m, { input: true, def: d });
 'use strict';
 const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
 const TIERS = [['아이언', 0], ['브론즈', 100], ['실버', 250], ['골드', 450], ['플레티넘', 700], ['에메랄드스플레시', 1000], ['다이아', 1400], ['울트라', 1850], ['마스터', 2350], ['스타플래티나', 2900], ['그렌드마더', 3500], ['그렌드피아노', 4200]];
@@ -287,7 +303,7 @@ $('loginBox').addEventListener('submit', async e => {
   try {
     const body = { login: $('lid').value, pw: $('lpw').value };
     let d = await api('/login', 'POST', body);
-    if (d.need2fa) { const code = prompt('2단계 인증: 인증 앱의 6자리 숫자'); if (!code) throw new Error('2단계 인증 숫자가 필요해요'); d = await api('/login', 'POST', { ...body, code }); }
+    if (d.need2fa) { const code = await uiPrompt('2단계 인증: 인증 앱의 6자리 숫자'); if (!code) throw new Error('2단계 인증 숫자가 필요해요'); d = await api('/login', 'POST', { ...body, code }); }
     token = d.token; meLogin = d.login;
     await api('/admin/stats');   // 관리자인지 확인
     sessionStorage.setItem('sgf_admin_token', token); sessionStorage.setItem('sgf_admin_login', meLogin);
@@ -340,12 +356,12 @@ async function loadUsers() {
   } catch (e) { toast(e.message); }
 }
 $('rows').addEventListener('click', e => { const tr = e.target.closest('tr[data-i]'); if (tr) openUser(rows[+tr.dataset.i].uid); });
-$('searchBtn').onclick = () => { page = 0; loadUsers(); };
+$('searchBtn').onclick = async () => { page = 0; loadUsers(); };
 $('q').addEventListener('keydown', e => { if (e.key === 'Enter') { page = 0; loadUsers(); } });
 $('sort').onchange = () => { page = 0; loadUsers(); };
-$('reloadBtn').onclick = () => { loadStats(); loadUsers(); if (cur) openUser(cur.uid); };
-$('prev').onclick = () => { if (page > 0) { page--; loadUsers(); } };
-$('next').onclick = () => { page++; loadUsers(); };
+$('reloadBtn').onclick = async () => { loadStats(); loadUsers(); if (cur) openUser(cur.uid); };
+$('prev').onclick = async () => { if (page > 0) { page--; loadUsers(); } };
+$('next').onclick = async () => { page++; loadUsers(); };
 
 // ---- 계정 상세 ----
 // 저장 데이터: { 'sgf_키': 'JSON 문자열' }
@@ -399,41 +415,41 @@ $('raw').addEventListener('change', e => {
   if (el.classList.contains('rk')) { const nk = el.value.trim(); if (!nk.startsWith('sgf_')) { toast('키는 sgf_ 로 시작해야 해요'); el.value = k; return; } if (nk !== k) { save[nk] = save[k]; delete save[k]; renderRaw(); fillForm(); } }
 });
 $('raw').addEventListener('click', e => { const k = e.target.dataset && e.target.dataset.del; if (k) { delete save[k]; renderRaw(); fillForm(); } });
-$('addKey').onclick = () => { const k = prompt('새 키 이름 (sgf_ 로 시작)', 'sgf_'); if (!k || !k.startsWith('sgf_')) return; save[k] = save[k] || '0'; renderRaw(); };
-$('revertBtn').onclick = () => { if (cur) openUser(cur.uid); };
+$('addKey').onclick = async () => { const k = await uiPrompt('새 키 이름 (sgf_ 로 시작)', 'sgf_'); if (!k || !k.startsWith('sgf_')) return; save[k] = save[k] || '0'; renderRaw(); };
+$('revertBtn').onclick = async () => { if (cur) openUser(cur.uid); };
 $('saveBtn').onclick = async () => {
   if (!cur) return;
   for (const el of document.querySelectorAll('#raw .rv')) if (parse(el.value) === null && el.value.trim() !== 'null') { toast('JSON 형식이 아닌 칸이 있어요: ' + el.dataset.k); return; }
-  if (!confirm(`${cur.login} 님의 저장 데이터를 바꿀까요?`)) return;
+  if (!await uiConfirm(`${cur.login} 님의 저장 데이터를 바꿀까요?`)) return;
   try { await api('/admin/user', 'PUT', { uid: cur.uid, save }); toast('저장했어요 (게임을 켜 둔 사람은 10초 안에 새로고침 없이 바뀌어요)'); loadUsers(); openUser(cur.uid); } catch (e) { toast(e.message); }
 };
 
 // ---- 계정 관리 버튼 ----
 const act = async (path, data, msg) => { try { await api(path, 'POST', { uid: cur.uid, ...data }); toast(msg); loadStats(); loadUsers(); openUser(cur.uid); } catch (e) { toast(e.message); } };
-$('aPw').onclick = () => { const pw = prompt(`${cur.login} 님의 새 비밀번호 (영어·숫자·기호 4~64자)`); if (pw) act('/admin/user/password', { pw }, '비밀번호를 바꿨어요 (다른 기기는 로그아웃됨)'); };
-$('aRename').onclick = () => { const login = prompt('새 아이디 (한글·영어·숫자 2~16자)', cur.login); if (login && login !== cur.login) act('/admin/user/rename', { login }, '아이디를 바꿨어요'); };
-$('aLogout').onclick = () => { if (confirm(`${cur.login} 님을 모든 기기에서 로그아웃시킬까요?`)) act('/admin/user/logout', {}, '로그아웃시켰어요'); };
-$('aUnlock').onclick = () => act('/admin/user/unlock', {}, '로그인 잠금을 풀었어요');
-$('aBan').onclick = () => {
-  if (banned(cur)) { if (confirm(`${cur.login} 님 정지를 풀까요?`)) act('/admin/user/ban', { banned: false }, '정지를 풀었어요'); return; }
+$('aPw').onclick = async () => { const pw = await uiPrompt(`${cur.login} 님의 새 비밀번호 (영어·숫자·기호 4~64자)`); if (pw) act('/admin/user/password', { pw }, '비밀번호를 바꿨어요 (다른 기기는 로그아웃됨)'); };
+$('aRename').onclick = async () => { const login = await uiPrompt('새 아이디 (한글·영어·숫자 2~16자)', cur.login); if (login && login !== cur.login) act('/admin/user/rename', { login }, '아이디를 바꿨어요'); };
+$('aLogout').onclick = async () => { if (await uiConfirm(`${cur.login} 님을 모든 기기에서 로그아웃시킬까요?`)) act('/admin/user/logout', {}, '로그아웃시켰어요'); };
+$('aUnlock').onclick = async () => act('/admin/user/unlock', {}, '로그인 잠금을 풀었어요');
+$('aBan').onclick = async () => {
+  if (banned(cur)) { if (await uiConfirm(`${cur.login} 님 정지를 풀까요?`)) act('/admin/user/ban', { banned: false }, '정지를 풀었어요'); return; }
   $('banBox').style.display = ''; $('banReason').focus();
 };
 $('banDays').onchange = () => { $('banDaysX').style.display = $('banDays').value === 'x' ? '' : 'none'; };
-$('banCancel').onclick = () => { $('banBox').style.display = 'none'; };
-$('banGo').onclick = () => {
+$('banCancel').onclick = async () => { $('banBox').style.display = 'none'; };
+$('banGo').onclick = async () => {
   const days = $('banDays').value === 'x' ? Math.round(+$('banDaysX').value || 0) : +$('banDays').value, reason = $('banReason').value.trim();
   if ($('banDays').value === 'x' && !(days >= 1)) { toast('정지 일수를 넣어 주세요'); return; }
-  if (!reason && !confirm('사유 없이 정지할까요?')) return;
-  if (!confirm(`${cur.login} 님을 ${days ? days + '일' : '영구'} 정지할까요? (바로 로그아웃돼요)`)) return;
+  if (!reason && !await uiConfirm('사유 없이 정지할까요?')) return;
+  if (!await uiConfirm(`${cur.login} 님을 ${days ? days + '일' : '영구'} 정지할까요? (바로 로그아웃돼요)`)) return;
   $('banReason').value = ''; act('/admin/user/ban', { banned: true, days, reason }, `${days ? days + '일' : '영구'} 정지했어요`);
 };
-$('aGoog').onclick = () => {
+$('aGoog').onclick = async () => {
   const warn = cur.gonly ? ' ⚠️ 이 계정은 구글로만 가입해서 비밀번호가 없어요. 끊으면 로그인할 방법이 없으니, 먼저 "비밀번호 바꾸기"로 비밀번호를 만들어 주세요.' : '';
-  if (confirm(`${cur.login} 님의 구글 연결을 끊을까요? (그 구글 계정은 다른 아이디에 다시 연결할 수 있어요)${warn}`)) act('/admin/user/google-unlink', {}, '구글 연결을 끊었어요');
+  if (await uiConfirm(`${cur.login} 님의 구글 연결을 끊을까요? (그 구글 계정은 다른 아이디에 다시 연결할 수 있어요)${warn}`)) act('/admin/user/google-unlink', {}, '구글 연결을 끊었어요');
 };
-$('a2fa').onclick = () => { if (confirm(`${cur.login} 님의 2단계 인증을 끌까요? (폰을 잃어버렸을 때)`)) act('/admin/user/2fa-off', {}, '2단계 인증을 껐어요'); };
+$('a2fa').onclick = async () => { if (await uiConfirm(`${cur.login} 님의 2단계 인증을 끌까요? (폰을 잃어버렸을 때)`)) act('/admin/user/2fa-off', {}, '2단계 인증을 껐어요'); };
 $('aDel').onclick = async () => {
-  const t = prompt(`정말 지우려면 아이디 "${cur.login}"을(를) 그대로 입력하세요. 되돌릴 수 없어요.`);
+  const t = await uiPrompt(`정말 지우려면 아이디 "${cur.login}"을(를) 그대로 입력하세요. 되돌릴 수 없어요.`);
   if (t !== cur.login) { if (t !== null) toast('아이디가 달라서 취소했어요'); return; }
   try { await api('/admin/user/delete', 'POST', { uid: cur.uid }); toast('계정을 지웠어요'); cur = null; $('detail').classList.remove('show'); loadStats(); loadUsers(); } catch (e) { toast(e.message); }
 };
@@ -487,10 +503,10 @@ function showBal(bal) {
 $('balSave').onclick = async () => {
   const bal = {};
   $('balTbl').querySelectorAll('tbody tr[data-n]').forEach(tr => { const o = {}; tr.querySelectorAll('input').forEach(i => { const v = +i.value || 100; if (v !== 100) o[i.dataset.f] = v; }); if (Object.keys(o).length) bal[tr.dataset.n] = o; });
-  if (!confirm(`밸런스를 저장할까요? 바뀐 돼지 ${Object.keys(bal).length}마리`)) return;
+  if (!await uiConfirm(`밸런스를 저장할까요? 바뀐 돼지 ${Object.keys(bal).length}마리`)) return;
   try { const d = await api('/admin/balance', 'POST', { bal }); showBal(d.bal); toast('밸런스 패치 저장! (10초 안에 모두에게, 다음 판부터)'); } catch (e) { toast(e.message); }
 };
-$('balReset').onclick = () => { $('balTbl').querySelectorAll('input').forEach(i => { i.value = 100; }); toast('전부 100으로 채웠어요. 저장을 눌러야 적용돼요'); };
+$('balReset').onclick = async () => { $('balTbl').querySelectorAll('input').forEach(i => { i.value = 100; }); toast('전부 100으로 채웠어요. 저장을 눌러야 적용돼요'); };
 // ---- 선물 뿌리기 ----
 function showGift(g) {
   const on = g && (!g.until || Date.now() < g.until);
@@ -499,7 +515,7 @@ function showGift(g) {
 $('giftOn').onclick = async () => {
   const b = { coins: +$('gCoins').value || 0, spins: +$('gSpins').value || 0, items: +$('gItems').value || 0, item: $('gItem').value, itemN: +$('gItemN').value || 1, char: $('gChar').value, msg: $('gMsg').value, hours: +$('gHours').value || 72 };
   if (!b.coins && !b.spins && !b.items && !b.item && !b.char) { toast('코인·티켓·아이템·돼지 중 하나 이상 넣어 주세요'); return; }
-  if (!confirm(`모든 사람에게 보낼까요?\n🪙 ${b.coins.toLocaleString()} · 🎟️ ${b.spins}장 · 🎒 각 ${b.items}개${b.item ? ` · ${b.item} ×${b.itemN}` : ''}${b.char ? ` · 🐷 ${b.char}` : ''}`)) return;
+  if (!await uiConfirm(`모든 사람에게 보낼까요?\n🪙 ${b.coins.toLocaleString()} · 🎟️ ${b.spins}장 · 🎒 각 ${b.items}개${b.item ? ` · ${b.item} ×${b.itemN}` : ''}${b.char ? ` · 🐷 ${b.char}` : ''}`)) return;
   try { const d = await api('/admin/gift', 'POST', b); showGift(d.gift); toast('선물을 보냈어요 (켜 둔 사람은 10초 안에 받아요)'); } catch (e) { toast(e.message); }
 };
 $('giftOff').onclick = async () => {
@@ -510,20 +526,20 @@ $('evOff').onclick = async () => {
 };
 function showRel(rel) { rel = rel || {}; const b2 = !!rel.big2; $('relBig2').disabled = b2; $('relBig2').textContent = b2 ? `🏴‍☠️ 대규모 업데이트 2 공개됨 (${when(rel.big2)})` : '🏴‍☠️ 대규모 업데이트 2 공개 (캡틴베이컨·꿀린)'; const b1 = !!rel.big1; $('relBig1').disabled = b1; $('relBig1').textContent = b1 ? `🎉 대규모 업데이트 공개됨 (${when(rel.big1)})` : '🎉 대규모 업데이트 공개 (훈제돈·우주꿀돈·핑크하트)'; const on = !!rel.itadori, end = (rel.itadoriWin || rel.itadori || 0) + 10 * 86400000, open = on && Date.now() < end; $('relNow').textContent = on ? `✅ 이타돼리 공개됨 (${when(rel.itadori)}) · 퀘스트 기간 ${open ? when(end) + '까지 (진행 중)' : '끝남'}` : '아직 공개 안 함'; $('relItadori').textContent = on ? '🔁 이타돼리 퀘스트 기간 다시 열기 (지금부터 10일)' : '👊 새 돼지 이타돼리 공개 (퀘스트 10일 시작)'; $('relItadori').dataset.on = on ? 1 : ''; }
 $('relBig2').onclick = async () => {
-  if (!confirm('대규모 업데이트 2(캡틴베이컨 무료 · 꿀린 퀘스트)를 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
+  if (!await uiConfirm('대규모 업데이트 2(캡틴베이컨 무료 · 꿀린 퀘스트)를 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
   try { const d = await api('/admin/release', 'POST', { id: 'big2' }); showRel(d.rel); toast('대규모 업데이트 2를 공개했어요!'); } catch (e) { toast(e.message); }
 };
 $('relBig1').onclick = async () => {
-  if (!confirm('대규모 업데이트(새 돼지 3마리)를 모두에게 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
+  if (!await uiConfirm('대규모 업데이트(새 돼지 3마리)를 모두에게 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
   try { const d = await api('/admin/release', 'POST', { id: 'big1' }); showRel(d.rel); toast('대규모 업데이트를 공개했어요! (10초 안에 모두에게)'); } catch (e) { toast(e.message); }
 };
 $('relItadori').onclick = async () => {
   const re = !!$('relItadori').dataset.on;
-  if (!confirm(re ? '이타돼리 퀘스트 기간을 지금부터 10일로 다시 열까요?' : '이타돼리를 공개할까요? 지금부터 10일 동안 퀘스트를 깨야 얻을 수 있어요. 공개는 다시 끌 수 없어요.')) return;
+  if (!await uiConfirm(re ? '이타돼리 퀘스트 기간을 지금부터 10일로 다시 열까요?' : '이타돼리를 공개할까요? 지금부터 10일 동안 퀘스트를 깨야 얻을 수 있어요. 공개는 다시 끌 수 없어요.')) return;
   try { const d = await api('/admin/release', 'POST', { id: 'itadori', reopen: re }); showRel(d.rel); toast(re ? '퀘스트 기간을 다시 열었어요 (10일)' : '이타돼리를 공개했어요! 10일 퀘스트 시작'); } catch (e) { toast(e.message); }
 };
 $('mresetBtn').onclick = async () => {
-  if (!confirm('모든 사람의 오늘 일일 미션을 새로 뽑고, 진행·받은 것도 처음부터 할까요?')) return;
+  if (!await uiConfirm('모든 사람의 오늘 일일 미션을 새로 뽑고, 진행·받은 것도 처음부터 할까요?')) return;
   try { await api('/admin/mreset', 'POST', {}); toast('일일 미션을 초기화했어요 (켜 둔 사람은 10초 안에)'); } catch (e) { toast(e.message); }
 };
 $('noticeBtn').onclick = async () => {
@@ -555,14 +571,14 @@ $('rankLoad').onclick = loadRank;
 $('rankBox').addEventListener('click', async e => {
   const id = e.target.dataset && e.target.dataset.rdel; if (!id) return;
   const r = rankRows.find(x => x.id === id);
-  if (!confirm(`랭킹에서 "${r ? r.name : id}" 기록을 지울까요? (그 사람이 랭크전을 또 하면 다시 올라와요)`)) return;
+  if (!await uiConfirm(`랭킹에서 "${r ? r.name : id}" 기록을 지울까요? (그 사람이 랭크전을 또 하면 다시 올라와요)`)) return;
   e.target.disabled = true;
   await Promise.allSettled(RANK_DBS.map(db => rankDel(db, id)));
   toast('랭킹에서 지웠어요'); loadRank();
 });
 $('rankReset').onclick = async () => {
   const season = $('rankSeason').checked;
-  const t = prompt(`전체 랭킹을 지워요${season ? ' + 모든 사람의 티어 점수·최고 연승을 0으로 (새 시즌)' : ''}.\n되돌릴 수 없어요. 계속하려면 "초기화"를 입력하세요.`);
+  const t = await uiPrompt(`전체 랭킹을 지워요${season ? ' + 모든 사람의 티어 점수·최고 연승을 0으로 (새 시즌)' : ''}.\n되돌릴 수 없어요. 계속하려면 "초기화"를 입력하세요.`);
   if (t !== '초기화') { if (t !== null) toast('취소했어요'); return; }
   const btn = $('rankReset'); btn.disabled = true;
   try {

@@ -149,9 +149,10 @@ function josa(name, a, b) { const c = name.charCodeAt(name.length - 1); if (c < 
 
 // ================= input =================
 const keys = {}, pressed = {}, lastPress = {};
+let ginOpen = false;   // 게임 안 글자 입력 창이 떠 있으면 게임 조작 무시
 function press(code) { if (!keys[code]) { pressed[code] = true; lastPress[code] = gT; } keys[code] = true; }
 addEventListener('keydown', e => {
-  if (authShown) return;   // 로그인 창이 떠 있으면 게임 조작 무시
+  if (authShown || ginOpen) return;   // 로그인 창 · 글자 입력 창이 떠 있으면 게임 조작 무시
   if (!e.repeat) { pressed[e.code] = true; lastPress[e.code] = gT; }
   keys[e.code] = true; initAudio();
   if (e.code.startsWith('Arrow') || e.code === 'Space' || e.code.startsWith('Numpad')) e.preventDefault();
@@ -2985,6 +2986,7 @@ function shopAct(i) {
   saveInv();
 }
 function updateMarket() {
+  if (qm) { updateQty(); return; }   // 수량 고르는 창
   if (pressed.Digit1 || pressed.Numpad1 || pressed.KeyQ) { mk.tab = 0; mk.sel = 0; SFX.select(); }
   if (pressed.Digit2 || pressed.Numpad2 || pressed.KeyE) { mk.tab = 1; mk.sel = 0; SFX.select(); }
   if (pressed.Digit3 || pressed.Numpad3 || pressed.KeyT) { openTycoon(); return; }   // 포장마차 장사(타이쿤)
@@ -2995,7 +2997,7 @@ function updateMarket() {
     if (mk.tab === 1 && (pressed.KeyA || pressed.ArrowLeft)) mk.sel = (mk.sel + n - 1) % n;
     if (mk.tab === 1 && (pressed.KeyD || pressed.ArrowRight)) mk.sel = (mk.sel + 1) % n;
   }
-  if (pressed.Enter || pressed.Space || pressed.KeyI) { if (mk.tab === 0) sellDish(mk.sel); else shopAct(mk.sel); }
+  if (pressed.Enter || pressed.Space || pressed.KeyI) { if (mk.tab === 0) sellDish(mk.sel); else if (SHOP[mk.sel] && SHOP[mk.sel].type === 'use' && SHOP[mk.sel].id !== 'fastSpin') openQty(mk.sel); else shopAct(mk.sel); }   // 소모품은 개수 골라 사기
   if (mk.tab === 0 && pressed.KeyX && fridge.length) {
     const total = fridge.reduce((s, d) => s + dishPrice(d), 0); addCoins(total); fridge = []; saveFridge(); mk.sel = 0;
     SFX.coin(); popText(W / 2, 470, `전부 판매! +${fmtN(total)} 코인`, '#ffd740', 32);
@@ -3919,9 +3921,7 @@ function updateTitle() {
   if (go) { SFX.confirm(); MENU[titleSel][2](); }
   else if (pressed.KeyN && isMember()) toast(`👤 회원 닉네임은 아이디(${auth.login})와 같아요`);
   else if (pressed.KeyN) {
-    const n = window.prompt('닉네임 (최대 8글자)', playerName);
-    for (const k in keys) keys[k] = false;
-    if (n && n.trim()) { playerName = n.trim().slice(0, 8); lsSet('sgf_name', playerName); uploadRank(); }
+    gameInput('닉네임 (최대 8글자)', playerName, 8, n => { if (n && n.trim()) { playerName = n.trim().slice(0, 8); lsSet('sgf_name', playerName); uploadRank(); toast(`👤 닉네임: ${playerName}`); } });   // 브라우저 창 대신 게임 안 창
   }
   else if (pressed.KeyL) openAuth(isMember() ? 'account' : 'choose');   // L = 로그인·회원가입 / 내 계정
   if (attReady() && !AUTH_TEST && auth && gT > 90) claimAttendance();   // 오늘 처음 켜면 출석 보상 팝업
@@ -4381,7 +4381,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-20';
+const BUILD = '20261112-21';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -5090,6 +5090,63 @@ function openSkinBox(n = 1) {
   const lines = res.map(x => `[${x.R[0]}] ${SKIN_DEF[x.id].name} 스킨${x.dup ? ` (중복 → 🪙 ${fmtN(SKIN_BOX_PRICE * 0.3)})` : ' 🆕'}`);
   popup({ icon: '🎨', title: best.R[0] === '전설' ? '✨ 전설 스킨!!! ✨' : best.R[0] === '영웅' ? '영웅 스킨!' : '스킨 상자 열기', lines: lines.length > 6 ? [...lines.slice(0, 6), `외 ${lines.length - 6}개 · 상점의 스킨 칸에서 장착`] : [...lines, '상점의 스킨 칸에서 장착'], big: SKIN_RARITY.indexOf(best.R) >= 2 });
 }
+// ================= 🛒 수량 골라 사기 (게임 안 창) =================
+// 소모품을 고르면 개수 창이 뜸: −10 · −1 · +1 · +10 · 최대 · 사기 / 취소 (키보드: ←→ ±1 · ↑↓ ±10 · Enter 사기 · Esc 취소)
+let qm = null;   // { i: 상점 칸, n: 개수 }
+const qtyMax = it => Math.max(1, Math.min(999, Math.floor(coins / Math.max(1, itPrice(it)))));
+function openQty(i) { qm = { i, n: 1 }; SFX.select(); }
+function buyQty() {
+  const it = SHOP[qm.i], n = qm.n, total = itPrice(it) * n;
+  if (coins < total) { SFX.block(); toast(`코인이 부족해요 (${fmtN(total)} 필요)`); return; }
+  addCoins(-total);
+  if (it.id === 'skinBox' || it.id === 'skinBox10') openSkinBox(n * (it.id === 'skinBox10' ? 10 : 1));
+  else if (it.id === 'tix10') { RW.bonus += 10 * n; rwSave(); toast(`🎟️ 룰렛 티켓 ${10 * n}장! (보유 ${RW.bonus}장)`); }
+  else { inv.use[it.id] = (inv.use[it.id] || 0) + n; toast(`${it.name} ${n}개 구매! (보유 ${inv.use[it.id]}개)`); }
+  saveInv(); cloudDirty(); SFX.coin(); qm = null;
+}
+function updateQty() {
+  const it = SHOP[qm.i], mx = qtyMax(it), add = d => { qm.n = clamp(qm.n + d, 1, 999); SFX.select(); };
+  if (pressed.KeyA || pressed.ArrowLeft) add(-1);
+  if (pressed.KeyD || pressed.ArrowRight) add(1);
+  if (pressed.KeyW || pressed.ArrowUp) add(10);
+  if (pressed.KeyS || pressed.ArrowDown) add(-10);
+  if (pressed.KeyM) { qm.n = mx; SFX.select(); }
+  if (pressed.Enter || pressed.Space || pressed.KeyI) buyQty();
+  else if (pressed.Escape) { qm = null; SFX.select(); }
+}
+function drawQty() {
+  const it = SHOP[qm.i], total = itPrice(it) * qm.n, ok = coins >= total;
+  ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 0, W, H);
+  const x = W / 2 - 230, y = 130;
+  ctx.fillStyle = '#2a1530'; rr(x, y, 460, 270, 18); ctx.fill(); ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 3; rr(x, y, 460, 270, 18); ctx.stroke();
+  txt(`${it.name.startsWith(USE_ICON[it.id] || '@') ? '' : (USE_ICON[it.id] || '🎁') + ' '}${it.name}`, W / 2, y + 34, fitSize(it.name + '가가', 22, 420), '#fff', '#000', 5);
+  txt(`1개 🪙 ${fmtN(itPrice(it))} · 지금 보유 ${it.id === 'tix10' ? RW.bonus + '장' : (inv.use[it.id] || 0) + '개'}`, W / 2, y + 64, 13, '#ccc', null);
+  txt(`${qm.n}개`, W / 2, y + 112, 44, '#ffd740', '#000', 7);
+  const B = [['−10', -10], ['−1', -1], ['+1', 1], ['+10', 10], ['최대', 0]];
+  B.forEach(([l, d], k) => { const bx = x + 22 + k * 86; ctx.fillStyle = 'rgba(255,255,255,0.14)'; rr(bx, y + 140, 76, 36, 9); ctx.fill(); txt(l, bx + 38, y + 158, 16, '#fff', null); addHot(bx, y + 140, 76, 36, () => { qm.n = d ? clamp(qm.n + d, 1, 999) : qtyMax(it); SFX.select(); }); });
+  txt(`합계 🪙 ${fmtN(total)}${ok ? '' : ' (코인 부족)'}`, W / 2, y + 198, 17, ok ? '#69f0ae' : '#ff8a80', '#000', 4);
+  ctx.fillStyle = ok ? '#2e7d32' : '#555'; rr(x + 40, y + 218, 220, 40, 10); ctx.fill(); txt('🛒 사기', x + 150, y + 238, 18, '#fff', null); addHot(x + 40, y + 218, 220, 40, () => buyQty());
+  ctx.fillStyle = 'rgba(255,255,255,0.18)'; rr(x + 280, y + 218, 140, 40, 10); ctx.fill(); txt('취소', x + 350, y + 238, 16, '#fff', null); addHot(x + 280, y + 218, 140, 40, () => { qm = null; });
+  if (!TOUCH) txt('←→ 1개 · ↑↓ 10개 · M 최대 · Enter 사기 · Esc 취소', W / 2, y + 290, 12, '#80d8ff', '#000', 3);
+  addHot(0, 0, W, H, () => {});   // 창 밖을 눌러도 뒤의 물건이 눌리지 않게
+}
+// ================= ⌨️ 게임 안 글자 입력 창 (브라우저 창 대신) =================
+function gameInput(title, def, max, cb) {
+  if (AUTH_TEST) return cb(null);   // 자동 테스트에서는 창을 안 띄움
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,5,20,.72);z-index:60;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+  box.innerHTML = `<div style="background:#2a1530;border:3px solid #ffcc80;border-radius:18px;padding:22px 24px;width:min(360px,86vw);color:#fff;text-align:center;box-shadow:0 10px 40px #000">
+    <div style="font-size:20px;font-weight:900;margin-bottom:12px"></div>
+    <input maxlength="${max}" style="width:100%;box-sizing:border-box;font-size:20px;font-weight:700;padding:10px 12px;border-radius:10px;border:2px solid #ff9100;background:#120a18;color:#fff;outline:none;text-align:center">
+    <div style="display:flex;gap:10px;margin-top:14px"><button data-ok style="flex:1;font-size:17px;font-weight:900;padding:10px;border:0;border-radius:10px;background:#2e7d32;color:#fff">확인</button><button data-no style="flex:1;font-size:17px;font-weight:900;padding:10px;border:0;border-radius:10px;background:#555;color:#fff">취소</button></div></div>`;
+  box.querySelector('div > div').textContent = title;
+  const inp = box.querySelector('input'); inp.value = def || '';
+  const done = v => { ginOpen = false; box.remove(); for (const k in keys) keys[k] = false; cb(v); };
+  box.querySelector('[data-ok]').onclick = () => done(inp.value);
+  box.querySelector('[data-no]').onclick = () => done(null);
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') done(inp.value); if (e.key === 'Escape') done(null); });
+  ginOpen = true; document.body.appendChild(box); setTimeout(() => { inp.focus(); inp.select(); }, 30);
+}
 // ================= 🎁 보상 센터: 출석 체크 · 행운 룰렛 · 일일 미션 =================
 // 저장: sgf_reward = { day(마지막 출석 날짜), att(연속 출석 1~7), days(총 출석), spinDay, spins(오늘 쓴 무료), bonus(쌓인 무료 룰렛),
 //                     mDay, mis[{ id, goal, n, got }], mAll(3개 다 받음), gift(받은 관리자 선물 id), jack(잭팟 횟수) }
@@ -5540,7 +5597,7 @@ function resetAll() {
   let done = false; const reload = () => { if (!done) { done = true; location.reload(); } };
   const jobs = [];
   if (RANK_DBS.length) jobs.push(rankAll(`/rank/${myId}.json`, { method: 'DELETE', keepalive: true })   // 연결된 모든 랭킹 서버에서 내 기록 삭제
-    .then(rs => { if (rs.some(r => r.status === 'rejected')) alert('일부 서버의 랭킹 기록은 지우지 못했어요 (인터넷/서버 규칙 확인). 기기 기록은 지워졌어요.'); }));
+    .then(rs => { if (rs.some(r => r.status === 'rejected')) toast('⚠️ 일부 서버의 랭킹 기록은 지우지 못했어요. 기기 기록은 지워졌어요'); }));
   if (isMember()) jobs.push(cloudPush());   // 계정에 저장된 진행 상황도 빈 기록으로 덮어씀
   if (!jobs.length) return reload();
   Promise.allSettled(jobs).finally(reload);
@@ -7372,7 +7429,7 @@ function draw() {
   if (scene === 'title') drawTitle();
   else if (scene === 'opening') drawOpening();
   else if (scene === 'online') drawOnline();
-  else if (scene === 'market') drawMarket();
+  else if (scene === 'market') { drawMarket(); if (qm) drawQty(); }
   else if (scene === 'betpick') drawBetPick();
   else if (scene === 'story') drawStory();
   else if (scene === 'bank') drawBank();
@@ -7569,6 +7626,7 @@ if (/autotest/.test(location.search)) {
         p2.hp = p2.maxHp; p2.state = 'idle'; p1.state = 'idle'; p1.meter = 100; const h1 = p2.hp; startUlt(p1); for (let n = 0; n < IT_CUT + 120 && scene === 'fight'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`dismantle: alt=${p1.ultAlt} dmg=${(h1 - p2.hp).toFixed(1)}`); if (p1.ultAlt !== 'dismantle' || !(h1 - p2.hp > 20 || scene !== 'fight')) throw new Error('베어 가르기 실패'); }
       { lsSet('sgf_awake', {}); const A = AWAKE['이타돼리']; for (const st of A.steps) for (let k = 0; k < st.goal; k++) awkAdd('이타돼리', st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`awake: ${isAwake('이타돼리')}`); if (!isAwake('이타돼리')) throw new Error('각성 실패');
         mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); const d0 = p1.dmgMul('punch'); p1.awk = true; const d1 = p1.dmgMul('punch'); out.push(`awake dmg ${d0.toFixed(2)} -> ${d1.toFixed(2)}`); if (!(d1 > d0)) throw new Error('각성 공격력 실패'); for (let n = 0; n < 130; n++) step(); draw(); lsSet('sgf_awake', {}); POPQ.length = 0; POP = null; showAwake(); POPQ.length = 0; }
+      { coins = 1e7; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'meter'); const m0 = inv.use.meter || 0; pressed.Enter = true; step(); if (!qm) throw new Error('수량 창이 안 열림'); pressed.ArrowUp = true; step(); pressed.ArrowRight = true; step(); draw(); pressed.Enter = true; step(); out.push(`qty buy: meter ${m0} -> ${inv.use.meter} qm=${!!qm}`); if (inv.use.meter !== m0 + 12 || qm) throw new Error('수량 사기 실패'); scene = 'title'; }
       { coins = 1e10; const c0 = CHARS[0], l0 = pigLv(c0.name); upgradePig(c0); upgradePig(c0); out.push(`pig lv: ${l0} -> ${pigLv(c0.name)} coins=${fmtN(coins)}`); if (pigLv(c0.name) !== l0 + 2) throw new Error('돼지 강화 실패'); mode = 1; ranked = false; p1.setChar(c0); p2.setChar(CHARS[1]); startMatch(); out.push(`lvMul=${p1.lvMul}`); if (!(p1.lvMul > 1)) throw new Error('강화 적용 실패'); lsSet('sgf_piglv', {}); openPigs(); for (let n = 0; n < 5; n++) { pressed.KeyD = true; step(); draw(); } scene = 'title';
         const own0 = Object.keys(inv.own).filter(k => SKIN_DEF[k]).length; shopAct(SHOP.findIndex(x => x.id === 'skinBox10')); const own1 = Object.keys(inv.own).filter(k => SKIN_DEF[k]).length; out.push(`skin box: skins ${own0} -> ${own1}`); if (own1 <= own0 && own0 < 10) throw new Error('스킨 상자 실패'); POPQ.length = 0; POP = null;
         shopAct(SHOP.findIndex(x => x.id === 'ttRich')); out.push(`title: ${titleName()}`); if (titleName() !== '💰 졸부') throw new Error('칭호 실패'); draw(); scene = 'title'; draw(); shopAct(SHOP.findIndex(x => x.id === 'ttRich')); }
@@ -7829,6 +7887,7 @@ else if (VIEW === 'pigs') { coins = 3e9; lsSet('sgf_piglv', { '분홍이': 4, '�
 else if (VIEW === 'shop2') { openMarket(); mk.tab = 1; mk.sel = 22; for (let i = 0; i < 30; i++) step(); step = () => {}; lastGrp = 'market'; fadeA = 0; }
 else if (VIEW === 'hudlong') { mode = 1; ranked = false; inv.eq.title = 'ttSpace'; inv.own.ttSpace = true; p1.setChar(CHARS.find(c => c.name === '금한돈')); p2.setChar(CHARS.find(c => c.name === '캡틴베이컨')); startMatch(); for (let i = 0; i < 125; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'curse') { mode = 0; p1.setChar(CHARS.find(c => c.name === '이타돼리')); p2.setChar(CHARS.find(c => c.name === '돼루토')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 380; p2.x = 600; p1.curseT = 600; p2.foxT = 600; p1.state = 'crouch'; p2.state = 'idle'; for (let i = 0; i < 4; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
+else if (VIEW === 'qty') { coins = 5e6; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'skinBox'); qm = { i: mk.sel, n: 3 }; for (let i = 0; i < 20; i++) draw(); step = () => {}; lastGrp = 'market'; fadeA = 0; }
 else if (VIEW === 'b2') { mode = 0; p1.setChar(CHARS.find(c => c.name === '캡틴베이컨')); p2.setChar(CHARS.find(c => c.name === '꿀린')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 330; p2.x = 630; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'oldcut') { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; startUlt(p1); for (let i = 0; i < 50; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'big') { mode = 0; p1.setChar(CHARS.find(c => c.name === '훈제돈')); p2.setChar(CHARS.find(c => c.name === '우주꿀돈')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 300; p2.x = 660; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
