@@ -3924,6 +3924,7 @@ function updateEndings() {
     if (endSeen.includes(k)) { SFX.confirm(); startStory(k, 'endings'); story.replay = true; }
     else { SFX.block(); toast(`아직 못 본 엔딩이에요 · 힌트: ${END_INFO[k][1]}`); }
   }
+  if (pressed.KeyC) { openCutList(); return; }   // 컷신·예고편 다시 보기
   if (pressed.Escape) toTitle();
 }
 function drawEndings() {
@@ -3943,7 +3944,8 @@ function drawEndings() {
   });
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 80, 30, 8); ctx.fill(); txt('← 나가기', 54, 29, 13, '#fff', null);
   addHot(14, 14, 80, 30, () => { pressed.Escape = true; });
-  txt(TOUCH ? '엔딩 칸을 탭하면 다시 보기' : '방향키/WASD 고르기 · Enter 다시 보기 · Esc 나가기', W / 2, 470, 13, '#aaa', null);
+  ctx.fillStyle = gT % 50 < 30 ? '#c62828' : '#e53935'; rr(W / 2 - 170, 456, 340, 38, 11); ctx.fill(); txt('🎬 컷신 · 예고편 다시 보기' + (TOUCH ? '' : ' [C]'), W / 2, 475, 16, '#fff', null); addHot(W / 2 - 170, 456, 340, 38, () => openCutList());
+  txt(TOUCH ? '엔딩 칸을 탭하면 다시 보기' : '방향키/WASD 고르기 · Enter 다시 보기 · Esc 나가기', W / 2, 510, 13, '#aaa', null);
 }
 let titleSel = 0;
 function updateTitle() {
@@ -4345,7 +4347,8 @@ function updateTrailer() {
   if (T === 1 || T === 300 || T === 600) SFX.boom();
   if (T === 160 || T === 460) SFX.special();
   if (T === 760) { SFX.bell(); }
-  if (T >= TRAILER_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { scene = 'title'; toTitle(); popup({ icon: '🆕', title: '새 돼지 2마리 등장!', lines: ['🤖 볼트돈: 🎁 보상 센터 행운 룰렛에서', '🍥 돼루토: 보상 센터의 퀘스트를 깨면', '🎟️ 룰렛은 이제 티켓으로 돌려요'], big: true }); }
+  if (T >= TRAILER_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { if (cutBack) { cutBack = false; scene = 'cutlist'; return; }   // 다시 보기에서 틀었으면 목록으로
+    scene = 'title'; toTitle(); popup({ icon: '🆕', title: '새 돼지 2마리 등장!', lines: ['🤖 볼트돈: 🎁 보상 센터 행운 룰렛에서', '🍥 돼루토: 보상 센터의 퀘스트를 깨면', '🎟️ 룰렛은 이제 티켓으로 돌려요'], big: true }); }
 }
 function drawTrailer() {
   const T = trl.t, dv = CHARS.find(c => c.name === '볼트돈'), nr = CHARS.find(c => c.name === '돼루토');
@@ -4417,7 +4420,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-31';
+const BUILD = '20261112-32';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4458,7 +4461,8 @@ function updateNrTrailer() {
   if (T === 600) SFX.gong();
   if (T === 690) { SFX.boom(); hit(26); }
   if (T === 820) SFX.bell();
-  if (T >= NRT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '🍥', title: '돼루토', lines: ['분신술 · 회오리 구슬 · 쿠나이 · 구미호 모드', '🎁 보상 센터의 돼루토 퀘스트를 깨면 얻어요'], big: true }); }
+  if (T >= NRT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { if (cutBack) { cutBack = false; scene = 'cutlist'; return; }   // 다시 보기에서 틀었으면 목록으로
+    toTitle(); popup({ icon: '🍥', title: '돼루토', lines: ['분신술 · 회오리 구슬 · 쿠나이 · 구미호 모드', '🎁 보상 센터의 돼루토 퀘스트를 깨면 얻어요'], big: true }); }
 }
 // 화면에 크게 박히는 기술 이름
 function nrtCard(s, sub, lt, col, edge) {
@@ -4667,7 +4671,8 @@ function updateItTrailer() {
   if (T === 640) { SFX.boom(); itt.sh = 26; }
   if (T >= 660 && T < 760 && T % 8 === 0) whipS(1.2, 0.5);
   if (T === 780) SFX.bell();
-  if (T >= ITT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '👊', title: '이타돼리 등장!', lines: ['⏰ 10일 안에 이타돼리 퀘스트를 깨면 해금!', '늦게 터지는 주먹 · 검은 번개 · 돌려차기', '필살기: 저주 결계 (15초)', '🎁 보상 센터에서 퀘스트 확인'], big: true }); }
+  if (T >= ITT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { if (cutBack) { cutBack = false; scene = 'cutlist'; return; }   // 다시 보기에서 틀었으면 목록으로
+    toTitle(); popup({ icon: '👊', title: '이타돼리 등장!', lines: ['⏰ 10일 안에 이타돼리 퀘스트를 깨면 해금!', '늦게 터지는 주먹 · 검은 번개 · 돌려차기', '필살기: 저주 결계 (15초)', '🎁 보상 센터에서 퀘스트 확인'], big: true }); }
 }
 function drawItTrailer() {
   const T = itt.t, c = CHARS.find(x => x.name === '이타돼리'), L = itYoung(c.look);
@@ -4855,7 +4860,8 @@ function updateBigTrailer() {
   if (T === 330) { SFX.boom(); bigt.sh = 22; }
   if (T >= 470 && T < 600 && T % 12 === 0) tone(523 + (T % 36) * 12, 0.15, 'triangle', 0.09);
   if (T === 700) SFX.bell();
-  if (T >= BIGT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '🎉', title: '대규모 업데이트!', lines: ['🍖 훈제돈 · 🎤 핑크하트: 모두 무료 해금!', '🚀 우주꿀돈: 보상 센터 퀘스트를 깨면 해금', '캐릭터 선택에서 골라 보세요'], big: true }); }
+  if (T >= BIGT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { if (cutBack) { cutBack = false; scene = 'cutlist'; return; }   // 다시 보기에서 틀었으면 목록으로
+    toTitle(); popup({ icon: '🎉', title: '대규모 업데이트!', lines: ['🍖 훈제돈 · 🎤 핑크하트: 모두 무료 해금!', '🚀 우주꿀돈: 보상 센터 퀘스트를 깨면 해금', '캐릭터 선택에서 골라 보세요'], big: true }); }
 }
 function drawBigTrailer() {
   const T = bigt.t, C = n => CHARS.find(c => c.name === n);
@@ -5045,7 +5051,8 @@ function updateBig2Trailer() {
   if (T >= 140 && T < 230 && T % 15 === 0) { SFX.boom(); big2t.sh = 10; }
   if (T === 400) { SFX.slam(); big2t.sh = 26; }
   if (T === 540) SFX.bell();
-  if (T >= BIG2T_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '🏴‍☠️', title: '대규모 업데이트 2!', lines: ['🏴‍☠️ 캡틴베이컨: 모두 무료 해금!', '🧙 꿀린: 보상 센터 퀘스트를 깨면 해금', '캐릭터 선택에서 골라 보세요'], big: true }); }
+  if (T >= BIG2T_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { if (cutBack) { cutBack = false; scene = 'cutlist'; return; }   // 다시 보기에서 틀었으면 목록으로
+    toTitle(); popup({ icon: '🏴‍☠️', title: '대규모 업데이트 2!', lines: ['🏴‍☠️ 캡틴베이컨: 모두 무료 해금!', '🧙 꿀린: 보상 센터 퀘스트를 깨면 해금', '캐릭터 선택에서 골라 보세요'], big: true }); }
 }
 function drawBig2Trailer() {
   const T = big2t.t, C = n => CHARS.find(c => c.name === n);
@@ -5387,6 +5394,61 @@ function drawTutOffer() {
   const B = [['📖 튜토리얼 시작', '#2e7d32', () => { pressed.Enter = true; }], ['나중에', 'rgba(255,255,255,0.18)', () => { pressed.Escape = true; }], ['다시 보지 않기', 'rgba(255,255,255,0.1)', () => { pressed.KeyN = true; }]];
   B.forEach(([l, c, fn], k) => { const bx = k === 0 ? x + 170 : x + 170 + (k - 1) * 160, by = k === 0 ? y + 192 : y + 238, bw = k === 0 ? 310 : 150; ctx.fillStyle = c; rr(bx, by, bw, 38, 10); ctx.fill(); txt(l, bx + bw / 2, by + 19, k === 0 ? 18 : 14, '#fff', null); addHot(bx, by, bw, 38, fn); });
   if (!TOUCH) txt('Enter 시작 · Esc 나중에 · N 다시 보지 않기', W / 2, y + 306, 12, '#80d8ff', '#000', 3);
+}
+// ================= 🎬 컷신·예고편 다시 보기 (엔딩 수집에서) =================
+// 예고편은 한 번 본 것만, 필살기 컷신은 그 돼지를 가진 것만 (테스트 계정은 다)
+let cutBack = false;   // 예고편이 끝나면 이 목록으로 돌아옴
+const CUTS = [
+  { name: '🆕 볼트돈 · 돼루토 예고편', ok: () => lsGet('sgf_trailer2', false), play: () => startTrailer() },
+  { name: '🍥 돼루토 예고편', ok: () => lsGet('sgf_nrtrailer', false), play: () => startNrTrailer() },
+  { name: '👊 이타돼리 예고편', ok: () => lsGet('sgf_ittrailer', false), play: () => startItTrailer() },
+  { name: '🎉 대규모 업데이트 예고편', ok: () => lsGet('sgf_bigtrailer', false), play: () => startBigTrailer() },
+  { name: '🏴‍☠️ 대규모 업데이트 2 예고편', ok: () => lsGet('sgf_big2trailer', false), play: () => startBig2Trailer() },
+  { name: '⏱️ 돼타로 · 시간 정지', ch: '돼타로', len: () => TS_CUT },
+  { name: '🦊 돼루토 · 구미호 모드', ch: '돼루토', len: () => NEW_ULT_CUT },
+  { name: '🌀 돼루토 · 회오리 구슬', ch: '돼루토', rasen: true, len: () => RASEN_CUT },
+  { name: '👊 이타돼리 · 검은 번개 연타', ch: '이타돼리', form: 'base', len: () => IT_CUT },
+  { name: '🩸 이타돼리(모듈로) · 베어 가르기', ch: '이타돼리', form: 'modulo', len: () => IT_CUT },
+  { name: '👹 이타돼리(스쿠나) · 저주 결계', ch: '이타돼리', form: 'sukuna', len: () => IT_CUT }
+];
+const cutOk = c => c.ch ? (IS_TESTER || (isUnlocked(CHARS.find(x => x.name === c.ch)) && (!c.form || itFormOk(c.form)))) : (IS_TESTER || c.ok());
+const CL = { sel: 0, playing: null };
+function openCutList() { CL.sel = 0; CL.playing = null; scene = 'cutlist'; }
+function playCut(i) {
+  const c = CUTS[i]; if (!cutOk(c)) { SFX.block(); toast('🔒 아직 못 본 컷신이에요'); return; }
+  SFX.confirm();
+  if (c.play) { cutBack = true; c.play(); return; }
+  mode = 0; p1.setChar(CHARS.find(x => x.name === c.ch)); p2.setChar(CHARS[0]); p1.newMatch(); p2.newMatch(); p1.x = 300; p2.x = 660; p1.y = p2.y = GROUND; p1.facing = 1; p2.facing = -1;
+  if (c.form) applyItForm(p1, c.form);
+  superOwner = p1; superKind = c.rasen ? 'rasen' : 'ult'; superFreeze = c.len(); CL.playing = c;
+  if (c.ch === '돼타로') smp('ttStop', { v: 1 });
+}
+function updateCutList() {
+  if (CL.playing) {
+    if (superKind === 'ult' && CL.playing.ch === '돼타로') tsCutSfx(TS_CUT - superFreeze);
+    if (--superFreeze <= 0 || pressed.Escape) { CL.playing = null; superFreeze = 0; superOwner = null; }
+    return;
+  }
+  const n = CUTS.length;
+  if (pressed.KeyW || pressed.ArrowUp) { CL.sel = (CL.sel + n - 1) % n; SFX.select(); }
+  if (pressed.KeyS || pressed.ArrowDown) { CL.sel = (CL.sel + 1) % n; SFX.select(); }
+  if (pressed.Enter || pressed.Space || pressed.KeyI) playCut(CL.sel);
+  if (pressed.Escape) { scene = 'endings'; SFX.select(); }
+}
+function drawCutList() {
+  if (CL.playing) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); drawSuperBanner(); txt(TOUCH ? '' : 'Esc 그만', W - 20, H - 10, 11, '#777', null, 0, 'right'); return; }
+  drawStage(); ctx.fillStyle = 'rgba(10,5,25,0.85)'; ctx.fillRect(0, 0, W, H);
+  txt('🎬 컷신 · 예고편 다시 보기', W / 2, 36, 28, '#ffe082', '#000', 7);
+  CUTS.forEach((c, i) => {
+    const ok = cutOk(c), on = CL.sel === i, col = i < 5 ? 0 : 1, row = i < 5 ? i : i - 5, x = 70 + col * 420, y = 74 + row * 66;
+    ctx.fillStyle = on ? 'rgba(255,145,0,0.45)' : 'rgba(25,12,40,0.85)'; rr(x, y, 400, 56, 12); ctx.fill();
+    if (on) { ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2; rr(x, y, 400, 56, 12); ctx.stroke(); }
+    txt(ok ? c.name : '🔒 ' + c.name.replace(/^\S+ /, ''), x + 18, y + 22, fitSize(c.name, 16, 300), ok ? '#fff' : '#777', null, 0, 'left');
+    txt(ok ? '▶ 보기' : c.ch ? '그 돼지(모습)를 얻으면 볼 수 있어요' : '한 번 본 예고편만 볼 수 있어요', x + 18, y + 42, 11, ok ? '#69f0ae' : '#888', null, 0, 'left');
+    addHot(x, y, 400, 56, () => { CL.sel = i; pressed.Enter = true; });
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 14, 80, 30, 8); ctx.fill(); txt('← 뒤로', 54, 29, 13, '#fff', null);
+  addHot(14, 14, 80, 30, () => { pressed.Escape = true; });
 }
 // ================= 🎁 보상 센터: 출석 체크 · 행운 룰렛 · 일일 미션 =================
 // 저장: sgf_reward = { day(마지막 출석 날짜), att(연속 출석 1~7), days(총 출석), spinDay, spins(오늘 쓴 무료), bonus(쌓인 무료 룰렛),
@@ -6459,6 +6521,7 @@ function step() {
   else if (scene === 'big2trailer') updateBig2Trailer();
   else if (scene === 'keys') updateKeys();
   else if (scene === 'pigs') updatePigs();
+  else if (scene === 'cutlist') updateCutList();
   else if (scene === 'revive') { updateRevive(); if (pressed.Escape) pressed.Escape = false; }
   else if (scene === 'tycoon') updateTycoon();
   else if (scene === 'opening') {
@@ -7691,6 +7754,7 @@ function draw() {
   else if (scene === 'big2trailer') drawBig2Trailer();
   else if (scene === 'keys') drawKeys();
   else if (scene === 'pigs') drawPigs();
+  else if (scene === 'cutlist') drawCutList();
   else if (scene === 'revive') drawRevive();
   else if (scene === 'tycoon') drawTycoon();
   else if (scene === 'select') drawSelect();
@@ -7724,7 +7788,7 @@ function fuzzRun() {
   const out = [], seen = {}; let errs = 0;
   window.prompt = () => null; window.confirm = () => false; window.alert = () => {};   // 창이 뜨면 멈추니까 막음
   coins = 1e13; tyU.auto = true;
-  const JUMPS = [() => startTutorial(), () => openPigs(), () => { coins = 1e8; openSkinBox(3); }, () => openTycoon(), () => openReward(), () => { GIFT = { id: Date.now(), coins: 100, spins: 1, items: 0, msg: '', until: 0 }; claimGift(); }, () => openMarket(), () => { scene = 'bank'; }, () => openBet(), () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }, () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; },
+  const JUMPS = [() => openCutList(), () => startTutorial(), () => openPigs(), () => { coins = 1e8; openSkinBox(3); }, () => openTycoon(), () => openReward(), () => { GIFT = { id: Date.now(), coins: 100, spins: 1, items: 0, msg: '', until: 0 }; claimGift(); }, () => openMarket(), () => { scene = 'bank'; }, () => openBet(), () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }, () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; },
     () => openRanking(false), () => { scene = 'endings'; }, () => { mode = 0; p1.setChar(CHARS[rnd() * CHARS.length | 0]); p2.setChar(CHARS[rnd() * CHARS.length | 0]); startMatch(); }, () => { tyU.auto = !tyU.auto; }, () => toTitle(),
     () => { mode = 1; ranked = true; p1.setChar(CHARS[rnd() * CHARS.length | 0]); p2.setChar(CHARS[rnd() * CHARS.length | 0]); p1.meter = p2.meter = 100; startMatch(); }];
   for (let f = 0; f < 60 * 60 * 6; f++) {
@@ -7875,6 +7939,8 @@ if (/autotest/.test(location.search)) {
       { mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); applyItForm(p1, 'modulo'); p1.facing = -1; p1.curseT = 600; p1.inp = { right: true }; const cs = pickSkill(p1).type; p1.inp = { left: true }; if (pickSkill(p1).type !== 'bloodShot') throw new Error('왼쪽+U 세 번째 스킬 실패'); out.push(`it skill3: ${cs}`); if (cs !== 'bloodShot') throw new Error('피의 관통탄 실패');
         p1.x = 420; p2.x = 540; p2.state = 'idle'; const h0 = p2.hp; dealHit(p1, p2, { dmg: 5, kind: 'punch', src: p1.x, height: 'mid', stun: 20 }); for (let n = 0; n < 10; n++) step(); out.push(`arm extra: ${(h0 - p2.hp).toFixed(1)}`); if (!(h0 - p2.hp > 5.5)) throw new Error('팔 한 번 더 실패');
         p2.hp = p2.maxHp; p2.state = 'idle'; p1.state = 'idle'; p1.meter = 100; const h1 = p2.hp; startUlt(p1); for (let n = 0; n < IT_CUT + 120 && scene === 'fight'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`dismantle: type=${p1.ch.ult.type} dmg=${(h1 - p2.hp).toFixed(1)}`); if (p1.ch.ult.type !== 'dismantle' || !(h1 - p2.hp > 20 || scene !== 'fight')) throw new Error('베어 가르기 실패'); }
+      { const t0 = IS_TESTER; IS_TESTER = true; lsSet('sgf_trailer2', true); openCutList(); playCut(0); const sc1 = scene; for (let n = 0; n < TRAILER_T + 10 && scene === 'trailer'; n++) step(); out.push(`cutlist trailer: ${sc1} -> ${scene}`); if (sc1 !== 'trailer' || scene !== 'cutlist') throw new Error('예고편 다시 보기 실패');
+        for (const i of [5, 6, 7, 8, 9, 10]) { playCut(i); let fr = 0; while (CL.playing && fr < 400) { step(); if (fr % 20 === 0) draw(); fr++; } if (CL.playing) throw new Error('컷신 다시 보기 안 끝남: ' + CUTS[i].name); } out.push('cut replays OK'); IS_TESTER = t0; scene = 'title'; POPQ.length = 0; POP = null; }
       { lsSet('sgf_tut_done', false); const c0 = coins; startTutorial(); for (let n = 0; n < 200 && scene !== 'fight'; n++) step(); for (let n = 0; n < 30; n++) step(); pressed.Enter = true; step(); const i1 = tut.i; keys[MAP1.right] = true; for (let n = 0; n < 120 && tut.i === i1; n++) { step(); if (n % 30 === 0) draw(); } keys[MAP1.right] = false; out.push(`tutorial: move step ${i1} -> ${tut.i}`); if (tut.i <= i1) throw new Error('튜토리얼 움직이기 실패');
         for (let k = 0; k < 40 && mode === 5; k++) { for (let n = 0; n < 30; n++) step(); draw(); if (TUT[tut.i] && TUT[tut.i].tap) pressed.Enter = true; else pressed.Tab = true; step(); }
         for (let k = 0; k < 30 && tut.tour >= 0; k++) { for (let n = 0; n < 15; n++) step(); draw(); pressed.Enter = true; step(); }   // 2부: 화면 둘러보기
@@ -8152,6 +8218,7 @@ else if (VIEW === 'blood') { mode = 0; p1.setChar(CHARS.find(c => c.name === '�
 else if (VIEW === 'haecut') { mode = 0; p1.setChar(CHARS.find(c => c.name === '이타돼리')); p2.setChar(CHARS[0]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; p1.state = 'idle'; startUlt(p1); for (let i = 0; i < IT_CUT + 18; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'itcut2') { mode = 0; p1.setChar(CHARS.find(c => c.name === '이타돼리')); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; p1.state = 'idle'; startUlt(p1); for (let i = 0; i < 70; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'pigit') { coins = 1e9; lsSet('sgf_itmodulo', true); lsSet('sgf_itform', 'modulo'); openPigs(); PG.sel = CHARS.findIndex(c => c.name === '이타돼리'); for (let i = 0; i < 20; i++) step(); step = () => {}; lastGrp = 'pigs'; fadeA = 0; }
+else if (VIEW === 'cutlist') { lsSet('sgf_trailer2', true); lsSet('sgf_nrtrailer', true); openCutList(); for (let i = 0; i < 10; i++) draw(); step = () => {}; }
 else if (VIEW === 'b2') { mode = 0; p1.setChar(CHARS.find(c => c.name === '캡틴베이컨')); p2.setChar(CHARS.find(c => c.name === '꿀린')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 330; p2.x = 630; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'oldcut') { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let i = 0; i < 125; i++) step(); p1.meter = 100; startUlt(p1); for (let i = 0; i < 50; i++) step(); lastGrp = 'fight'; fadeA = 0; step = () => {}; }
 else if (VIEW === 'big') { mode = 0; p1.setChar(CHARS.find(c => c.name === '훈제돈')); p2.setChar(CHARS.find(c => c.name === '우주꿀돈')); startMatch(); for (let i = 0; i < 125; i++) step(); p1.x = 300; p2.x = 660; p1.state = p2.state = 'idle'; lastGrp = 'fight'; fadeA = 0; step = () => {}; }
