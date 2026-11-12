@@ -584,7 +584,7 @@ const CHARS = [
     tf: { name: '선인 모드', type: 'champion', color: '#ff6d00', desc: '펀치 피해·속도↑' },
     ult: { name: '구미호 모드', type: 'gumiho', desc: '아홉 꼬리 폭발 + 12초 동안 강해짐' } },
   // 이타돼리: 저주를 몸에 품은 돼지 고등학생 (관리자가 '업데이트 공개'를 누르면 모두 해금 · 한 번 켜면 못 끔)
-  { name: '이타돼리', title: '저주를 품은 돼지 고등학생', type: '격투', hp: 106, power: 1.06, speed: 1.08, ultRate: 0.9, scale: 1.12, unlock: 'admin', relId: 'itadori', how: '관리자가 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
+  { name: '이타돼리', title: '저주를 품은 돼지 고등학생', type: '격투', hp: 106, power: 1.06, speed: 1.08, ultRate: 0.9, scale: 1.12, unlock: 'admin', relId: 'itadori', quest: true, how: '공개 후 10일 안에 이타돼리 퀘스트를 깨면 얻어요 (🎁 보상 센터)', perk: '퀘스트 한정 돼지',
     look: look('#ffc9b8', '#b5715d', '#ffe3d8', '#f4a18e', '#3e2723', '#4e342e', '#c62828', ['uniform', 'pinkhair', 'bold'], 1.03),
     skill: { name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' },
     skills: [{ name: '늦게 터지는 주먹', type: 'lateFist', cd: 150, desc: 'U: 맞히면 한 박자 뒤에 한 번 더 쾅' }, { name: '검은 번개', type: 'blackBolt', cd: 260, desc: '↓+U: 35% 확률로 검은 번개 → 2.5배 피해' }, { name: '돌려차기', type: 'spinKick', cd: 170, desc: '→+U: 빙글 돌며 3연속 발차기' }],
@@ -599,7 +599,7 @@ const CHARS = [
     tf: { name: '센 불 모드', type: 'fire', color: '#ff6f00', desc: '공격력↑ · 화상' },
     ult: { name: '바비큐 파티', type: 'bbqParty', desc: '상대 발밑에 숯불 그릴 → 불기둥 세 번 + 화상' } },
   // 우주꿀돈: 유리 헬멧 · 흰 우주복의 우주비행사 돼지. 중력을 다룸
-  { name: '우주꿀돈', title: '달에서 온 우주비행사', type: '중력', hp: 98, power: 1.03, speed: 1.02, ultRate: 0.9, scale: 1.1, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
+  { name: '우주꿀돈', title: '달에서 온 우주비행사', type: '중력', hp: 98, power: 1.03, speed: 1.02, ultRate: 0.9, scale: 1.1, unlock: 'admin', relId: 'big1', quest: true, how: '🎁 보상 센터의 우주꿀돈 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
     look: look('#ffc4cf', '#c47a8a', '#ffe0e6', '#f5a3b3', '#37474f', '#5d4037', '#7c4dff', ['spacesuit', 'helmet', 'bold'], 1.02),
     skill: { name: '저중력 띄우기', type: 'lowGrav', cd: 220, desc: 'U: 상대를 둥실 높이 띄움' },
     skills: [{ name: '저중력 띄우기', type: 'lowGrav', cd: 220, desc: 'U: 상대를 둥실 높이 띄움' }, { name: '블랙홀 구슬', type: 'blackHole', cd: 420, desc: '↓+U: 천천히 날아가며 상대를 빨아들이는 구슬' }, { name: '로켓 박치기', type: 'rocketHead', cd: 180, desc: '→+U: 등 로켓으로 무적 돌진' }],
@@ -1931,7 +1931,7 @@ function dealHit(a, d, h) {
   if (d.hp <= 0) {
     d.state = 'ko'; d.koT = 0; d.vy = -11; d.vx = (Math.sign(d.x - h.src) || -d.facing) * 9; d.atk = null;
     hitstop = 22; shake = 18; SFX.ko(); setTimeout(SFX.squeal, 250);
-    if (h.kind === 'ult') a.stats.ultFinish = true;
+    if (h.kind === 'ult') a.stats.ultFinish = true; if (h.kind === 'ult' && a === p1 && mode === 1) nqAdd('ultko', 1);   // 퀘스트: 필살기로 K.O.
     if (scene === 'fight') endRound(a, 'K.O.!!');
     return 'hit';
   }
@@ -4101,17 +4101,54 @@ const NQ = [
   { id: 'clear', name: '일일 미션 올 클리어 2번', goal: 2 },
   { id: 'shift', name: '장사 15번 끝내기', goal: 15 }
 ];
-function nqState() { const q = lsGet('sgf_nq', {}); return q; }
+// 👊 이타돼리 퀘스트: 관리자가 공개(또는 다시 열기)한 뒤 10일 안에만 진행 · 깨야 해금
+const IQ = [
+  { id: 'ranked', name: '랭크전 10번 이기기', goal: 10 },
+  { id: 'ultko', name: '필살기로 K.O. 5번', goal: 5 },
+  { id: 'streak', name: '연승 모드에서 5연승 하기', goal: 5 },
+  { id: 'clear', name: '일일 미션 올 클리어 3번', goal: 3 }
+];
+// 🚀 우주꿀돈 퀘스트 (대규모 업데이트에서 제일 센 돼지라 퀘스트로)
+const SQ = [
+  { id: 'spin', name: '행운 룰렛 10번 돌리기', goal: 10 },
+  { id: 'ranked', name: '랭크전 8번 이기기', goal: 8 },
+  { id: 'shift', name: '장사 20번 끝내기', goal: 20 },
+  { id: 'ultko', name: '필살기로 K.O. 3번', goal: 3 }
+];
+const IT_DAYS = 10;
+const itWinEnd = () => (REL.itadoriWin || REL.itadori || 0) + IT_DAYS * 86400000;
+const itWinOpen = () => /newchars/.test(location.search) || (isRel('itadori') && Date.now() < itWinEnd());
+const QUESTS = [
+  { ch: '돼루토', icon: '🍥', key: 'sgf_nq', steps: NQ, open: () => isReleased() },
+  { ch: '이타돼리', icon: '👊', key: 'sgf_q_it', steps: IQ, open: () => itWinOpen(), timed: true },
+  { ch: '우주꿀돈', icon: '🚀', key: 'sgf_q_sp', steps: SQ, open: () => isRel('big1') }
+];
+const qState = Q => lsGet(Q.key, {});
+const qDoneN = Q => { const q = qState(Q); return Q.steps.filter(s => (q[s.id] || 0) >= s.goal).length; };
+const qOpen = Q => Q.open() && !lsGet('sgf_unlock_' + Q.ch, false);
+const openQuests = () => QUESTS.filter(qOpen);
+function nqState() { return qState(QUESTS[0]); }
 function nqStep() { const q = nqState(); return NQ.findIndex(s => (q[s.id] || 0) < s.goal); }
+// 진행: 열려 있는 퀘스트 전부에 한꺼번에 쌓임 (각 퀘스트 안의 4가지도 한꺼번에)
 function nqAdd(id, v, max) {
-  if (!isReleased() || isUnlocked(CHARS.find(c => c.name === '돼루토'))) return;
-  const st = NQ.find(s => s.id === id); if (!st) return;   // 4가지를 한꺼번에 진행 (예전: 지금 단계만 올라가서 다른 걸 해도 안 쌓이던 버그)
-  const q = nqState(), was = q[id] || 0; if (was >= st.goal) return;
-  q[id] = Math.min(st.goal, max ? Math.max(was, v) : was + v); lsSet('sgf_nq', q); cloudDirty();
-  if (q[id] >= st.goal) {
-    if (nqStep() < 0) { lsSet('sgf_unlock_돼루토', true); cloudDirty(); popup({ icon: '🍥', title: '돼루토 해금!!', lines: ['퀘스트 4단계를 모두 끝냈어요!', '캐릭터 선택에서 돼루토를 고를 수 있어요'], big: true }); }
-    else toast(`🍥 돼루토 퀘스트 완료: ${st.name} (${NQ.filter(s => (q[s.id] || 0) >= s.goal).length}/4)`);
+  for (const Q of QUESTS) {
+    if (!qOpen(Q)) continue;
+    const st = Q.steps.find(s => s.id === id); if (!st) continue;
+    const q = qState(Q), was = q[id] || 0; if (was >= st.goal) continue;
+    q[id] = Math.min(st.goal, max ? Math.max(was, v) : was + v); lsSet(Q.key, q); cloudDirty();
+    if (q[id] < st.goal) continue;
+    if (qDoneN(Q) >= Q.steps.length) { lsSet('sgf_unlock_' + Q.ch, true); cloudDirty(); popup({ icon: Q.icon, title: `${Q.ch} 해금!!`, lines: ['퀘스트 4가지를 모두 끝냈어요!', `캐릭터 선택에서 ${Q.ch}를 고를 수 있어요`], big: true }); }
+    else toast(`${Q.icon} ${Q.ch} 퀘스트 완료: ${st.name} (${qDoneN(Q)}/${Q.steps.length})`);
   }
+}
+function questLines(Q) {
+  const q = qState(Q), L = Q.steps.map(s => `${(q[s.id] || 0) >= s.goal ? '✅' : '⬜'} ${s.name}  ${Math.min(q[s.id] || 0, s.goal)}/${s.goal}`);
+  if (Q.timed) { const d = Math.max(0, itWinEnd() - Date.now()); L.push(`⏰ 남은 기간 ${Math.floor(d / 86400000)}일 ${Math.floor(d / 3600000) % 24}시간`); }
+  return L;
+}
+function showQuests() {
+  const L = openQuests(); if (!L.length) return;
+  for (const Q of L) popup({ icon: Q.icon, title: `${Q.ch} 퀘스트 (4가지 다 하면 해금)`, lines: questLines(Q) });
 }
 // ---- 업데이트 예고편 (공개 시각이 지나면 한 번 자동으로) ----
 const TRAILER_T = 900;
@@ -4191,7 +4228,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261112-15';
+const BUILD = '20261112-16';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -4324,7 +4361,7 @@ function drawNrTrailer() {
 // 공개(REL.itadori)되면: 모두에게 무료 해금 + 예고편 한 번 (싸우는 중이면 그 판은 승리)
 let REL = lsGet('sgf_rel', {});   // 관리자가 공개한 업데이트 { itadori: 공개 시각 } — 서버가 10초마다 알려 줌
 const isRel = id => !!REL[id] || /newchars/.test(location.search);
-function setRel(r) { if (!r || typeof r !== 'object') return; const was = { ...REL }; REL = { ...REL, ...r }; lsSet('sgf_rel', REL); if (!was.itadori && REL.itadori) toast('🆕 새 돼지 이타돼리 공개!'); if (!was.big1 && REL.big1) toast('🎉 대규모 업데이트 공개! 새 돼지 3마리'); }
+function setRel(r) { if (!r || typeof r !== 'object') return; const was = { ...REL }; REL = { ...REL, ...r }; lsSet('sgf_rel', REL); if (!was.itadori && REL.itadori) toast('🆕 새 돼지 이타돼리 공개! 10일 안에 퀘스트를 깨면 해금'); else if (was.itadoriWin && REL.itadoriWin > was.itadoriWin) toast('👊 이타돼리 퀘스트 기간이 다시 열렸어요! (10일)'); if (!was.big1 && REL.big1) toast('🎉 대규모 업데이트 공개! 새 돼지 3마리'); }
 // 스킬 시작 효과
 function itSkillStart(f, s) {
   const k = f.sc / 1.15;
@@ -4397,7 +4434,7 @@ function updateItTrailer() {
   if (T === 640) { SFX.boom(); itt.sh = 26; }
   if (T >= 660 && T < 760 && T % 8 === 0) whipS(1.2, 0.5);
   if (T === 780) SFX.bell();
-  if (T >= ITT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '👊', title: '이타돼리 등장!', lines: ['모두에게 무료로 해금됐어요!', '늦게 터지는 주먹 · 검은 번개 · 돌려차기', '필살기: 저주왕 빙의 (15초)'], big: true }); }
+  if (T >= ITT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '👊', title: '이타돼리 등장!', lines: ['⏰ 10일 안에 이타돼리 퀘스트를 깨면 해금!', '늦게 터지는 주먹 · 검은 번개 · 돌려차기', '필살기: 저주왕 빙의 (15초)', '🎁 보상 센터에서 퀘스트 확인'], big: true }); }
 }
 function drawItTrailer() {
   const T = itt.t, c = CHARS.find(x => x.name === '이타돼리'), L = c.look;
@@ -4435,7 +4472,7 @@ function drawItTrailer() {
     drawPig(W / 2 + 230, H - 40, -1, L, { t: T, scale: 1.6, victory: true });
     txt('이타돼리', W / 2 - 150, H / 2 - 30, 84 * k, '#fff', '#b71c1c', 14);
     if (lt > 25) txt('저주를 품은 돼지 고등학생', W / 2 - 150, H / 2 + 40, 22, '#ffcdd2', '#000', 6);
-    if (lt > 45) txt('🎁 모두에게 무료 해금!', W / 2 - 150, H / 2 + 85, 20, '#ffd740', '#000', 5);
+    if (lt > 45) txt('⏰ 10일 안에 퀘스트를 깨면 해금!', W / 2 - 150, H / 2 + 85, 20, '#ffd740', '#000', 5);
   }
   ctx.restore();
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 34); ctx.fillRect(0, H - 30, W, 30);
@@ -4478,7 +4515,7 @@ function bigUlt(f, o, T) {
     if (T >= 70) ultEnd(f, o);
   }
   if (type === 'meteor') {   // 하늘에서 유성이 우수수
-    if (T >= 10 && T < 110 && T % 7 === 0) addObj({ owner: f, kind: 'meteor', x: clamp(o.x + srand(-220, 220), 30, W - 30), y: -60, vx: srand(-1.5, 1.5), vy: 9, g: 0.15, w: 56, h: 56, dmg: 5.5, kb: 4, stun: 20, life: 120, ult: true, txt: ['쾅!', '유성!', '콰콰광!'] });
+    if (T >= 10 && T < 110 && T % 7 === 0) addObj({ owner: f, kind: 'meteor', x: clamp(o.x + (T % 21 === 0 ? 0 : srand(-170, 170)), 30, W - 30), y: -60, vx: T % 21 === 0 ? 0 : srand(-1.5, 1.5), vy: 9, g: 0.15, w: 56, h: 56, dmg: 5.5, kb: 4, stun: 20, life: 120, ult: true, txt: ['쾅!', '유성!', '콰콰광!'] });
     if (T % 14 === 0 && T < 110) SFX.boom();
     if (T >= 125) ultEnd(f, o);
   }
@@ -4548,7 +4585,7 @@ function updateBigTrailer() {
   if (T === 330) { SFX.boom(); bigt.sh = 22; }
   if (T >= 470 && T < 600 && T % 12 === 0) tone(523 + (T % 36) * 12, 0.15, 'triangle', 0.09);
   if (T === 700) SFX.bell();
-  if (T >= BIGT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '🎉', title: '대규모 업데이트!', lines: ['새 돼지 3마리 모두 무료 해금!', '🍖 훈제돈 · 🚀 우주꿀돈 · 🎤 핑크하트', '캐릭터 선택에서 골라 보세요'], big: true }); }
+  if (T >= BIGT_T || (T > 60 && (pressed.Escape || pressed.Enter || pressed.Space))) { toTitle(); popup({ icon: '🎉', title: '대규모 업데이트!', lines: ['🍖 훈제돈 · 🎤 핑크하트: 모두 무료 해금!', '🚀 우주꿀돈: 보상 센터 퀘스트를 깨면 해금', '캐릭터 선택에서 골라 보세요'], big: true }); }
 }
 function drawBigTrailer() {
   const T = bigt.t, C = n => CHARS.find(c => c.name === n);
@@ -4579,7 +4616,7 @@ function drawBigTrailer() {
     ctx.fillStyle = '#07040a'; ctx.fillRect(0, 0, W, H);
     BIG_CHARS.forEach((n, i) => drawPig(220 + i * 260, H - 60, i === 2 ? -1 : 1, C(n).look, { t: T + i * 20, scale: 1.2, victory: true }));
     txt('새 돼지 3마리 등장!', W / 2, 120, 50 * k, '#fff', '#e65100', 10);
-    if (lt > 30) txt('🎁 모두에게 무료 · 캐릭터 선택에서 바로', W / 2, 180, 22, '#ffd740', '#000', 6);
+    if (lt > 30) txt('🎁 훈제돈·핑크하트 무료 · 🚀 우주꿀돈은 퀘스트', W / 2, 180, 22, '#ffd740', '#000', 6);
   }
   ctx.restore();
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 34); ctx.fillRect(0, H - 30, W, 30);
@@ -4699,6 +4736,7 @@ function spinWheel() {
   const TAU = Math.PI * 2, base = ((RWS.ang % TAU) + TAU) % TAU;
   RWS.from = RWS.ang; const fast = (inv.use.fastSpin || 0) > 0; RWS.T = fast ? 45 : 230;   // 💨 룰렛 빨리 돌리기 (상점)
   RWS.to = RWS.ang - base + TAU * (fast ? 2 : 6) + (TAU - mid); RWS.t = 0; RWS.res = i;
+  nqAdd('spin', 1);
   rwProgress('spin'); rwSave(); cloudDirty(); SFX.confirm();
   return true;
 }
@@ -4812,13 +4850,13 @@ function drawReward() {
   });
   txt(RW.mAll ? '🏅 오늘 미션 올 클리어!' : '3개 다 받으면: 🪙 보너스 + 🎟️ 티켓 1장', x0 + 220, 404, 13, RW.mAll ? '#69f0ae' : '#ffcc80', '#000', 3);
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(x0, 420, 440, 66, 10); ctx.fill();
-  const nrc = CHARS.find(c => c.name === '돼루토'), qi = nqStep();
-  if (isReleased() && nrc && !isUnlocked(nrc) && qi >= 0) {
-    const q = nqState(), st = NQ[qi];
-    addHot(x0, 420, 440, 66, () => popup({ icon: '🍥', title: '돼루토 퀘스트 (4가지 다 하면 해금)', lines: NQ.map(s => `${(q[s.id] || 0) >= s.goal ? '✅' : '⬜'} ${s.name}  ${Math.min(q[s.id] || 0, s.goal)}/${s.goal}`) }));   // 눌러서 4가지 전부 보기
-    txt(`🍥 돼루토 퀘스트 ${NQ.filter(s => (q[s.id] || 0) >= s.goal).length}/4 완료 · 남은 것`, x0 + 12, 436, 14, '#ffab40', '#000', 3, 'left');
+  const oq = openQuests();
+  if (oq.length) {
+    const Q = oq[0], q = qState(Q), qi = Q.steps.findIndex(s => (q[s.id] || 0) < s.goal), st = Q.steps[Math.max(0, qi)];
+    addHot(x0, 420, 440, 66, () => showQuests());   // 눌러서 퀘스트 전부 보기
+    txt(`${Q.icon} ${Q.ch} 퀘스트 ${qDoneN(Q)}/4${Q.timed ? ` · ⏰ ${Math.max(0, Math.ceil((itWinEnd() - Date.now()) / 86400000))}일 남음` : ''}${oq.length > 1 ? ` · 외 ${oq.length - 1}개 (눌러서 보기)` : ''}`, x0 + 12, 436, fitSize('가'.repeat(30), 14, 420), '#ffab40', '#000', 3, 'left');
     txt(`${st.name}  (${Math.min(q[st.id] || 0, st.goal)}/${st.goal})`, x0 + 12, 462, fitSize(st.name, 14, 330), '#fff', null, 0, 'left');
-    for (let k = 0; k < 4; k++) { ctx.fillStyle = (q[NQ[k].id] || 0) >= NQ[k].goal ? '#ff9100' : k === qi ? (gT % 40 < 20 ? '#ffd180' : '#ff9100') : 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.arc(x0 + 370 + k * 18, 450, 6, 0, Math.PI * 2); ctx.fill(); }
+    for (let k = 0; k < 4; k++) { ctx.fillStyle = (q[Q.steps[k].id] || 0) >= Q.steps[k].goal ? '#ff9100' : k === qi ? (gT % 40 < 20 ? '#ffd180' : '#ff9100') : 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.arc(x0 + 370 + k * 18, 450, 6, 0, Math.PI * 2); ctx.fill(); }
   } else {
   txt(`🎒 보유 아이템: ⚡필살 ${inv.use.meter || 0} · 🛡️체력 ${inv.use.hpup || 0} · 🍀부활 ${inv.use.revive || 0}`, x0 + 220, 440, 13, '#fff59d', null);
   txt(`💥 잭팟 ${RW.jack || 0}번 · 보상 기준 🪙 ${fmtN(rwBase())} (장사가 클수록 커져요)`, x0 + 220, 466, 12, '#ccc', null);
@@ -4898,7 +4936,7 @@ let tp = lsGet('sgf_tp', 0);
 const isUnlocked = c => {
   if (!c || c.unlock == null) return true;
   if (IS_ADMIN && isMember()) return true;   // 관리자 계정은 모든 돼지를 씀
-  if (c.relId) return isRel(c.relId);   // 관리자가 공개한 업데이트 돼지: 모두 무료
+  if (c.relId) { if (!isRel(c.relId)) return false; if (!c.quest) return true; }   // 공개된 업데이트 돼지: 퀘스트 돼지가 아니면 모두 무료
   const k = 'sgf_unlock_' + c.name;
   if (lsGet(k, false)) return true;
   if (c.unlock === 'admin') return !!(c.legacy && lsGet('sgf_unlock_' + c.legacy, false));   // 관리자 선물 돼지: 관리자가 켜 줘야만 해금 (예전 이름으로 받은 것도 인정)
@@ -7026,7 +7064,7 @@ if (/autotest/.test(location.search)) {
         if (sk === 0 && me === IT && !(hp0 - p2.hp > 9.5)) throw new Error('늦게 터지는 주먹 실패');
         if (sk === 0 && me === NR && clones !== 2) throw new Error('분신술 실패'); if (sk === 0 && me === DV && !slowSeen) throw new Error('오버클럭 실패');
         const uh0 = p2.hp;
-        if (scene === 'fight') { p1.meter = 100; p1.state = 'idle'; startUlt(p1); for (let n = 0; n < NEW_ULT_CUT + 60 && scene === 'fight'; n++) { step(); if (n % 25 === 0) draw(); } if (BIG_THEME[me.ult.type] && scene === 'fight' && !(p2.hp < uh0)) throw new Error(me.ult.name + ' 필살기 피해 없음'); out.push(`  ult ${me.ult.name}: cyber=${p1.cyberT} fox=${p1.foxT} curse=${p1.curseT} state=${p1.state}`); if (scene === 'fight' && !BIG_THEME[me.ult.type] && !(p1.cyberT > 0 || p1.foxT > 0 || p1.curseT > 0)) throw new Error('신캐 필살기 실패'); }
+        if (scene === 'fight') { p1.meter = 100; p1.state = 'idle'; startUlt(p1); for (let n = 0; n < NEW_ULT_CUT + (BIG_THEME[me.ult.type] ? 200 : 60) && scene === 'fight'; n++) { step(); if (n % 25 === 0) draw(); } if (BIG_THEME[me.ult.type] && scene === 'fight' && !(p2.hp < uh0)) throw new Error(me.ult.name + ' 필살기 피해 없음'); out.push(`  ult ${me.ult.name}: cyber=${p1.cyberT} fox=${p1.foxT} curse=${p1.curseT} state=${p1.state}`); if (scene === 'fight' && !BIG_THEME[me.ult.type] && !(p1.cyberT > 0 || p1.foxT > 0 || p1.curseT > 0)) throw new Error('신캐 필살기 실패'); }
       }
       { mode = 0; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 400; p2.x = 520; p1.facing = 1; p2.facing = -1; p2.state = 'block'; const r1 = dealHit(p1, p2, { dmg: 10, kind: 'ult', src: p1.x, height: 'mid', stun: 20 }); p2.state = 'block'; p2.stun = 0; const r2 = dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 20 }); out.push(`ult vs block: ${r1} · punch vs block: ${r2}`); if (r1 !== 'hit' || r2 !== 'block') throw new Error('필살기 방어 무시 실패'); }
       { mode = 0; p1.setChar(NR); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 150; p2.x = 760; p2.state = 'idle'; p1.state = 'idle'; p1.inp = { down: true }; startSkill(p1, false); const h0 = p2.hp; let hitAt = -1; for (let n = 0; n < RASEN_CUT + 80 && scene === 'fight'; n++) { p2.x = Math.max(p2.x, 700); step(); if (hitAt < 0 && p2.hp < h0) hitAt = n; } out.push(`rasen dash: hit=${hitAt >= 0} dmg=${(h0 - p2.hp).toFixed(1)} p1.x=${p1.x | 0}`); if (hitAt < 0) throw new Error('회오리 구슬 달려가서 맞히기 실패'); }
@@ -7038,6 +7076,8 @@ if (/autotest/.test(location.search)) {
       scene = 'title'; startTrailer(); for (let n = 0; n < TRAILER_T + 5 && scene === 'trailer'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`trailer: end scene=${scene} pop=${POPQ.length + (POP ? 1 : 0)}`); if (scene !== 'title') throw new Error('예고편 실패'); POPQ.length = 0; POP = null;
       localStorage.removeItem('sgf_unlock_돼루토'); lsSet('sgf_nq', {}); nqAdd('ranked', 1); nqAdd('shift', 1); if (nqState().ranked !== 1 || nqState().shift !== 1) throw new Error('퀘스트 동시 진행 실패'); for (const st of NQ) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak');
       out.push(`quest: step=${nqStep()} unlocked=${isUnlocked(NR)}`); if (!isUnlocked(NR)) throw new Error('돼루토 퀘스트 실패'); localStorage.removeItem('sgf_unlock_돼루토'); POPQ.length = 0;
+      for (const Q of QUESTS.slice(1)) { const c = CHARS.find(x => x.name === Q.ch); localStorage.removeItem('sgf_unlock_' + Q.ch); lsSet(Q.key, {}); const before = isUnlocked(c); for (const st of Q.steps) for (let k = 0; k < st.goal; k++) nqAdd(st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`quest ${Q.ch}: before=${before} after=${isUnlocked(c)}`); if (before || !isUnlocked(c)) throw new Error(Q.ch + ' 퀘스트 실패'); localStorage.removeItem('sgf_unlock_' + Q.ch); POPQ.length = 0; POP = null; }
+      if (!isUnlocked(CHARS.find(x => x.name === '훈제돈')) || !isUnlocked(CHARS.find(x => x.name === '핑크하트'))) throw new Error('무료 돼지 해금 실패');
       localStorage.removeItem('sgf_unlock_볼트돈'); RWS.slots = wheelSlots(); RWS.res = RWS.slots.findIndex(x => x.k === 'char'); wheelDone(); out.push(`wheel char: slot=${RWS.res} unlocked=${isUnlocked(DV)}`); if (RWS.res < 0 || !isUnlocked(DV)) throw new Error('룰렛 볼트돈 실패'); localStorage.removeItem('sgf_unlock_볼트돈'); POPQ.length = 0; POP = null;
       localStorage.removeItem('sgf_unlock_볼트돈'); RW.pity = PITY_N - 1; RW.bonus = 5; RWS.t = -1; spinWheel(); const pk = RWS.slots[RWS.res].k; for (let n = 0; n < RWS.T + 2; n++) updateReward(); out.push(`pity: res=${pk} pity=${RW.pity} unlocked=${isUnlocked(DV)}`); if (pk !== 'char' || !isUnlocked(DV)) throw new Error('200번 확정 실패'); localStorage.removeItem('sgf_unlock_볼트돈');
       inv.use.fastSpin = 1; spinWheel(); out.push(`fast spin T=${RWS.T}`); if (RWS.T !== 45) throw new Error('빠른 룰렛 실패'); for (let n = 0; n < 50; n++) updateReward(); inv.use.fastSpin = 0; POPQ.length = 0; showOdds(); out.push(`odds: ${POPQ[0].lines.length} lines`); POPQ.length = 0; POP = null;

@@ -209,7 +209,9 @@ async function admin(req, env, db, path) {
   if (path === '/admin/release' && req.method === 'POST') {   // 🚀 업데이트 공개 (새 돼지 등): 한 번 켜면 끌 수 없음 — 추가만 되고 지우는 길은 없음
     const id = String(b.id || '').trim(); if (!['itadori', 'big1'].includes(id)) return err('없는 업데이트예요');
     let rel = {}; try { rel = JSON.parse(await getConf(db, 'rel', '{}')) || {}; } catch (e) {}
-    if (!rel[id]) { rel[id] = now; await setConf(db, 'rel', JSON.stringify(rel)); }
+    if (!rel[id]) rel[id] = now;
+    if (id === 'itadori' && (!rel.itadoriWin || b.reopen)) rel.itadoriWin = now;   // 이타돼리 퀘스트 기간(10일) 시작 · 관리자가 원하면 다시 열기
+    await setConf(db, 'rel', JSON.stringify(rel));
     return json({ ok: true, rel });
   }
   if (path === '/admin/mreset' && req.method === 'POST') {   // 🎯 일일 미션 초기화: 모두의 오늘 미션을 새로 뽑고 진행·받기도 처음부터 (게임이 10초 안에 받아 감)
