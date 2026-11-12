@@ -185,6 +185,15 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
         <span class="muted" id="dmeta"></span>
       </div>
       <fieldset>
+        <legend>🎁 이 사람에게 주기</legend>
+        <div class="bar" style="margin:0">
+          <select id="giveSel"><option value="">🐷 줄 돼지·모습 고르기</option></select>
+          <button id="giveBtn" class="primary">🎁 주기</button>
+          <button id="takeBtn">↩️ 빼앗기</button>
+        </div>
+        <p class="muted" id="giveNow" style="margin:6px 0 0">-</p>
+      </fieldset>
+      <fieldset>
         <legend>계정 관리</legend>
         <div class="actions">
           <button id="aPw">🔑 비밀번호 바꾸기</button>
@@ -371,7 +380,7 @@ const setV = (k, v) => { if (v === undefined) delete save[k]; else save[k] = JSO
 async function openUser(uid) {
   try {
     const u = await api('/admin/user?uid=' + encodeURIComponent(uid));
-    cur = u; save = { ...(u.save || {}) };
+    cur = u; save = { ...(u.save || {}) }; showGive();
     $('detail').classList.add('show');
     $('dname').textContent = u.login;
     $('dtags').innerHTML = (u.isAdmin ? '<span class="tag adm">관리자</span> ' : '') + (u.g ? `<span class="tag on">G 구글 연결${u.gonly ? ' (구글로만 가입)' : ''}</span> ` : '') + (banned(u) ? `<span class="tag ban">정지 · ${u.ban_until ? when(u.ban_until) + '까지' : '영구'}${u.ban_reason ? ' · ' + esc(u.ban_reason) : ''}</span> ` : '') + (u.totp_on ? '<span class="tag on">🔐 2단계 인증</span> ' : '') + (u.sessions ? `<span class="tag on">로그인 기기 ${u.sessions}</span> ` : '') + (u.fails && u.fails.n ? `<span class="tag ban">비번 틀림 ${u.fails.n}회</span>` : '');
@@ -487,6 +496,27 @@ $('evOn').onclick = async () => {
   if (b.coin <= 1 && b.tp <= 1 && b.ty <= 1 && !b.jackpot && !b.spins && !b.luck && !b.daily && !b.sale) { toast('켤 이벤트를 하나 이상 골라 주세요'); return; }
   try { const d = await api('/admin/event', 'POST', b); showEvent(d.event); toast('이벤트를 켰어요 (10초 안에 모두에게 적용)'); } catch (e) { toast(e.message); }
 };
+// ---- 🎁 한 사람에게 돼지·모습 주기 (저장 데이터에 해금 표시를 넣고 바로 저장 → 그 사람 게임에 10초 안에) ----
+const GIVE_EXTRA = [['sgf_itmodulo', '👊 이타돼리 · 모듈로 모습'], ['이타돼리', '⚡ 이타돼리 · 각성(스쿠나 모습)']];
+const giveHas = k => k.startsWith('') ? (() => { try { return !!JSON.parse(save.sgf_awake || '{}')[k.slice(6)]?.done; } catch (e) { return false; } })() : save[k] === 'true';
+async function showGive() {
+  if (!CHAR_NAMES.length) await loadCharNames();
+  const sel = $('giveSel'), v = sel.value; sel.innerHTML = '<option value="">🐷 줄 돼지·모습 고르기</option>';
+  for (const n of CHAR_NAMES) sel.add(new Option(`${giveHas('sgf_unlock_' + n) ? '✅ ' : ''}${n}`, 'sgf_unlock_' + n));
+  for (const [k, l] of GIVE_EXTRA) sel.add(new Option(`${giveHas(k) ? '✅ ' : ''}${l}`, k));
+  sel.value = v;
+  const have = CHAR_NAMES.filter(n => giveHas('sgf_unlock_' + n)); $('giveNow').textContent = `받은 돼지(해금 표시): ${have.length ? have.join(' · ') : '없음'} · ✅ = 이미 있음 (기본 돼지·티어 해금 돼지는 표시 없이도 쓸 수 있어요)`;
+}
+async function giveTake(on) {
+  const k = $('giveSel').value; if (!cur || !k) { toast('줄 돼지·모습을 골라 주세요'); return; }
+  const label = $('giveSel').selectedOptions[0].textContent.replace('✅ ', '');
+  if (!await uiConfirm(`${cur.login} 님에게서 「${label}」을(를) ${on ? '줄' : '빼앗을'}까요?`)) return;
+  if (k.startsWith('')) { let a = {}; try { a = JSON.parse(save.sgf_awake || '{}'); } catch (e) {} const nm = k.slice(6); if (on) a[nm] = { ...(a[nm] || {}), done: true }; else if (a[nm]) delete a[nm].done; save.sgf_awake = JSON.stringify(a); if (on && nm === '이타돼리') save['sgf_unlock_이타돼리'] = 'true'; }
+  else if (on) save[k] = 'true'; else delete save[k];
+  try { await api('/admin/user', 'PUT', { uid: cur.uid, save }); toast(on ? `🎁 ${cur.login} 님에게 ${label}을(를) 줬어요 (10초 안에 게임에 반영)` : `↩️ ${label}을(를) 빼앗았어요`); openUser(cur.uid); } catch (e) { toast(e.message); }
+}
+$('giveBtn').onclick = () => giveTake(true);
+$('takeBtn').onclick = () => giveTake(false);
 // ---- 지금 접속 · 밸런스 패치 ----
 const SCENE_KO = { title: '타이틀', select: '돼지 고르기', fight: '싸움', intro: '싸움', roundEnd: '싸움', cutscene: '요리 컷신', vs: '대전 준비', opening: '오프닝', market: '시장', tycoon: '포장마차', bank: '은행', ranking: '랭킹', reward: '보상 센터', online: '온라인', betpick: 'AI 베팅', endings: '엔딩', story: '스토리', trailer: '예고편', keys: '키 설정' };
 setInterval(() => { if (!document.hidden && $('app').style.display !== 'none') loadStats(); }, 15000);
