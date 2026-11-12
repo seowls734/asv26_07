@@ -207,7 +207,7 @@ async function admin(req, env, db, path) {
     return json({ ok: true, gift: on ? g : null });
   }
   if (path === '/admin/release' && req.method === 'POST') {   // 🚀 업데이트 공개 (새 돼지 등): 한 번 켜면 끌 수 없음 — 추가만 되고 지우는 길은 없음
-    const id = String(b.id || '').trim(); if (!['itadori', 'big1'].includes(id)) return err('없는 업데이트예요');
+    const id = String(b.id || '').trim(); if (!['itadori', 'big1', 'big2'].includes(id)) return err('없는 업데이트예요');
     let rel = {}; try { rel = JSON.parse(await getConf(db, 'rel', '{}')) || {}; } catch (e) {}
     if (!rel[id]) rel[id] = now;
     if (id === 'itadori' && (!rel.itadoriWin || b.reopen)) rel.itadoriWin = now;   // 이타돼리 퀘스트 기간(10일) 시작 · 관리자가 원하면 다시 열기
