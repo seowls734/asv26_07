@@ -146,7 +146,7 @@ function checkSave(s) {
 
 // ---- 관리자 ----
 // 목록에서 보여 줄 요약값 (저장 데이터는 { sgf_키: "JSON 문자열" } 모양)
-const SUM_KEYS = { coin: 'sgf_coin', debt: 'sgf_debt', bank: 'sgf_bank', tp: 'sgf_tp', end: 'sgf_end', tycoon: 'sgf_tycoon', rbest: 'sgf_rbest' };
+const SUM_KEYS = { coin: 'sgf_coin', debt: 'sgf_debt', bank: 'sgf_bank', tp: 'sgf_tp', tpv2: 'sgf_tpv2', tpv3: 'sgf_tpv3', end: 'sgf_end', tycoon: 'sgf_tycoon', rbest: 'sgf_rbest' };
 const sumCols = Object.entries(SUM_KEYS).map(([a, k]) => `json_extract(save, '$.${k}') AS s_${a}`).join(', ');
 async function admin(req, env, db, path) {
   const me = await who(db, req);

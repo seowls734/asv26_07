@@ -270,7 +270,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
 <div class="toast" id="toast"></div>
 <script>
 // 관리자 페이지도 새 버전이 올라오면 1분 안에 저절로 새로 불러옴 (브라우저가 10분 동안 옛 페이지를 들고 있어서)
-const ADMIN_BUILD = 'a-20261113-7';
+const ADMIN_BUILD = 'a-20261113-8';
 setInterval(() => { if (document.hidden) return; fetch('admin.html?t=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => { const m = t.match(/ADMIN_BUILD = '([^']+)'/); if (m && m[1] !== ADMIN_BUILD && !document.querySelector('[style*="z-index:99"]')) location.reload(); }).catch(() => {}); }, 60000);
 // 브라우저 창(confirm·prompt) 대신 페이지 안 창
 function uiAsk(msg, opt = {}) {
@@ -298,6 +298,12 @@ let page = 0, total = 0, cur = null, rows = [];
 const LIM = 50;
 
 const banned = u => !!(u && u.banned && (!u.ban_until || Date.now() < u.ban_until));
+const OLD_TIER_T = [0, 100, 250, 450, 700, 1000, 1400, 1850, 2350, 2900, 3500, 4200], TP_V2 = [0, 100, 220, 360, 520, 700, 900, 1080, 1250, 1410, 1560, 1700];
+function tpMap(o, src) { let i = 0; src.forEach((v, k) => { if (o >= v) i = k; }); const last = src.length - 1; return Math.round(i >= last ? TIERS[last][1] + (o - src[last]) * (TIERS[last][1] / src[last]) : TIERS[i][1] + (o - src[i]) / (src[i + 1] - src[i]) * (TIERS[i + 1][1] - TIERS[i][1])); }
+const tierIn = (v, src) => { let i = 0; src.forEach((x, k) => { if (v >= x) i = k; }); return i; };
+// 아직 새 버전으로 안 들어온 사람: 저장된 점수가 예전 기준 → 같은 티어로 보이게 (저장값은 그대로)
+const tpNow = (tp, v2, v3) => v3 ? tp : v2 ? tpMap(tp, TP_V2) : tpMap(tp, OLD_TIER_T);
+function rankTP(e) { const t = +e.tp || 0; if (e.v === 3) return t; if (e.tier != null) { if (tierIn(t, OLD_TIER_T) === e.tier) return tpMap(t, OLD_TIER_T); if (tierIn(t, TP_V2) === e.tier) return tpMap(t, TP_V2); if (tierIn(t, TIERS.map(x => x[1])) === e.tier) return t; } return tpMap(t, OLD_TIER_T); }
 const tierOf = v => { let i = 0; TIERS.forEach((t, k) => { if (v >= t[1]) i = k; }); const nx = TIERS[i + 1]; if (!nx) return TIERS[i][0]; const d = 4 - Math.min(3, Math.floor((v - TIERS[i][1]) / ((nx[1] - TIERS[i][1]) / 4))); return TIERS[i][0] + ' ' + d; };
 // 돈 단위: 게임과 같음 (K M B T Qa Qi Sx Sp Oc No Dc UDc … Vg … Ce UCe)
 const MONEY_U = (() => { const o = ['', 'U', 'D', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No'], t = ['', 'Dc', 'Vg', 'Tg', 'Qag', 'Qig', 'Sxg', 'Spg', 'Ocg', 'Nog', 'Ce'], L = [[1e3, 'K'], [1e6, 'M'], [1e9, 'B'], [1e12, 'T']]; for (let n = 4; n <= 101; n++) L.push([Number('1e' + (3 * n + 3)), n < 10 ? ['', '', '', '', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No'][n] : o[n % 10] + t[Math.floor(n / 10)]]); return L.reverse(); })();
@@ -364,7 +370,7 @@ async function loadUsers() {
         <td class="num" title="${full(parse(r.s_coin))}">${compact(parse(r.s_coin))}</td>
         <td class="num" title="${full(parse(r.s_debt))}">${compact(parse(r.s_debt))}</td>
         <td class="num">${compact(parse(r.s_bank))}</td>
-        <td>${tierOf(tp)} <span class="muted">${tp}</span></td>
+        <td>${tierOf(tpNow(tp, parse(r.s_tpv2), parse(r.s_tpv3)))} <span class="muted">${tp}${parse(r.s_tpv3) ? '' : ' (예전 기준)'}</span></td>
         <td class="num">${+parse(r.s_rbest) || 0}</td>
         <td>${ends.length}/4</td>
         <td class="num">${ty ? compact(ty.total) : '-'}</td>
@@ -412,7 +418,7 @@ const TYK = ['grade', 'grill', 'rep', 'staff', 'menu', 'side', 'deco', 'chain', 
 function fillForm() {
   for (const [id, k] of Object.entries(QUICK)) { const v = getV(k); delete $(id).dataset.exact; $(id).value = v == null ? '' : v; if (v != null && MONEY_IDS.includes(id)) showMoney($(id), +v); }
   $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank'));
-  $('h_tp').textContent = '티어: ' + tierOf(+getV('sgf_tp') || 0);
+  $('h_tp').textContent = '티어: ' + tierOf(tpNow(+getV('sgf_tp') || 0, getV('sgf_tpv2'), getV('sgf_tpv3'))) + (getV('sgf_tpv3') ? '' : ' (예전 기준 점수 · 다음 접속 때 옮겨짐)');
   const ends = getV('sgf_end') || [];
   $('endChecks').innerHTML = ENDINGS.map(([k, n]) => `<label><input type="checkbox" data-end="${k}" ${ends.includes(k) ? 'checked' : ''}> ${n} 엔딩</label>`).join('');
   $('f_unlock_gold').checked = !!getV('sgf_unlock_금한돈'); $('f_unlock_jo').checked = !!(getV('sgf_unlock_돼타로') || getV('sgf_unlock_무뚝돈'));
@@ -432,7 +438,7 @@ function formToSave() {
 for (const id of MONEY_IDS) $(id) && $(id).addEventListener('blur', () => { const el = $(id), n = moneyVal(el); if (n != null && isFinite(n)) showMoney(el, Math.round(n)); });   // 칸을 벗어나면 1000 → 1K 처럼 단위로
 for (const id of MONEY_IDS) $(id) && $(id).addEventListener('input', () => { delete $(id).dataset.exact; const h = { f_coin: 'h_coin', f_debt: 'h_debt', f_bank: 'h_bank' }[id]; if (!h) return; const n = parseMoney($(id).value.trim()); $(h).textContent = $(id).value.trim() === '' ? '' : isFinite(n) ? '= ' + full(n) : '❌ 알아볼 수 없는 단위'; });   // 적는 동안 바로 보여 줌
 $('detail').addEventListener('change', e => { const el = e.target; if (el.tagName !== 'INPUT' || el.closest('#raw')) return; formToSave(); renderRaw(); fillHints(); });
-function fillHints() { $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank')); $('h_tp').textContent = '티어: ' + tierOf(+getV('sgf_tp') || 0); }
+function fillHints() { $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank')); $('h_tp').textContent = '티어: ' + tierOf(tpNow(+getV('sgf_tp') || 0, getV('sgf_tpv2'), getV('sgf_tpv3'))); }
 function renderRaw() {
   $('raw').innerHTML = Object.keys(save).sort().map(k => `<div class="rawrow"><input value="${esc(k)}" data-k="${esc(k)}" class="rk"><textarea data-k="${esc(k)}" class="rv">${esc(save[k])}</textarea><button data-del="${esc(k)}" title="이 칸 지우기">✕</button></div>`).join('') || '<p class="muted">저장 데이터가 없어요</p>';
 }
@@ -643,7 +649,7 @@ async function loadRank() {
   rankRows = Object.values(m).sort((a, b) => (b.tp || 0) - (a.tp || 0) || (b.streak || 0) - (a.streak || 0));
   const bad = res.map((r, s) => r.status === 'fulfilled' ? '' : `서버${s + 1}`).filter(Boolean);
   $('rankBox').innerHTML = `<p class="muted" style="margin:0 0 6px">${rankRows.length}명${bad.length ? ` · 연결 실패: ${bad.join(', ')}` : ''}</p>` + (rankRows.length ? `<div class="tablewrap" style="max-height:320px;overflow:auto"><table style="min-width:0"><thead><tr><th>#</th><th>닉네임</th><th>티어</th><th class="num">최고 연승</th><th>서버</th><th></th></tr></thead><tbody>` +
-    rankRows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name || '?')}</td><td>${tierOf(r.tp || 0)} <span class="muted">${r.tp || 0}</span></td><td class="num">${r.streak || 0}</td><td class="muted">${r.on.length}/4</td><td><button data-rdel="${esc(r.id)}">삭제</button></td></tr>`).join('') + '</tbody></table></div>' : '');
+    rankRows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name || '?')}</td><td>${tierOf(rankTP(r))} <span class="muted">${r.tp || 0}</span></td><td class="num">${r.streak || 0}</td><td class="muted">${r.on.length}/4</td><td><button data-rdel="${esc(r.id)}">삭제</button></td></tr>`).join('') + '</tbody></table></div>' : '');
 }
 $('rankLoad').onclick = loadRank;
 $('rankBox').addEventListener('click', async e => {
