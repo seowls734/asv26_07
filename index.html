@@ -601,7 +601,7 @@ const CHARS = [
   { name: '볼트돈', title: '공장에서 탈출한 사이보그 돼지', type: '로봇', hp: 106, power: 1.07, speed: 1.12, ultRate: 0.85, scale: 1.12, unlock: 'admin', legacy: '돼이비드', how: '🎁 보상 센터 행운 룰렛에서 얻어요', perk: '룰렛 한정 돼지',
     look: look('#b0bec5', '#455a64', '#cfd8dc', '#90a4ae', '#263238', '#37474f', '#ff1744', ['robot', 'antenna', 'bold'], 1.04),
     skill: { name: '오버클럭', type: 'sande', cd: 900, desc: 'U: 2.5초 동안 상대가 아주 느려짐' },
-    skills: [{ name: '오버클럭', type: 'sande', cd: 900, desc: 'U: 회로를 과열시켜 2.5초 동안 상대가 아주 느려짐' }, { name: '레이저 채찍', type: 'monowire', cd: 200, desc: '↓+U: 멀리까지 닿는 레이저 3연타' }, { name: '로켓 대시', type: 'cyberDash', cd: 180, desc: '←→+U: 발 로켓으로 무적 돌진 펀치' }],
+    skills: [{ name: '오버클럭', type: 'sande', cd: 900, desc: 'U: 회로를 과열시켜 2.5초 동안 상대가 아주 느려짐' }, { name: '레이저 채찍', type: 'monowire', cd: 200, desc: '↓+U: 멀리까지 닿는 레이저 채찍 3연타 · 내 앞으로 끌어옴' }, { name: '로켓 대시', type: 'cyberDash', cd: 180, desc: '←→+U: 발 로켓으로 무적 돌진 펀치' }],
     tf: { name: '과부하 모드', type: 'wild', color: '#ff1744', desc: '속도·공격 속도↑' },
     ult: { name: '메가 강화 슈트', type: 'cyberSkel', desc: '12초 동안 거대한 슈트: 공격력↑ · 받는 피해↓ · 몸집↑' } },
   // 돼루토: 주황 옷 · 이마 보호대를 한 닌자 돼지. 분신술로 분신 2마리가 대신 싸움. 필살기는 구미호 모드
@@ -1006,7 +1006,7 @@ const SKILLDEF = {
   spiritRush:    { startup: 10, active: 330, recovery: 22, dmg: 0.7, hits: 55, hitEvery: 6, range: 440, height: 'mid', kb: 0.6, stun: 12, hitstop: 0, shake: 2, pose: 'punch', kind: 'punch', spirit: true, unblockable: true, txt: ['팍!', '파박!', '두두두!'] },   // 뚱타플레티나 러시: 수호령이 앞에서 6연타
   coinToss:      { startup: 10, active: 1, recovery: 20, proj: { kind: 'coin', spread: 5, speed: 9, dmg: 3.2, height: 'mid', g: 0.32, life: 80, w: 26, h: 26 }, pose: 'throw' },   // 돈뿌리기: 동전 5개 부채꼴
   sande:         { startup: 4, active: 1, recovery: 8, pose: 'counter', buff: true },
-  monowire:      { startup: 8, active: 18, recovery: 16, dmg: 4, hits: 3, hitEvery: 6, range: 290, height: 'mid', kb: 4, stun: 18, pose: 'punch', kind: 'skill', wire: true, txt: ['찌릿!', '슥!', '촤악!'] },
+  monowire:      { startup: 8, active: 18, recovery: 16, dmg: 4, hits: 3, hitEvery: 6, range: 290, height: 'mid', kb: 0, pull: true, stun: 18, pose: 'punch', kind: 'skill', wire: true, txt: ['찌릿!', '슥!', '촤악!'] },
   cyberDash:     { startup: 3, active: 14, recovery: 14, dmg: 14, range: 150, height: 'mid', kb: 16, stun: 30, launch: -8, dash: 22, invuln: true, invulnF: 10, pose: 'dash', hitstop: 10, shake: 10, txt: ['찰칵!', '쾅!'] },
   kageClone:     { startup: 6, active: 1, recovery: 10, pose: 'counter', buff: true },
   rasen:         { startup: 6, active: 42, recovery: 18, dmg: 20, range: 150, height: 'mid', kb: 20, launch: -11, stun: 42, dash: 15, pose: 'punch', hitstop: 14, shake: 14, rasen: true, sfx: 'rasenHit', txt: ['회오리 구슬!!'] },
@@ -1017,7 +1017,7 @@ const SKILLDEF = {
   fireArrow:     { startup: 14, active: 1, recovery: 20, proj: { kind: 'fire', speed: 14, dmg: 15, burn: 200, height: 'mid', w: 90, h: 30 }, pose: 'throw' },
   cleave:        { startup: 10, active: 6, recovery: 18, dmg: 16, range: 220, height: 'mid', kb: 15, launch: -9, stun: 32, pose: 'punch', hitstop: 14, shake: 14, cleave: true, txt: ['크게 베기!!'] },
   cannonShot:    { startup: 12, active: 1, recovery: 22, proj: { kind: 'cannon', speed: 10, dmg: 13, height: 'mid', kb: 12, w: 44, h: 44 }, pose: 'throw' },
-  hookPull:      { startup: 10, active: 6, recovery: 18, dmg: 8, range: 300, height: 'mid', kb: -16, stun: 40, pose: 'punch', skewer: true, txt: ['이리 와!', '갈고리!'] },
+  hookPull:      { startup: 10, active: 6, recovery: 18, dmg: 8, range: 300, height: 'mid', kb: 0, pull: true, stun: 40, pose: 'punch', skewer: true, txt: ['이리 와!', '갈고리!'] },
   parrotRaid:    { startup: 8, active: 1, recovery: 16, proj: { kind: 'parrot', speed: 7, dmg: 3.5, height: 'mid', multi: 14, maxHits: 3, life: 120, w: 50, h: 30 }, pose: 'throw' },
   magicOrb:      { startup: 12, active: 1, recovery: 18, proj: { kind: 'orb', speed: 6, dmg: 10, height: 'mid', life: 160, w: 34, h: 34 }, pose: 'throw' },
   frogCurse:     { startup: 10, active: 6, recovery: 18, dmg: 5, range: 220, height: 'mid', kb: 4, stun: 20, frog: true, pose: 'counter', txt: ['개굴!'] },
@@ -1275,7 +1275,7 @@ function nxSkillStart(f, s) {
     case 'xShAmbush': nxFx(f, 'smoke', f.x, f.y - 70 * k, 20); break;
     case 'xDvTrident': nxFx(f, 'thrust', f.x + F * 140 * k, hy, 18, { delay: D, col: '#d500f9' }); break;
     case 'xDvOrb': P({ kind: 'xHellOrb', vx: F * 4, w: 60, h: 60, dmg: 4, burn: 90, multi: 12, maxHits: 3, kb: 3, stun: 16, life: 150, clash: false }); break;
-    case 'xDvChain': P({ kind: 'xChain', vx: F * 14, w: 40, h: 30, dmg: 6, kb: -16, stun: 30, life: 30, clash: false, txt: ['끌려온다!'] }); break;
+    case 'xDvChain': P({ kind: 'xChain', vx: F * 14, w: 40, h: 30, dmg: 6, kb: 0, pull: true, stun: 30, life: 30, clash: false, txt: ['끌려온다!'] }); break;
     case 'xFrBall': for (let i = 0; i < 2; i++) P({ kind: 'xFireball', vx: F * 10, w: 34, h: 30, dmg: 6, burn: 90, kb: 5, stun: 18, life: 80, delay: D + i * 9 }); break;
     case 'xFrPillar': for (let i = 0; i < 3; i++) addObj({ owner: f, kind: 'xPillar2', x: clamp(f.x + F * (120 + i * 100) * k, 30, W - 30), y: GROUND - 90, w: 60, h: 180, dmg: 6, burn: 100, launch: -7, kb: 4, stun: 20, life: 22, delay: D + 6 + i * 9 }); break;
     case 'xFrKick': nxFx(f, 'fireRing', f.x, hy, 26, { follow2: true }); break;
@@ -1317,6 +1317,7 @@ function nxObjTick(o) {
 // ---- 필살기 ----
 const NX_SUMMON = new Set(['nxExcalibur', 'nxSleigh', 'nxAmp', 'nxTsunami', 'nxHack', 'nxVolcano', 'nxIcePath', 'nxGoldWheel', 'nxSupernova', 'nxSakura', 'nxGhostShip', 'nxHellGate', 'nxPhoenix']);
 function nxRunTick(f) {   // 소환형 필살기: 돼지는 움직이고 소환은 계속
+  if (f.pullT > 0) { f.pullT--; f.x += (f.pullX - f.x) * 0.3; if (f.t % 2 === 0) parts.push({ x: f.x, y: f.y - 90 * f.sc / 1.15, vx: 0, vy: 0, life: 10, max: 10, c: '#fff', s: 3, g: 0, type: 'dot' }); }   // 끌려오는 중
   if (!f.nxRun) return; if (scene !== 'fight' || f.state === 'ko') { f.nxRun = null; return; }
   nxUlt(f, f.opp, ++f.nxRun.t, true);
 }
@@ -2539,7 +2540,7 @@ function updateObjs(onlyTs) {   // onlyTs: 시간 정지 중 → 로드롤러처
     if (can && overlapD(o, d)) {
       const src = o.follow || !o.vx ? f.x : o.x - Math.sign(o.vx) * 100;
       const r = dealHit(f, d, { dmg: o.dmg, height: o.height, src, kind: o.ult ? 'ult' : 'proj', kb: o.kb, stun: o.stun, launch: o.launch,
-        knockdown: o.knockdown, burn: o.burn, slow: o.slow, chip: o.chip, unblockable: o.unblockable, txt: o.txt, proj: true, hx: o.x });
+        knockdown: o.knockdown, pull: o.pull, burn: o.burn, slow: o.slow, chip: o.chip, unblockable: o.unblockable, txt: o.txt, proj: true, hx: o.x });
       if (r !== 'miss') {
         o.hits++; o.lastHit = o.t;
         if (o.group) hitGroups.add(o.group);
@@ -2753,6 +2754,7 @@ function dealHit(a, d, h) {
   const dir = Math.sign(d.x - h.src) || -d.facing;
   if (d.state === 'attack' || d.state === 'ult') { d.atk = null; d.ultInv = false; d.ultArmor = false; }
   d.state = 'hit'; d.stun = h.stun || 16; d.vx = dir * (h.kb ?? 4);
+  if (h.pull) { d.pullT = 12; d.pullX = clamp(a.x + (Math.sign(d.x - a.x) || a.facing) * 100 * a.sc / 1.15, 40, W - 40); d.vx = 0; }   // 갈고리·사슬·채찍: 내 앞까지 끌고 옴
   if (h.launch || h.knockdown || d.y < GROUND - 5) { d.launched = true; d.vy = h.launch || (h.knockdown ? -6 : -7); d.juggle++; }
   return 'hit';
 }
@@ -5091,7 +5093,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-8';
+const BUILD = '20261113-9';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -8747,6 +8749,7 @@ if (/autotest/.test(location.search)) {
       { lsSet('sgf_awake', { '이타돼리': { done: true } }); mode = 1; ranked = false; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); out.push(`form base: awk=${p1.awk} form=${p1.itForm}`); if (p1.awk || p1.itForm !== 'base') throw new Error('기본 모습 실패'); lsSet('sgf_itform', 'sukuna'); startMatch(); out.push(`form sukuna: awk=${p1.awk} sukuna=${p1.sukuna} ult=${p1.ch.ult.type} skill=${p1.ch.skills[0].type}`); if (!p1.awk || !p1.sukuna || p1.ch.ult.type !== 'curseKing') throw new Error('스쿠나 모습 실패'); lsSet('sgf_itform', 'modulo'); lsSet('sgf_itmodulo', true); startMatch(); if (p1.ch.ult.type !== 'dismantle' || p1.C.acc[0] !== 'hoodie') throw new Error('모듈로 모습 실패'); lsSet('sgf_itform', 'base'); localStorage.removeItem('sgf_itmodulo'); lsSet('sgf_awake', {}); }
       { lsSet('sgf_awake', {}); const A = AWAKE['이타돼리']; for (const st of A.steps) for (let k = 0; k < st.goal; k++) awkAdd('이타돼리', st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`awake: ${isAwake('이타돼리')}`); if (!isAwake('이타돼리')) throw new Error('각성 실패');
         mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); const d0 = p1.dmgMul('punch'); p1.awk = true; const d1 = p1.dmgMul('punch'); out.push(`awake dmg ${d0.toFixed(2)} -> ${d1.toFixed(2)}`); if (!(d1 > d0)) throw new Error('각성 공격력 실패'); for (let n = 0; n < 130; n++) step(); draw(); lsSet('sgf_awake', {}); POPQ.length = 0; POP = null; showAwake(); POPQ.length = 0; }
+      { const CB = CHARS.find(c => c.name === '캡틴베이컨'); mode = 0; p1.setChar(CB); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 300; p2.x = 560; p1.facing = 1; p2.facing = -1; p1.state = 'idle'; p2.state = 'idle'; p1.inp = { down: true }; startSkill(p1, false); const d0 = p2.x - p1.x; for (let n = 0; n < 40; n++) { p2.inp = {}; step(); } const d1 = p2.x - p1.x; out.push('pull: ' + (d0 | 0) + ' -> ' + (d1 | 0)); if (!(d1 < 170)) throw new Error('갈고리 끌어오기 실패'); }
       { coins = 1e9; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'meter'); openQty(mk.sel); hot = []; draw(); const tap = (x, y) => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + x * r.width / W, clientY: r.top + y * r.height / H, bubbles: true })); }; const m0 = inv.use.meter || 0; tap(W / 2 - 230 + 22 + 3 * 86 + 30, 130 + 158); if (qm.n !== 11) throw new Error('터치 +10 실패 n=' + qm.n); tap(W / 2 - 230 + 150, 130 + 238); out.push('touch qty: ' + m0 + ' -> ' + inv.use.meter); if (inv.use.meter !== m0 + 11 || qm) throw new Error('터치 사기 실패'); }
       { POPQ.length = 0; POP = null; openPigs(); PG.sel = 0; cv.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, cancelable: true })); step(); const s1 = PG.sel; cv.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, cancelable: true })); step(); out.push('wheel pigs: 0 -> ' + s1 + ' -> ' + PG.sel); if (s1 !== 7 || PG.sel !== 0) throw new Error('휠 스크롤 실패'); toTitle(); }
       { coins = 1e7; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'meter'); const m0 = inv.use.meter || 0; pressed.Enter = true; step(); if (!qm) throw new Error('수량 창이 안 열림'); pressed.ArrowUp = true; step(); pressed.ArrowRight = true; step(); draw(); pressed.Enter = true; step(); out.push(`qty buy: meter ${m0} -> ${inv.use.meter} qm=${!!qm}`); if (inv.use.meter !== m0 + 12 || qm) throw new Error('수량 사기 실패'); scene = 'title'; }
