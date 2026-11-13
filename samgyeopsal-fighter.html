@@ -493,85 +493,85 @@ function sizzleOff() { if (sizzleNode) { try { sizzleNode.stop(); } catch (e) {}
 // ================= characters =================
 const look = (body, dark, belly, snout, hoof, brow, band, acc, bw = 1) => ({ body, dark, belly, snout, hoof, brow, band, acc, bw });
 const CHARS = [
-  { name: '분홍이', title: '근본 삼겹살', type: '밸런스', hp: 88, power: 0.98, speed: 1.0, ultRate: 1.0, scale: 1.15,
+  { name: '분홍이', title: '근본 삼겹살', type: '밸런스', hp: 97, power: 1.01, speed: 1.0, ultRate: 1.0, scale: 1.15,
     look: look('#ffb5c5', '#d9718c', '#ffd6df', '#ff93ac', '#7a3b4a', '#5a2030', '#e53935', ['band']),
     skill: { name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진해 상대를 띄움' },
     skills: [{ name: '돼지 박치기', type: 'dash', cd: 150, desc: '머리부터 돌진해 상대를 띄움' }, { name: '삼겹 굴리기', type: 'porkRoll', cd: 170, desc: '↓+U: 몸을 말아 굴러가며 넘어뜨림 · 무적' }, { name: '꿀꿀 함성', type: 'oinkWave', cd: 260, desc: '←→+U: 큰 소리로 앞을 날려 버림 · 오래 기절' }],
     tf: { name: '불꽃 분홍', type: 'fire', color: '#ff5722', desc: '공격력↑ · 화상' },
     ult: { name: '삼겹 폭풍 연타', type: 'rush', desc: '돌진 후 폭풍 연타' } },
-  { name: '깜돌이', title: '제주 흑돼지', type: '파워', hp: 73, power: 0.99, speed: 0.9, ultRate: 0.95, scale: 1.2,
+  { name: '깜돌이', title: '제주 흑돼지', type: '파워', hp: 77, power: 1.01, speed: 0.9, ultRate: 0.95, scale: 1.2,
     look: look('#4b3d44', '#1f181b', '#62525a', '#7d6670', '#0d090b', '#0a0a0a', '#1e88e5', ['band', 'scar']),
     skill: { name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 · 막아도 가드를 부수는 돌진' },
     skills: [{ name: '흑돼지 어깨치기', type: 'armorShoulder', cd: 170, desc: '슈퍼아머 · 막아도 가드를 부수는 돌진' }, { name: '현무암 내려찍기', type: 'basaltSlam', cd: 220, desc: '↓+U: 땅을 내려찍어 넘어뜨림 (앉아도 맞음)' }, { name: '흑돼지 박치기', type: 'blackRam', cd: 200, desc: '←→+U: 슈퍼아머 박치기' }],
     tf: { name: '한라산 돌돼지', type: 'stone', color: '#9e9e9e', desc: '받는 피해↓ · 슈퍼아머' },
     ult: { name: '한라산 대분화', type: 'eruption', desc: '앞으로 용암 기둥' } },
-  { name: '멧돌이', title: '산속 멧돼지', type: '돌격', hp: 107, power: 1.07, speed: 1.05, ultRate: 0.8, scale: 1.2,
+  { name: '멧돌이', title: '산속 멧돼지', type: '돌격', hp: 112, power: 1.09, speed: 1.05, ultRate: 0.8, scale: 1.2,
     look: look('#a1887f', '#4e342e', '#bcaaa4', '#8d6e63', '#3e2723', '#2b1a14', '#ff9800', ['tusks', 'bristle']),
     skill: { name: '엄니 걸어당기기', type: 'launcher', cd: 140, desc: '엄니로 걸어 내 앞으로 끌어당김 · 긴 경직' },
     skills: [{ name: '엄니 걸어당기기', type: 'launcher', cd: 140, desc: '엄니로 걸어 내 앞으로 끌어당김 · 긴 경직' }, { name: '흙먼지 돌진', type: 'dustCharge', cd: 200, desc: '↓+U: 낮게 돌진해 넘어뜨림' }, { name: '엄니 퍼올리기', type: 'tuskToss', cd: 240, desc: '←→+U: 엄니로 퍼 올려 하늘 높이 띄움 · 슈퍼아머' }],
     tf: { name: '야생 폭주', type: 'wild', color: '#ff9800', desc: '이동·공격 속도↑' },
     ult: { name: '멧돼지 대돌진', type: 'charge', desc: '화면 끝까지 무적 돌진' } },
-  { name: '꼬미', title: '미니피그', type: '스피드', hp: 83, power: 1, speed: 1.3, ultRate: 1.25, scale: 0.92,
+  { name: '꼬미', title: '미니피그', type: '스피드', hp: 86, power: 1.01, speed: 1.3, ultRate: 1.25, scale: 0.92,
     look: look('#ffe3d6', '#e0a58f', '#fff1ea', '#ffc2ad', '#8d5a4a', '#6d3a2a', '#ff4081', ['ribbon', 'spots']),
     skill: { name: '데굴데굴 구르기', type: 'roll', cd: 120, desc: '무적 하단 구르기' },
     skills: [{ name: '데굴데굴 구르기', type: 'roll', cd: 120, desc: '무적 하단 구르기' }, { name: '꼬마 날아차기', type: 'miniKick', cd: 150, desc: '↓+U: 뛰어올라 차기' }, { name: '꼬마 질주', type: 'miniDash', cd: 170, desc: '←→+U: 아주 빠르게 달려가며 2번 들이받기' }],
     tf: { name: '분신술', type: 'clone', color: '#f8bbd0', desc: '분신이 추가타' },
     ult: { name: '미니피그 군단', type: 'stampede', desc: '꼬마 돼지 8마리 돌격' } },
-  { name: '얼음이', title: '냉동 대패', type: '원거리', hp: 101, power: 1.08, speed: 1.0, ultRate: 1.0, scale: 1.1,
+  { name: '얼음이', title: '냉동 대패', type: '원거리', hp: 107, power: 1.1, speed: 1.0, ultRate: 1.0, scale: 1.1,
     look: look('#e3eef9', '#7f9bbf', '#f5f9ff', '#c5d8ef', '#4a6488', '#2c3e5a', '#4fc3f7', ['frost', 'scarf']),
     skill: { name: '대패 표창', type: 'iceProj', cd: 110, desc: '얼음 대패 투척 · 둔화' },
     skills: [{ name: '대패 표창', type: 'iceProj', cd: 110, desc: '얼음 대패 투척 · 둔화' }, { name: '얼음 바닥', type: 'iceFloor', cd: 360, desc: '↓+U: 바닥을 얼려 밟으면 느려짐' }, { name: '빙결 펀치', type: 'frostPunch', cd: 170, desc: '←→+U: 맞으면 느려지는 얼음 주먹' }],
     tf: { name: '급속 냉동', type: 'freeze', color: '#4fc3f7', desc: '적중 시 둔화' },
     ult: { name: '절대영도 대패썰기', type: 'absoluteZero', desc: '얼리고 대패로 썬다' } },
-  { name: '족발왕', title: '태권 족발', type: '발차기', hp: 80, power: 0.93, speed: 1.1, ultRate: 1.05, scale: 1.15,
+  { name: '족발왕', title: '태권 족발', type: '발차기', hp: 81, power: 0.93, speed: 1.1, ultRate: 1.05, scale: 1.15,
     look: look('#f0c595', '#a8703f', '#f8dcb8', '#e0a878', '#ffc107', '#5d3a1a', '#ffffff', ['band', 'belt']),
     skill: { name: '족발 회오리킥', type: 'spinKick', cd: 150, desc: '3연속 회전 킥' },
     skills: [{ name: '족발 회오리킥', type: 'spinKick', cd: 150, desc: '3연속 회전 킥' }, { name: '족발 쓸어차기', type: 'lowSweep', cd: 160, desc: '↓+U: 낮게 쓸어 넘어뜨림' }, { name: '날아 옆차기', type: 'flyKick', cd: 190, desc: '←→+U: 날아가며 강한 옆차기' }],
     tf: { name: '무쇠 족발', type: 'ironHoof', color: '#ffd54f', desc: '발차기 피해 1.5배' },
     ult: { name: '천족난무', type: 'thousandKicks', desc: '돌진 후 발차기 난무' } },
-  { name: '오겹장군', title: '스모 챔피언', type: '탱커', hp: 121, power: 1.01, speed: 0.8, ultRate: 0.85, scale: 1.3,
+  { name: '오겹장군', title: '스모 챔피언', type: '탱커', hp: 130, power: 1.04, speed: 0.8, ultRate: 0.85, scale: 1.3,
     look: look('#ffcab8', '#d08a74', '#ffe0d4', '#ffaa94', '#6d3a2a', '#5a2a1a', '#7b1fa2', ['mawashi', 'topknot'], 1.15),
     skill: { name: '뱃살 튕기기', type: 'counter', cd: 160, desc: '반격 자세' },
     skills: [{ name: '뱃살 튕기기', type: 'counter', cd: 160, desc: '반격 자세' }, { name: '스모 밀치기', type: 'sumoPush', cd: 200, desc: '↓+U: 슈퍼아머로 멀리 밀어냄' }, { name: '뱃살 띄우기', type: 'bellyBump', cd: 220, desc: '←→+U: 배로 튕겨 하늘로' }],
     tf: { name: '오겹 거대화', type: 'giant', color: '#ce93d8', desc: '몸집·사거리↑ · 아머' },
     ult: { name: '스모 대압살', type: 'bodySlam', desc: '하늘에서 깔아뭉개기' } },
-  { name: '양념이', title: '고추장 불돼지', type: '원거리', hp: 122, power: 1.07, speed: 1.0, ultRate: 0.95, scale: 1.12,
+  { name: '양념이', title: '고추장 불돼지', type: '원거리', hp: 127, power: 1.09, speed: 1.0, ultRate: 0.95, scale: 1.12,
     look: look('#ff8a65', '#bf360c', '#ffab91', '#ff7043', '#5d1a0a', '#4a1000', '#ffeb3b', ['chili']),
     skill: { name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '포물선으로 던져 땅에서 펑! · 넓은 범위 화상' },
     skills: [{ name: '고추장 화염구', type: 'fireProj', cd: 120, desc: '포물선으로 던져 땅에서 펑! · 넓은 범위 화상' }, { name: '양념 뿌리기', type: 'chiliSpray', cd: 200, desc: '↓+U: 매운 양념 분사 · 화상' }, { name: '고추 미사일', type: 'chiliBomb', cd: 180, desc: '←→+U: 곧게 날아가는 불 고추' }],
     tf: { name: '청양 각성', type: 'spicy', color: '#ff1744', desc: '화염구 2연발 · 쿨↓' },
     ult: { name: '지옥불 양념 빔', type: 'beam', desc: '화면을 가르는 불 빔' } },
-  { name: '항정', title: '그림자 닌자', type: '기술', hp: 82, power: 1, speed: 1.25, ultRate: 1.2, scale: 1.08,
+  { name: '항정', title: '그림자 닌자', type: '기술', hp: 89, power: 1.03, speed: 1.25, ultRate: 1.2, scale: 1.08,
     look: look('#b9a9cf', '#5e4b78', '#d5cae4', '#a593c2', '#2e2440', '#1a1028', '#4a148c', ['mask']),
     skill: { name: '항정 순보', type: 'teleport', cd: 130, desc: '상대 뒤로 순간이동' },
     skills: [{ name: '항정 순보', type: 'teleport', cd: 130, desc: '상대 뒤로 순간이동' }, { name: '그림자 베기', type: 'shadowCut', cd: 180, desc: '↓+U: 빠른 3연속 베기' }, { name: '연막탄', type: 'smokeBomb', cd: 420, desc: '←→+U: 연기 속에서 1초 동안 무적' }],
     tf: { name: '그림자 모드', type: 'shadow', color: '#7e57c2', desc: '30% 회피 · 속도↑' },
     ult: { name: '비전 · 천살', type: 'thousandCuts', desc: '보이지 않는 천 번 베기' } },
-  { name: '목살', title: '복싱 챔프', type: '펀치', hp: 90, power: 1.08, speed: 1.05, ultRate: 0.9, scale: 1.15,
+  { name: '목살', title: '복싱 챔프', type: '펀치', hp: 98, power: 1.1, speed: 1.05, ultRate: 0.9, scale: 1.15,
     look: look('#ffb59e', '#c75b39', '#ffd2c4', '#ff9a80', '#6d2a1a', '#4a1a0a', '#ffd600', ['band', 'gloves']),
     skill: { name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼 · 점프한 상대 격추' },
     skills: [{ name: '목살 어퍼컷', type: 'uppercut', cd: 140, desc: '무적 대공 어퍼 · 점프한 상대 격추' }, { name: '보디 블로', type: 'bodyBlow', cd: 170, desc: '↓+U: 배를 노려 오래 기절' }, { name: '원투 스트레이트', type: 'jabCombo', cd: 170, desc: '←→+U: 빠른 3연타' }],
     tf: { name: '챔피언 모드', type: 'champion', color: '#ffd600', desc: '펀치 피해·속도↑' },
     ult: { name: '메가톤 펀치', type: 'megaton', desc: '가드 파괴 한 방' } },
-  { name: '갈비', title: '숯불 양념갈비', type: '리치', hp: 103, power: 1.07, speed: 0.95, ultRate: 0.9, scale: 1.15,
+  { name: '갈비', title: '숯불 양념갈비', type: '리치', hp: 110, power: 1.1, speed: 0.95, ultRate: 0.9, scale: 1.15,
     look: look('#c8743f', '#7a3a18', '#e3a173', '#d98a58', '#4e2410', '#3a1a0a', '#ffb300', ['scar', 'belt']),
     skill: { name: '갈빗대 다리걸기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 다리를 후려 넘어뜨림 (하단)' },
     skills: [{ name: '갈빗대 다리걸기', type: 'boneSwing', cd: 140, desc: '긴 갈빗대로 다리를 후려 넘어뜨림 (하단)' }, { name: '숯 던지기', type: 'coalToss', cd: 200, desc: '↓+U: 뜨거운 숯을 포물선으로 · 화상' }, { name: '갈비뼈 창', type: 'ribSpear', cd: 160, desc: '←→+U: 아주 멀리 닿는 찌르기' }],
     tf: { name: '숯불 직화', type: 'fire', color: '#ff7043', desc: '공격력↑ · 화상' },
     ult: { name: '숯불 소나기', type: 'coalRain', desc: '하늘에서 뜨거운 숯이 쏟아짐 · 화상' } },
-  { name: '감자탕', title: '뼈해장국 장인', type: '지구력', hp: 114, power: 1.02, speed: 0.9, ultRate: 0.8, scale: 1.22,
+  { name: '감자탕', title: '뼈해장국 장인', type: '지구력', hp: 121, power: 1.04, speed: 0.9, ultRate: 0.8, scale: 1.22,
     look: look('#e8b48a', '#9a5a32', '#f5d2b2', '#e09a6e', '#5d3a1a', '#4a2a10', '#d84315', ['band', 'scarf'], 1.08),
     skill: { name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 천천히 흐르는 국물 · 밟으면 여러 번 화상' },
     skills: [{ name: '뚝배기 국물 붓기', type: 'stewSplash', cd: 130, desc: '바닥을 천천히 흐르는 국물 · 밟으면 여러 번 화상' }, { name: '뼈다귀 던지기', type: 'boneThrow', cd: 170, desc: '↓+U: 빙글빙글 날아가는 뼈' }, { name: '뜨끈한 국물', type: 'stewHeal', cd: 600, desc: '←→+U: 국물 한 그릇 · 체력 10 회복' }],
     tf: { name: '뚝배기 갑옷', type: 'stone', color: '#8d6e63', desc: '받는 피해↓ · 슈퍼아머' },
     ult: { name: '뚝배기 홍수', type: 'stewFlood', desc: '펄펄 끓는 국물 파도가 화면을 휩쓸어 감' } },
-  { name: '냉삼', title: '냉동 삼겹살', type: '부메랑', hp: 74, power: 0.92, speed: 1.12, ultRate: 1.1, scale: 1.04,   // 얇게 얼린 레트로 냉동 삼겹살
+  { name: '냉삼', title: '냉동 삼겹살', type: '부메랑', hp: 77, power: 0.94, speed: 1.12, ultRate: 1.1, scale: 1.04,   // 얇게 얼린 레트로 냉동 삼겹살
     look: look('#fbe0dc', '#c98f8c', '#fff4f2', '#f4b8b4', '#7a4a4a', '#4a2a2a', '#4fc3f7', ['band', 'spots'], 0.96),
     skill: { name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' },
     skills: [{ name: '냉삼 부메랑', type: 'boomerang', cd: 120, desc: '던지면 돌아오는 냉삼 · 두 번 맞힘' }, { name: '냉동 슬라이스', type: 'frostSlice', cd: 170, desc: '↓+U: 낮게 4번 베기 · 느려짐' }, { name: '서리 미끄럼', type: 'frostDash', cd: 190, desc: '←→+U: 미끄러지며 돌진 · 느려짐' }],
     tf: { name: '급속 해동', type: 'thaw', color: '#80deea', desc: '체력 서서히 회복 · 이동 속도↑' },
     ult: { name: '냉삼 폭탄 투하', type: 'sliceRain', desc: '하늘에서 얼린 냉삼이 우수수' } },
-  { name: '금한돈', title: '황금 돼지 부자', type: '부자', hp: 88, power: 0.92, speed: 0.96, ultRate: 0.9, scale: 1.12, unlock: 3, perk: '이기면 승리 코인 3배',   // unlock: 이 티어(3 = 골드)에 처음 오르면 영구 해금
+  { name: '금한돈', title: '황금 돼지 부자', type: '부자', hp: 95, power: 0.95, speed: 0.96, ultRate: 0.9, scale: 1.12, unlock: 3, perk: '이기면 승리 코인 3배',   // unlock: 이 티어(3 = 골드)에 처음 오르면 영구 해금
     look: look('#ffd54f', '#b8860b', '#fff3c4', '#ffca28', '#6d4c00', '#4a3300', '#2e7d32', ['band', 'belt'], 1.04),
     skill: { name: '돈뿌리기', type: 'coinToss', cd: 120, desc: '동전 5개를 부채꼴로 흩뿌림' },
     skills: [{ name: '돈뿌리기', type: 'coinToss', cd: 120, desc: '동전 5개를 부채꼴로 흩뿌림' }, { name: '돈다발 휘두르기', type: 'cashSwing', cd: 170, desc: '↓+U: 묵직한 돈다발로 후려침' }, { name: '골드 러시', type: 'goldDash', cd: 200, desc: '←→+U: 금빛 무적 돌진' }],
@@ -588,7 +588,7 @@ const CHARS = [
   // 🆕 2026-11-12 업데이트 (공개 전엔 안 보임). unlock: 'admin'처럼 얻기 전엔 숨김 · how: 얻는 법
   // 볼트돈: 버려진 고기 공장에서 깨어난 사이보그 돼지. 금속 몸 · 빨간 외눈 바이저 · 안테나 · 볼트. 도트(픽셀) 그림
   // 스킬 3개(U 오버클럭 · ↓+U 레이저 채찍 · →+U 로켓 대시), 필살기는 20초 동안 거대한 메가 강화 슈트
-  { name: '볼트돈', title: '공장에서 탈출한 사이보그 돼지', type: '로봇', hp: 104, power: 1.06, speed: 1.12, ultRate: 0.85, scale: 1.12, unlock: 'admin', legacy: '돼이비드', how: '🎁 보상 센터 행운 룰렛에서 얻어요', perk: '룰렛 한정 돼지',
+  { name: '볼트돈', title: '공장에서 탈출한 사이보그 돼지', type: '로봇', hp: 106, power: 1.07, speed: 1.12, ultRate: 0.85, scale: 1.12, unlock: 'admin', legacy: '돼이비드', how: '🎁 보상 센터 행운 룰렛에서 얻어요', perk: '룰렛 한정 돼지',
     look: look('#b0bec5', '#455a64', '#cfd8dc', '#90a4ae', '#263238', '#37474f', '#ff1744', ['robot', 'antenna', 'bold'], 1.04),
     skill: { name: '오버클럭', type: 'sande', cd: 900, desc: 'U: 2.5초 동안 상대가 아주 느려짐' },
     skills: [{ name: '오버클럭', type: 'sande', cd: 900, desc: 'U: 회로를 과열시켜 2.5초 동안 상대가 아주 느려짐' }, { name: '레이저 채찍', type: 'monowire', cd: 200, desc: '↓+U: 멀리까지 닿는 레이저 3연타' }, { name: '로켓 대시', type: 'cyberDash', cd: 180, desc: '←→+U: 발 로켓으로 무적 돌진 펀치' }],
@@ -611,41 +611,41 @@ const CHARS = [
     ult: { name: '검은 번개 연타', type: 'boltRush', desc: '달려가서 검은 번개 3연타 → 날려 버림' } },
   // 🎉 대규모 업데이트 (relId 'big1': 관리자가 공개하면 모두 무료)
   // 훈제돈: 흰 셰프 모자 · 앞치마 · 콧수염의 바비큐 셰프. 불·소스·꼬치로 싸움
-  { name: '훈제돈', title: '불맛 바비큐 셰프', type: '요리사', hp: 100, power: 1.07, speed: 0.98, ultRate: 0.95, scale: 1.16, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
+  { name: '훈제돈', title: '불맛 바비큐 셰프', type: '요리사', hp: 102, power: 1.08, speed: 0.98, ultRate: 0.95, scale: 1.16, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
     look: look('#e8a88f', '#9c5a45', '#f6cbb9', '#de8a73', '#3e2723', '#4e342e', '#ff6f00', ['toque', 'apron', 'mustache', 'bold'], 1.08),
     skill: { name: '플람베 화염', type: 'flambe', cd: 200, desc: 'U: 앞으로 불을 뿜어 4번 · 화상' },
     skills: [{ name: '플람베 화염', type: 'flambe', cd: 200, desc: 'U: 앞으로 불을 뿜어 4번 · 화상' }, { name: '비법 소스 덫', type: 'sauceTrap', cd: 360, desc: '↓+U: 바닥에 소스 → 밟으면 느려짐 (7초)' }, { name: '꼬치 찌르기', type: 'skewer', cd: 150, desc: '←→+U: 아주 멀리 닿는 꼬치' }],
     tf: { name: '센 불 모드', type: 'fire', color: '#ff6f00', desc: '공격력↑ · 화상' },
     ult: { name: '바비큐 파티', type: 'bbqParty', desc: '상대 발밑에 숯불 그릴 → 불기둥 세 번 + 화상' } },
   // 우주꿀돈: 유리 헬멧 · 흰 우주복의 우주비행사 돼지. 중력을 다룸
-  { name: '우주꿀돈', title: '달에서 온 우주비행사', type: '중력', hp: 112, power: 1.08, speed: 1.02, ultRate: 0.9, scale: 1.1, unlock: 'admin', relId: 'big1', quest: true, how: '🎁 보상 센터의 우주꿀돈 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
+  { name: '우주꿀돈', title: '달에서 온 우주비행사', type: '중력', hp: 118, power: 1.1, speed: 1.02, ultRate: 0.9, scale: 1.1, unlock: 'admin', relId: 'big1', quest: true, how: '🎁 보상 센터의 우주꿀돈 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
     look: look('#ffc4cf', '#c47a8a', '#ffe0e6', '#f5a3b3', '#37474f', '#5d4037', '#7c4dff', ['spacesuit', 'helmet', 'bold'], 1.02),
     skill: { name: '저중력 띄우기', type: 'lowGrav', cd: 220, desc: 'U: 상대를 둥실 높이 띄움' },
     skills: [{ name: '저중력 띄우기', type: 'lowGrav', cd: 220, desc: 'U: 상대를 둥실 높이 띄움' }, { name: '블랙홀 구슬', type: 'blackHole', cd: 420, desc: '↓+U: 천천히 날아가며 상대를 빨아들이는 구슬' }, { name: '로켓 박치기', type: 'rocketHead', cd: 180, desc: '←→+U: 등 로켓으로 무적 돌진' }],
     tf: { name: '무중력 모드', type: 'wild', color: '#7c4dff', desc: '속도·공격 속도↑' },
     ult: { name: '유성우', type: 'meteor', desc: '하늘에서 유성이 우수수 떨어짐' } },
   // 핑크하트: 분홍 양갈래 머리 · 리본 · 프릴 무대 옷의 돼지 아이돌. 노래로 싸움
-  { name: '핑크하트', title: '무대 위의 돼지 아이돌', type: '음악', hp: 87, power: 0.94, speed: 1.1, ultRate: 1.0, scale: 1.06, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
+  { name: '핑크하트', title: '무대 위의 돼지 아이돌', type: '음악', hp: 92, power: 0.96, speed: 1.1, ultRate: 1.0, scale: 1.06, unlock: 'admin', relId: 'big1', how: '관리자가 대규모 업데이트를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
     look: look('#ffd1dc', '#d48aa0', '#ffe8ee', '#ffb3c6', '#4a2a35', '#ad1457', '#ff4081', ['twintail', 'idoldress', 'bold'], 0.98),
     skill: { name: '음표 파동', type: 'noteWave', cd: 160, desc: 'U: 음표 3개를 날림' },
     skills: [{ name: '음표 파동', type: 'noteWave', cd: 160, desc: 'U: 음표 3개를 날림' }, { name: '응원 회복', type: 'cheer', cd: 600, desc: '↓+U: 팬들의 응원으로 체력 14 회복' }, { name: '하트 윙크', type: 'wink', cd: 330, desc: '←→+U: 맞으면 두근두근 오래 못 움직임' }],
     tf: { name: '센터 모드', type: 'champion', color: '#ff4081', desc: '펀치 피해·속도↑' },
     ult: { name: '앙코르 콘서트', type: 'encore', desc: '무대 조명 아래 상대를 묶고 노래로 연타 → 피날레' } },
   // 🏴‍☠️ 대규모 업데이트 · 해적과 마법사 (relId 'big2'): 캡틴베이컨은 무료, 꿀린은 퀘스트
-  { name: '캡틴베이컨', title: '일곱 바다의 해적 돼지', type: '해적', hp: 91, power: 0.95, speed: 0.98, ultRate: 0.92, scale: 1.16, unlock: 'admin', relId: 'big2', how: '관리자가 대규모 업데이트 · 해적과 마법사를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
+  { name: '캡틴베이컨', title: '일곱 바다의 해적 돼지', type: '해적', hp: 97, power: 0.98, speed: 0.98, ultRate: 0.92, scale: 1.16, unlock: 'admin', relId: 'big2', how: '관리자가 대규모 업데이트 · 해적과 마법사를 공개하면 모두에게 해금돼요', perk: '업데이트 돼지',
     look: look('#f0b8a0', '#a36a55', '#fad6c6', '#e89a84', '#3e2723', '#3e2723', '#c62828', ['pircoat', 'tricorn', 'eyepatch', 'bold'], 1.06),
     skill: { name: '대포알', type: 'cannonShot', cd: 200, desc: 'U: 묵직한 대포알 한 발' },
     skills: [{ name: '대포알', type: 'cannonShot', cd: 200, desc: 'U: 묵직한 대포알 한 발' }, { name: '갈고리 당기기', type: 'hookPull', cd: 220, desc: '↓+U: 멀리서 갈고리로 끌어당김' }, { name: '앵무새 습격', type: 'parrotRaid', cd: 240, desc: '←→+U: 앵무새가 날아가 쪼아 댐 (3번)' }],
     tf: { name: '선장 모드', type: 'champion', color: '#c62828', desc: '펀치 피해·속도↑' },
     ult: { name: '일제 사격', type: 'broadside', desc: '해적선 대포알이 높이를 바꿔 가며 쏟아짐' } },
-  { name: '꿀린', title: '탑에 사는 돼지 마법사', type: '마법', hp: 95, power: 1.07, speed: 1.0, ultRate: 0.88, scale: 1.08, unlock: 'admin', relId: 'big2', quest: true, how: '🎁 보상 센터의 꿀린 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
+  { name: '꿀린', title: '탑에 사는 돼지 마법사', type: '마법', hp: 100, power: 1.09, speed: 1.0, ultRate: 0.88, scale: 1.08, unlock: 'admin', relId: 'big2', quest: true, how: '🎁 보상 센터의 꿀린 퀘스트를 깨면 얻어요', perk: '퀘스트 한정 돼지',
     look: look('#ffd3c4', '#c48a78', '#ffe8de', '#f7b3a0', '#311b92', '#eeeeee', '#7c4dff', ['robe', 'wizhat', 'beard', 'bold'], 1),
     skill: { name: '마법 구슬', type: 'magicOrb', cd: 180, desc: 'U: 상대를 따라가는 마법 구슬' },
     skills: [{ name: '마법 구슬', type: 'magicOrb', cd: 180, desc: 'U: 상대를 따라가는 마법 구슬' }, { name: '개구리 저주', type: 'frogCurse', cd: 480, desc: '↓+U: 맞으면 4초 동안 작고 약하고 느려짐' }, { name: '점멸', type: 'blink', cd: 260, desc: '←→+U: 상대 뒤로 순간 이동 · 원래 자리에서 마법 폭발' }],
     tf: { name: '대마법사 모드', type: 'gilded', color: '#7c4dff', desc: '공격력↑ · 필살 게이지 빨리 참' },
     ult: { name: '거대화 물약', type: 'giantPotion', desc: '물약을 마시고 12초 동안 거대해짐 · 공격력↑ · 슈퍼아머' } },
   // 🎉 대규모 업데이트 3~20 (관리자가 하나씩 공개 · relId bigN): 업데이트마다 새 돼지 1마리 (돼지 도감에서 코인으로 사기) + 기존 돼지 업데이트 스킨 2개
-  { name: '기사돈', title: '왕국을 지키는 돼지 기사', type: '기사', hp: 120, power: 1.05, speed: 0.95, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big3', buy: 1000000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (⚔️ 기사단)', perk: '업데이트 돼지', costume: 'knight', costumeCol: '#90a4ae',
+  { name: '기사돈', title: '왕국을 지키는 돼지 기사', type: '기사', hp: 114, power: 1.03, speed: 0.95, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big3', buy: 1000000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (⚔️ 기사단)', perk: '업데이트 돼지', costume: 'knight', costumeCol: '#90a4ae',
     look: look('#f5c6b8', '#987b72', '#fae0d8', '#f8b7aa', '#564540', '#3e2723', '#90a4ae', ['bold'], 1.04),
     skill: { name: '검 휘두르기', type: 'xKnSlash', cd: 150, desc: 'U: 긴 검으로 크게 벰' },
     skills: [{ name: '검 휘두르기', type: 'xKnSlash', cd: 150, desc: 'U: 긴 검으로 크게 벰' }, { name: '방패 밀치기', type: 'xKnBash', cd: 220, desc: '↓+U: 방패로 밀쳐 날림 (맞아도 안 밀림)' }, { name: '검기 날리기', type: 'xKnWave', cd: 200, desc: '←→+U: 초승달 검기를 날림' }], wpn: 'sword',
@@ -657,67 +657,67 @@ const CHARS = [
     skills: [{ name: '선물 폭탄', type: 'xSaGift', cd: 180, desc: 'U: 떨어지면 터지는 선물 상자' }, { name: '눈덩이 3연발', type: 'xSaSnow', cd: 200, desc: '↓+U: 눈덩이 3개 · 맞으면 느려짐' }, { name: '쿠키 냠냠', type: 'xSaCookie', cd: 600, desc: '←→+U: 쿠키를 먹고 체력 12 회복' }], wpn: 'candycane',
     tf: { name: '산타 모드', type: 'champion', color: '#d32f2f', desc: '펀치 피해·속도↑' },
     ult: { name: '루돌프 썰매 공습', type: 'nxSleigh', desc: '썰매가 지나가며 선물 폭탄을 떨어뜨림' } },
-  { name: '카우돈', title: '황야의 돼지 총잡이', type: '총잡이', hp: 130, power: 1.09, speed: 1.05, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big5', buy: 3240000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🤠 황야의 총잡이)', perk: '업데이트 돼지', costume: 'cowboy', costumeCol: '#8d6e63',
+  { name: '카우돈', title: '황야의 돼지 총잡이', type: '총잡이', hp: 112, power: 1.03, speed: 1.05, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big5', buy: 3240000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🤠 황야의 총잡이)', perk: '업데이트 돼지', costume: 'cowboy', costumeCol: '#8d6e63',
     look: look('#e6b89c', '#8f7261', '#f1d8c9', '#ecad95', '#514037', '#3e2723', '#c62828', ['mustache', 'bold'], 1.04),
     skill: { name: '리볼버 2연발', type: 'xCwShot', cd: 150, desc: 'U: 빠른 총알 두 발' },
     skills: [{ name: '리볼버 2연발', type: 'xCwShot', cd: 150, desc: 'U: 빠른 총알 두 발' }, { name: '올가미', type: 'xCwLasso', cd: 300, desc: '↓+U: 맞으면 꽁꽁 묶임' }, { name: '구르며 쏘기', type: 'xCwRoll', cd: 240, desc: '←→+U: 굴러서 피한 뒤 한 발' }], wpn: 'revolver',
     tf: { name: '총잡이 모드', type: 'champion', color: '#8d6e63', desc: '펀치 피해·속도↑' },
     ult: { name: '정오의 결투', type: 'nxHighNoon', desc: '석양 아래 여섯 발을 연달아 쏨' } },
-  { name: '펑크돈', title: '무대를 부수는 돼지 로커', type: '로커', hp: 78, power: 0.93, speed: 1.08, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big6', buy: 5830000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🎸 록 페스티벌)', perk: '업데이트 돼지', costume: 'punk', costumeCol: '#e040fb',
+  { name: '펑크돈', title: '무대를 부수는 돼지 로커', type: '로커', hp: 76, power: 0.92, speed: 1.08, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big6', buy: 5830000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🎸 록 페스티벌)', perk: '업데이트 돼지', costume: 'punk', costumeCol: '#e040fb',
     look: look('#d7ccc8', '#857e7c', '#e9e3e1', '#e1bcb6', '#4b4746', '#212121', '#e040fb', ['bold'], 1.04),
     skill: { name: '기타 굉음', type: 'xPkRiff', cd: 180, desc: 'U: 음파 두 줄기를 날림' },
     skills: [{ name: '기타 굉음', type: 'xPkRiff', cd: 180, desc: 'U: 음파 두 줄기를 날림' }, { name: '기타 내려찍기', type: 'xPkSmash', cd: 240, desc: '↓+U: 가드를 부수고 넘어뜨림' }, { name: '모싱 점프', type: 'xPkMosh', cd: 200, desc: '←→+U: 관객 위로 날아 들이받아 띄움' }], wpn: 'guitar',
     tf: { name: '로커 모드', type: 'champion', color: '#e040fb', desc: '펀치 피해·속도↑' },
     ult: { name: '앰프 대폭발', type: 'nxAmp', desc: '거대한 앰프에서 음파 고리가 세 번 터짐' } },
-  { name: '바캉스돈', title: '여름 바다의 돼지', type: '물놀이', hp: 109, power: 1.04, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big7', buy: 10500000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🏖️ 여름 바캉스)', perk: '업데이트 돼지', costume: 'beach', costumeCol: '#26c6da',
+  { name: '바캉스돈', title: '여름 바다의 돼지', type: '물놀이', hp: 95, power: 0.99, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big7', buy: 10500000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🏖️ 여름 바캉스)', perk: '업데이트 돼지', costume: 'beach', costumeCol: '#26c6da',
     look: look('#ffccbc', '#9e7e75', '#ffe3da', '#ffbcad', '#594742', '#5d4037', '#26c6da', ['bold'], 1.04),
     skill: { name: '물총 연사', type: 'xBcWater', cd: 160, desc: 'U: 물줄기 다섯 발 · 맞으면 느려짐' },
     skills: [{ name: '물총 연사', type: 'xBcWater', cd: 160, desc: 'U: 물줄기 다섯 발 · 맞으면 느려짐' }, { name: '튜브 던지기', type: 'xBcTube', cd: 300, desc: '↓+U: 튜브에 끼면 못 움직임' }, { name: '서핑 돌진', type: 'xBcSurf', cd: 220, desc: '←→+U: 파도를 타고 돌진 (잠깐 무적)' }], wpn: 'watergun',
     tf: { name: '돼지 모드', type: 'champion', color: '#26c6da', desc: '펀치 피해·속도↑' },
     ult: { name: '서핑 대해일', type: 'nxTsunami', desc: '거대한 파도가 화면을 휩쓺' } },
-  { name: '야구돈', title: '홈런왕 돼지 타자', type: '야구', hp: 119, power: 1.1, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big8', buy: 18900000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (⚾ 야구장)', perk: '업데이트 돼지', costume: 'sport', costumeCol: '#1e88e5',
+  { name: '야구돈', title: '홈런왕 돼지 타자', type: '야구', hp: 111, power: 1.07, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big8', buy: 18900000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (⚾ 야구장)', perk: '업데이트 돼지', costume: 'sport', costumeCol: '#1e88e5',
     look: look('#ffd0c0', '#9e8177', '#ffe5dc', '#ffbfb0', '#594943', '#263238', '#1e88e5', ['bold'], 1.04),
     skill: { name: '강속구', type: 'xBbPitch', cd: 150, desc: 'U: 빠르고 곧은 공' },
     skills: [{ name: '강속구', type: 'xBbPitch', cd: 150, desc: 'U: 빠르고 곧은 공' }, { name: '풀스윙', type: 'xBbSwing', cd: 220, desc: '↓+U: 배트로 높이 날려 버림' }, { name: '슬라이딩', type: 'xBbSlide', cd: 200, desc: '←→+U: 낮게 미끄러져 넘어뜨림' }], wpn: 'bat',
     tf: { name: '타자 모드', type: 'champion', color: '#1e88e5', desc: '펀치 피해·속도↑' },
     ult: { name: '끝내기 홈런', type: 'nxHomeRun', desc: '붙잡고 연타한 뒤 장외 홈런' } },
-  { name: '네온돈', title: '네온 도시의 돼지 해커', type: '해커', hp: 125, power: 1.1, speed: 1.08, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big9', buy: 34010000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌃 네온 시티)', perk: '업데이트 돼지', costume: 'bolt', costumeCol: '#00e5ff',
+  { name: '네온돈', title: '네온 도시의 돼지 해커', type: '해커', hp: 108, power: 1.05, speed: 1.08, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big9', buy: 34010000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌃 네온 시티)', perk: '업데이트 돼지', costume: 'bolt', costumeCol: '#00e5ff',
     look: look('#37474f', '#222c31', '#919a9e', '#69585b', '#13191c', '#00e5ff', '#00e5ff', ['bold'], 1.04),
     skill: { name: '추적 드론', type: 'xNeDrone', cd: 220, desc: 'U: 상대를 쫓아가는 드론' },
     skills: [{ name: '추적 드론', type: 'xNeDrone', cd: 220, desc: 'U: 상대를 쫓아가는 드론' }, { name: '글리치 순간이동', type: 'xNeGlitch', cd: 220, desc: '↓+U: 상대 뒤로 순간이동해 때림' }, { name: 'EMP 폭발', type: 'xNeEmp', cd: 280, desc: '←→+U: 주변 전기 폭발 · 맞으면 느려짐' }], wpn: 'laser',
     tf: { name: '해커 모드', type: 'champion', color: '#00e5ff', desc: '펀치 피해·속도↑' },
     ult: { name: '시스템 해킹', type: 'nxHack', desc: '드론 4대가 사방에서 레이저를 쏨' } },
-  { name: '용암돈', title: '화산에서 태어난 돼지 골렘', type: '골렘', hp: 115, power: 1.04, speed: 0.88, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big10', buy: 61220000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌋 화산섬)', perk: '업데이트 돼지', costume: 'lava', costumeCol: '#ff6d00',
+  { name: '용암돈', title: '화산에서 태어난 돼지 골렘', type: '골렘', hp: 131, power: 1.1, speed: 0.88, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big10', buy: 61220000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌋 화산섬)', perk: '업데이트 돼지', costume: 'lava', costumeCol: '#ff6d00',
     look: look('#5d4037', '#3a2822', '#a69691', '#865349', '#211613', '#ff6d00', '#ff6d00', ['bold'], 1.04),
     skill: { name: '바위 던지기', type: 'xLvRock', cd: 200, desc: 'U: 떨어지면 터지는 바위' },
     skills: [{ name: '바위 던지기', type: 'xLvRock', cd: 200, desc: 'U: 떨어지면 터지는 바위' }, { name: '용암 웅덩이', type: 'xLvPool', cd: 300, desc: '↓+U: 상대 발밑에 용암이 끓어오름' }, { name: '지진파', type: 'xLvQuake', cd: 220, desc: '←→+U: 바닥을 타고 가는 지진 · 넘어뜨림' }], wpn: 'rockfist',
     tf: { name: '골렘 모드', type: 'champion', color: '#ff6d00', desc: '펀치 피해·속도↑' },
     ult: { name: '화산 대폭발', type: 'nxVolcano', desc: '용암 바위가 하늘에서 쏟아짐' } },
-  { name: '눈꽃돈', title: '눈의 나라 돼지 기사', type: '얼음', hp: 129, power: 1.06, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big11', buy: 110200000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (❄️ 눈의 왕국)', perk: '업데이트 돼지', costume: 'ice', costumeCol: '#40c4ff',
+  { name: '눈꽃돈', title: '눈의 나라 돼지 기사', type: '얼음', hp: 117, power: 1.02, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big11', buy: 110200000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (❄️ 눈의 왕국)', perk: '업데이트 돼지', costume: 'ice', costumeCol: '#40c4ff',
     look: look('#e1f5fe', '#8c989d', '#effafe', '#e9dadf', '#4f5659', '#0277bd', '#40c4ff', ['bold'], 1.04),
     skill: { name: '얼음 창 찌르기', type: 'xIcSpear', cd: 160, desc: 'U: 긴 창으로 찌름 · 느려짐' },
     skills: [{ name: '얼음 창 찌르기', type: 'xIcSpear', cd: 160, desc: 'U: 긴 창으로 찌름 · 느려짐' }, { name: '눈꽃 표창', type: 'xIcFlake', cd: 180, desc: '↓+U: 눈꽃 표창 두 개' }, { name: '얼음벽', type: 'xIcWall', cd: 320, desc: '←→+U: 앞에 얼음벽을 세워 막음' }], wpn: 'spear',
     tf: { name: '기사 모드', type: 'champion', color: '#40c4ff', desc: '펀치 피해·속도↑' },
     ult: { name: '빙결 가시길', type: 'nxIcePath', desc: '얼음 가시가 줄지어 솟아오름' } },
-  { name: '황제돈', title: '황금 왕좌의 돼지 황제', type: '황제', hp: 116, power: 1.03, speed: 0.92, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big12', buy: 198360000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (👑 황금 제국)', perk: '업데이트 돼지', costume: 'coin', costumeCol: '#ffd740',
+  { name: '황제돈', title: '황금 왕좌의 돼지 황제', type: '황제', hp: 108, power: 1, speed: 0.92, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big12', buy: 198360000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (👑 황금 제국)', perk: '업데이트 돼지', costume: 'coin', costumeCol: '#ffd740',
     look: look('#ffe0b2', '#9e8b6e', '#ffeed5', '#ffcba6', '#594e3e', '#e65100', '#ffd740', ['bold'], 1.04),
     skill: { name: '황금 광선', type: 'xEmBeam', cd: 170, desc: 'U: 홀에서 황금 광선' },
     skills: [{ name: '황금 광선', type: 'xEmBeam', cd: 170, desc: 'U: 홀에서 황금 광선' }, { name: '금화 소나기', type: 'xEmCoins', cd: 260, desc: '↓+U: 상대 머리 위로 금화가 쏟아짐' }, { name: '황실 근위대', type: 'xEmGuard', cd: 300, desc: '←→+U: 근위병이 행진해 공격' }], wpn: 'scepter',
     tf: { name: '황제 모드', type: 'champion', color: '#ffd740', desc: '펀치 피해·속도↑' },
     ult: { name: '황금 대금화', type: 'nxGoldWheel', desc: '거대한 금화가 굴러가며 짓밟음' } },
-  { name: '은하돈', title: '별을 삼킨 우주 돼지', type: '은하', hp: 102, power: 1.09, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big13', buy: 357050000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌌 은하 여행)', perk: '업데이트 돼지', costume: 'star', costumeCol: '#b388ff',
+  { name: '은하돈', title: '별을 삼킨 우주 돼지', type: '은하', hp: 90, power: 1.05, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big13', buy: 357050000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌌 은하 여행)', perk: '업데이트 돼지', costume: 'star', costumeCol: '#b388ff',
     look: look('#4527a0', '#2b1863', '#9988cb', '#744098', '#180e38', '#ffd740', '#b388ff', ['bold'], 1.04),
     skill: { name: '중력 우물', type: 'xGaWell', cd: 300, desc: 'U: 상대를 끌어당기는 소용돌이' },
     skills: [{ name: '중력 우물', type: 'xGaWell', cd: 300, desc: 'U: 상대를 끌어당기는 소용돌이' }, { name: '혜성 낙하', type: 'xGaComet', cd: 220, desc: '↓+U: 하늘에서 혜성이 떨어짐' }, { name: '워프', type: 'xGaWarp', cd: 220, desc: '←→+U: 상대 뒤로 워프해 띄움' }], wpn: 'wand',
     tf: { name: '돼지 모드', type: 'champion', color: '#b388ff', desc: '펀치 피해·속도↑' },
     ult: { name: '초신성', type: 'nxSupernova', desc: '상대 앞에서 별이 커지다 대폭발' } },
-  { name: '유니돈', title: '무지개 뿔 돼지', type: '유니콘', hp: 118, power: 1.1, speed: 1.1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big14', buy: 642680000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🦄 무지개 동산)', perk: '업데이트 돼지', costume: 'rainbow', costumeCol: '#f48fb1',
+  { name: '유니돈', title: '무지개 뿔 돼지', type: '유니콘', hp: 127, power: 1.1, speed: 1.1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big14', buy: 642680000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🦄 무지개 동산)', perk: '업데이트 돼지', costume: 'rainbow', costumeCol: '#f48fb1',
     look: look('#fff0f6', '#9e9599', '#fff7fa', '#ffd7d9', '#595456', '#ad1457', '#f48fb1', ['bold'], 1.04),
     skill: { name: '무지개 돌진', type: 'xUnDash', cd: 170, desc: 'U: 무지개를 남기며 돌진' },
     skills: [{ name: '무지개 돌진', type: 'xUnDash', cd: 170, desc: 'U: 무지개를 남기며 돌진' }, { name: '반짝 별가루', type: 'xUnSparkle', cd: 320, desc: '↓+U: 맞으면 오래 못 움직임' }, { name: '무지개 치유', type: 'xUnHeal', cd: 600, desc: '←→+U: 체력 10 회복 · 잠깐 무적' }],
     tf: { name: '돼지 모드', type: 'champion', color: '#f48fb1', desc: '펀치 피해·속도↑' },
     ult: { name: '무지개 대폭주', type: 'nxRainbow', desc: '뿔에서 거대한 무지개 광선' } },
-  { name: '벚꽃돈', title: '꽃잎 바람의 돼지 요정', type: '요정', hp: 114, power: 1.05, speed: 1.08, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big15', buy: 1156830000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌸 벚꽃 축제)', perk: '업데이트 돼지', costume: 'petal', costumeCol: '#f8bbd0',
+  { name: '벚꽃돈', title: '꽃잎 바람의 돼지 요정', type: '요정', hp: 107, power: 1.02, speed: 1.08, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big15', buy: 1156830000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌸 벚꽃 축제)', perk: '업데이트 돼지', costume: 'petal', costumeCol: '#f8bbd0',
     look: look('#fce4ec', '#9c8d92', '#fdf0f5', '#fdced1', '#585053', '#c2185b', '#66bb6a', ['bold'], 1.04),
     skill: { name: '꽃잎 칼날', type: 'xSkPetal', cd: 150, desc: 'U: 꽃잎 세 장을 날림' },
     skills: [{ name: '꽃잎 칼날', type: 'xSkPetal', cd: 150, desc: 'U: 꽃잎 세 장을 날림' }, { name: '꽃 함정', type: 'xSkTrap', cd: 300, desc: '↓+U: 상대 발밑에서 뿌리가 솟아 묶음' }, { name: '꽃바람 도약', type: 'xSkBreeze', cd: 220, desc: '←→+U: 뒤로 뛰며 꽃잎을 날림 (잠깐 무적)' }], wpn: 'fan',
@@ -729,25 +729,25 @@ const CHARS = [
     skills: [{ name: '유령화', type: 'xGhPhase', cd: 360, desc: 'U: 1초 동안 투명해짐 (무적)' }, { name: '해골 불꽃', type: 'xGhSkull', cd: 200, desc: '↓+U: 천천히 쫓아가는 해골' }, { name: '저승의 손', type: 'xGhHand', cd: 260, desc: '←→+U: 상대 발밑에서 손이 솟아 띄움' }], wpn: 'lantern',
     tf: { name: '유령 모드', type: 'champion', color: '#69f0ae', desc: '펀치 피해·속도↑' },
     ult: { name: '유령선 습격', type: 'nxGhostShip', desc: '유령선이 화면을 가로지름' } },
-  { name: '그림자돈', title: '달밤의 돼지 닌자', type: '닌자', hp: 102, power: 1.06, speed: 1.2, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big17', buy: 3748130000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌙 달밤의 닌자)', perk: '업데이트 돼지', costume: 'shadow', costumeCol: '#3949ab',
+  { name: '그림자돈', title: '달밤의 돼지 닌자', type: '닌자', hp: 97, power: 1.04, speed: 1.2, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big17', buy: 3748130000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🌙 달밤의 닌자)', perk: '업데이트 돼지', costume: 'shadow', costumeCol: '#3949ab',
     look: look('#455a64', '#2b383e', '#99a4aa', '#74666b', '#182023', '#c5cae9', '#3949ab', ['bold'], 1.04),
     skill: { name: '발도술', type: 'xShIai', cd: 200, desc: 'U: 순식간에 지나가며 벰 (잠깐 무적)' },
     skills: [{ name: '발도술', type: 'xShIai', cd: 200, desc: 'U: 순식간에 지나가며 벰 (잠깐 무적)' }, { name: '수리검 3연발', type: 'xShStar', cd: 150, desc: '↓+U: 수리검 세 개' }, { name: '잠복', type: 'xShAmbush', cd: 240, desc: '←→+U: 연기 속에서 뒤로 나타나 띄움' }], wpn: 'katana',
     tf: { name: '닌자 모드', type: 'champion', color: '#3949ab', desc: '펀치 피해·속도↑' },
     ult: { name: '월광 난격', type: 'nxMoonSlash', desc: '달밤에 수없이 베고 마무리' } },
-  { name: '악마돈', title: '지옥에서 온 돼지 악마', type: '악마', hp: 115, power: 1.1, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big18', buy: 6746640000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (😈 지옥문)', perk: '업데이트 돼지', costume: 'dark', costumeCol: '#7c4dff',
+  { name: '악마돈', title: '지옥에서 온 돼지 악마', type: '악마', hp: 104, power: 1.06, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big18', buy: 6746640000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (😈 지옥문)', perk: '업데이트 돼지', costume: 'dark', costumeCol: '#7c4dff',
     look: look('#4a2a3a', '#2e1a24', '#9b8a93', '#77424c', '#1a0f14', '#d500f9', '#7c4dff', ['bold'], 1.04),
     skill: { name: '삼지창 찌르기', type: 'xDvTrident', cd: 160, desc: 'U: 두 번 찌름 · 사거리가 김' },
     skills: [{ name: '삼지창 찌르기', type: 'xDvTrident', cd: 160, desc: 'U: 두 번 찌름 · 사거리가 김' }, { name: '지옥불 구슬', type: 'xDvOrb', cd: 240, desc: '↓+U: 느리게 날아가며 여러 번 태움' }, { name: '사슬 당기기', type: 'xDvChain', cd: 240, desc: '←→+U: 사슬로 내 앞까지 끌어옴' }], wpn: 'trident',
     tf: { name: '악마 모드', type: 'champion', color: '#7c4dff', desc: '펀치 피해·속도↑' },
     ult: { name: '지옥문 개방', type: 'nxHellGate', desc: '발밑에 지옥문이 열려 불기둥' } },
-  { name: '불꽃돈', title: '불꽃 갈기의 돼지 전사', type: '전사', hp: 102, power: 1.01, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big19', buy: 12143950000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🔥 불꽃 전사)', perk: '업데이트 돼지', costume: 'fire', costumeCol: '#ff3d00',
+  { name: '불꽃돈', title: '불꽃 갈기의 돼지 전사', type: '전사', hp: 95, power: 0.98, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big19', buy: 12143950000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🔥 불꽃 전사)', perk: '업데이트 돼지', costume: 'fire', costumeCol: '#ff3d00',
     look: look('#ffab91', '#9e6a5a', '#ffd1c3', '#ffa38d', '#593c33', '#bf360c', '#ff3d00', ['bold'], 1.04),
     skill: { name: '화염구 2연발', type: 'xFrBall', cd: 170, desc: 'U: 불덩이 두 개 · 태움' },
     skills: [{ name: '화염구 2연발', type: 'xFrBall', cd: 170, desc: 'U: 불덩이 두 개 · 태움' }, { name: '불기둥 셋', type: 'xFrPillar', cd: 260, desc: '↓+U: 앞으로 불기둥 셋이 차례로' }, { name: '불꽃 회전차기', type: 'xFrKick', cd: 200, desc: '←→+U: 돌며 세 번 차고 태움' }], wpn: 'flamesword',
     tf: { name: '전사 모드', type: 'champion', color: '#ff3d00', desc: '펀치 피해·속도↑' },
     ult: { name: '불사조 강림', type: 'nxPhoenix', desc: '불사조가 날아와 휩쓺' } },
-  { name: '펀치돈', title: '세계 챔피언 돼지 복서', type: '복싱', hp: 121, power: 1.1, speed: 1.04, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big20', buy: 21859120000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🥊 세계 챔피언전)', perk: '업데이트 돼지', costume: 'sport', costumeCol: '#d50000',
+  { name: '펀치돈', title: '세계 챔피언 돼지 복서', type: '복싱', hp: 139, power: 1.1, speed: 1.04, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big20', buy: 21859120000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🥊 세계 챔피언전)', perk: '업데이트 돼지', costume: 'sport', costumeCol: '#d50000',
     look: look('#f8c4b0', '#9a7a6d', '#fbdfd4', '#fab6a4', '#57453e', '#212121', '#d50000', ['gloves', 'belt', 'bold'], 1.04),
     skill: { name: '원투', type: 'xBxOneTwo', cd: 130, desc: 'U: 빠른 두 방' },
     skills: [{ name: '원투', type: 'xBxOneTwo', cd: 130, desc: 'U: 빠른 두 방' }, { name: '더킹 카운터', type: 'xBxWeave', cd: 220, desc: '↓+U: 피하며 올려 침 (잠깐 무적)' }, { name: '스크류 훅', type: 'xBxScrew', cd: 240, desc: '←→+U: 가드를 부수는 큰 한 방' }],
@@ -1305,12 +1305,19 @@ function nxObjTick(o) {
   return false;
 }
 // ---- 필살기 ----
-function nxUlt(f, o, T) {
-  const s = f.sc / 1.15, F = f.facing, type = f.ch.ult.type;
+const NX_SUMMON = new Set(['nxExcalibur', 'nxSleigh', 'nxAmp', 'nxTsunami', 'nxHack', 'nxVolcano', 'nxIcePath', 'nxGoldWheel', 'nxSupernova', 'nxSakura', 'nxGhostShip', 'nxHellGate', 'nxPhoenix']);
+function nxRunTick(f) {   // 소환형 필살기: 돼지는 움직이고 소환은 계속
+  if (!f.nxRun) return; if (scene !== 'fight' || f.state === 'ko') { f.nxRun = null; return; }
+  nxUlt(f, f.opp, ++f.nxRun.t, true);
+}
+function nxUlt(f, o, T, bg) {
+  const type = f.ch.ult.type;
+  if (!bg && NX_SUMMON.has(type)) { if (T === 1) { f.nxRun = { t: 0, F: f.facing, x: f.x }; f.vx = 0; } if (T >= 20) ultEnd(f, o); return; }   // 시전 자세만 잠깐
+  const s = f.sc / 1.15, F = bg && f.nxRun ? f.nxRun.F : f.facing, X0 = bg && f.nxRun ? f.nxRun.x : f.x;   // X0: 필살기를 쓴 자리
   const U = h => dealHit(f, o, Object.assign({ src: f.x, kind: 'ult', height: 'mid', noPart: true }, h));
   const lock = () => { if (o.state !== 'ko') { o.state = 'locked'; o.vx = 0; o.vy = 0; } };
   const A = ob => addObj({ owner: f, ult: true, clash: false, ...ob });
-  const end = n => { if (T >= n) ultEnd(f, o); };
+  const end = n => { if (T >= n) { if (bg) f.nxRun = null; else ultEnd(f, o); } };
   const behind = F > 0 ? -150 : W + 150;
   // 붙잡는 필살기: 달려가서 닿으면 붙잡고 연타 → 마지막 한 방
   const grabCombo = (hits, every, fin, fx) => {
@@ -1326,13 +1333,13 @@ function nxUlt(f, o, T) {
     case 'nxExcalibur': if (T === 8) { A({ kind: 'xGiantSword', x: o.x, y: -260, vy: 30, w: 100, h: 260, dmg: 24, launch: -10, kb: 14, stun: 50, life: 70, delay: 30, txt: ['성검!!'] }); popText(f.x, f.y - 250 * s, '하늘이여, 검을!!', '#fff59d', 28); } end(100); break;
     case 'nxSleigh': if (T === 6) A({ kind: 'xSleigh', x: behind, y: 110, vx: F * 8, w: 10, h: 10, dmg: 0, life: 200 }); end(150); break;
     case 'nxHighNoon': if (T === 1) nxTint = { c: 'rgba(255,152,0,0.22)', t: 100 }; if (T >= 24 && T <= 74 && (T - 24) % 10 === 0) { addObj({ owner: f, kind: 'xBullet', x: f.x + F * 80 * s, y: f.y - 95 * s, vx: F * 24, w: 26, h: 12, dmg: 5, kb: 3, stun: 22, life: 50, ult: true, dir: F }); nxFx(f, 'muzzle', f.x + F * 110 * s, f.y - 95 * s, 6); SFX.whiff(); shake = Math.max(shake, 5); } end(96); break;
-    case 'nxAmp': if (T === 4) A({ kind: 'xAmp', x: f.x - F * 90 * s, y: GROUND - 70, w: 10, h: 10, dmg: 0, life: 100 }); if ([20, 44, 68].includes(T)) { A({ kind: 'xRing', x: f.x, y: f.y - 90 * s, w: 60, h: 220, dmg: 8, kb: 10, stun: 28, launch: -5, life: 34 }); SFX.boom(); shake = Math.max(shake, 12); } end(104); break;
+    case 'nxAmp': if (T === 4) A({ kind: 'xAmp', x: X0 - F * 90 * s, y: GROUND - 70, w: 10, h: 10, dmg: 0, life: 100 }); if ([20, 44, 68].includes(T)) { A({ kind: 'xRing', x: X0 - F * 90 * s, y: f.y - 90 * s, w: 60, h: 220, dmg: 8, kb: 10, stun: 28, launch: -5, life: 34 }); SFX.boom(); shake = Math.max(shake, 12); } end(104); break;
     case 'nxTsunami': if (T === 6) A({ kind: 'xBigWave', x: behind, y: GROUND - 120, vx: F * 10, w: 170, h: 260, dmg: 5, multi: 12, maxHits: 4, kb: 8, stun: 26, launch: -4, life: 220 }); end(140); break;
     case 'nxHomeRun': grabCombo(3, 10, { dmg: 18, launch: -22, kb: 26, fx: () => { popText(o.x, o.y - 220, '홈런!!!', '#ffd740', 44); nxPart(o.x, o.y - 100, 40, ['#fff', '#ffd740', '#d7a86e'], 10, 30); SFX.slam(); } }, i => nxFx(f, 'slash', o.x, o.y - 100, 10, { col: '#d7a86e', up: i % 2 })); break;
     case 'nxHack': if (T === 1) nxTint = { c: 'rgba(0,229,255,0.12)', t: 110, grid: true }; if (T === 10) for (let i = 0; i < 4; i++) A({ kind: 'xDrone2', k: i, x: [80, W - 80, 160, W - 160][i], y: [70, 70, 200, 200][i], w: 10, h: 10, dmg: 0, life: 100 }); end(112); break;
     case 'nxVolcano': if (T >= 10 && T <= 100 && T % 7 === 0) A({ kind: 'xLavaRock', x: clamp(o.x + rand(-200, 200), 30, W - 30), y: -40, vx: rand(-1, 1), vy: 6, g: 0.35, boom: 1, w: 44, h: 44, dmg: 6, kb: 6, stun: 22, life: 120, maxHits: 1 }); if (T === 10) nxTint = { c: 'rgba(255,61,0,0.16)', t: 110 }; end(124); break;
-    case 'nxIcePath': if (T >= 10 && T <= 66 && (T - 10) % 7 === 0) { const i = (T - 10) / 7; A({ kind: 'xIceSpike', x: clamp(f.x + F * (90 + i * 75) * s, 20, W - 20), y: GROUND - 70, w: 60, h: 140, dmg: 6, launch: -8, kb: 4, stun: 26, life: 26, maxHits: 1 }); SFX.ice(); } end(90); break;
-    case 'nxGoldWheel': if (T === 8) A({ kind: 'xBigCoin', x: f.x + F * 40 * s, y: GROUND - 75, vx: F * 9, w: 150, h: 150, dmg: 6, multi: 10, maxHits: 4, kb: 9, stun: 26, life: 160 }); end(120); break;
+    case 'nxIcePath': if (T >= 10 && T <= 66 && (T - 10) % 7 === 0) { const i = (T - 10) / 7; A({ kind: 'xIceSpike', x: clamp(X0 + F * (90 + i * 75) * s, 20, W - 20), y: GROUND - 70, w: 60, h: 140, dmg: 6, launch: -8, kb: 4, stun: 26, life: 26, maxHits: 1 }); SFX.ice(); } end(90); break;
+    case 'nxGoldWheel': if (T === 8) A({ kind: 'xBigCoin', x: X0 + F * 40 * s, y: GROUND - 75, vx: F * 9, w: 150, h: 150, dmg: 6, multi: 10, maxHits: 4, kb: 9, stun: 26, life: 160 }); end(120); break;
     case 'nxSupernova': if (T === 6) { A({ kind: 'xNovaCore', x: o.x, y: o.y - 90 * s, w: 10, h: 10, dmg: 0, life: 52 }); A({ kind: 'xNova', x: o.x, y: o.y - 90 * s, w: 320, h: 320, dmg: 22, launch: -14, kb: 16, stun: 50, life: 16, delay: 50, maxHits: 1, txt: ['초신성!!'] }); } if (T === 56) { shake = 26; SFX.boom(); nxTint = { c: 'rgba(255,255,255,0.5)', t: 10 }; } end(90); break;
     case 'nxRainbow': if (T === 8) A({ kind: 'xRainbowBeam', follow: true, x: f.x, y: f.y - 95 * s, w: 620, h: 80, dmg: 4, multi: 7, maxHits: 6, kb: 6, stun: 24, life: 70 }); end(84); break;
     case 'nxSakura': if (T === 6) A({ kind: 'xTornado', x: o.x, y: GROUND - 130, w: 150, h: 260, dmg: 4, multi: 8, maxHits: 6, kb: 2, stun: 26, launch: -3, life: 76, delay: 8 }); end(96); break;
@@ -1381,6 +1388,7 @@ function drawNxObj(o) {
       else if (o.fx === 'line') { ctx.rotate(o.ang || 0); ctx.strokeStyle = '#e8eaf6'; ctx.lineWidth = 5; glowC('#c5cae9', 20); line(-(o.len || 200) / 2, 0, (o.len || 200) / 2, 0); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; line(-(o.len || 200) / 2, 0, (o.len || 200) / 2, 0); }
       else if (o.fx === 'fireRing') { ctx.strokeStyle = '#ff6d00'; ctx.lineWidth = 6; glowC('#ff3d00', 20); ctx.beginPath(); ctx.ellipse(0, 0, 90, 30, 0, 0, Math.PI * 2); ctx.stroke(); }
       else if (o.fx === 'punch') { const sc2 = o.big ? 2.2 : 1; ctx.scale(F * sc2, sc2); ctx.fillStyle = '#d50000'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; rr(-22, -18, 40, 36, 14); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fafafa'; ctx.fillRect(-30, -12, 10, 24); ctx.strokeStyle = '#ffd740'; ctx.lineWidth = 3; for (let i = 0; i < 6; i++) { const a2 = i / 6 * Math.PI * 2; line(Math.cos(a2) * 34, Math.sin(a2) * 34, Math.cos(a2) * 46, Math.sin(a2) * 46); } }
+      else if (o.fx === 'tracer') { ctx.scale(F, 1); ctx.strokeStyle = 'rgba(255,236,179,0.9)'; ctx.lineWidth = 3; glowC('#ffab00', 12); line(-(o.len || 200) / 2, 0, (o.len || 200) / 2, 0); }
       else if (o.fx === 'muzzle') { ctx.scale(F, 1); ctx.fillStyle = '#fff59d'; glowC('#ffab00', 20); poly([[0, -12], [30, 0], [0, 12], [8, 0]]); ctx.fill(); }
       else if (o.fx === 'cookie') { ctx.fillStyle = '#d7a86e'; ell(0, 0, 18, 18); ctx.fill(); ctx.fillStyle = '#4e342e'; for (const [x, y] of [[-6, -5], [5, -2], [-2, 7], [8, 8]]) { ell(x, y, 3, 3); ctx.fill(); } }
       break; }
@@ -1434,10 +1442,34 @@ function drawNxObj(o) {
   }
   ctx.restore(); return true;
 }
-// ---- 손에 든 무기 (팔 방향을 따라 기울어짐) ----
-const GUNS = ['revolver', 'watergun', 'laser'];
-function drawWeapon(w, hx, hy, sx, sy, t) {
-  const ang = Math.atan2(hy - sy, hx - sx) + (GUNS.includes(w) ? 0 : -0.55);
+// ---- 무기 돼지 기본 공격 ----
+const WPN_COL = { sword: '#eceff1', katana: '#e8eaf6', flamesword: '#ff9100', bat: '#d7a86e', candycane: '#ff8a80', guitar: '#e040fb', scepter: '#ffd740', wand: '#fff59d', fan: '#f8bbd0', lantern: '#69f0ae', spear: '#b3e5fc', trident: '#d500f9', rockfist: '#ff6d00' };
+function wpnAttack(f) {
+  const a = f.atk, w = f.ch.wpn, k = f.sc / 1.15, F = f.facing, gun = GUNS.includes(w), pole = POLES.includes(w);
+  a.range = (a.range || 150) + (gun ? 45 : pole ? 35 : w === 'rockfist' ? 0 : 20);   // 무기만큼 멀리 닿음
+  a.wpn = true; a.txt = gun ? ['탕!', '빵!'] : pole ? ['푹!', '찌르기!'] : w === 'rockfist' ? a.txt : ['챙!', '베기!'];
+  const y = f.y - (a.height === 'high' ? 110 : 95) * k;
+  if (gun) { nxFx(f, 'muzzle', f.x + F * 120 * k, y, 6, { delay: a.startup }); nxFx(f, 'tracer', f.x + F * (120 + a.range * 0.5) * k, y, 6, { delay: a.startup, len: a.range }); }
+  else if (pole) nxFx(f, 'thrust', f.x + F * (60 + a.range * 0.5) * k, y, 10, { delay: a.startup, col: WPN_COL[w] });
+  else if (w !== 'rockfist') nxFx(f, 'slash', f.x + F * 100 * k, y, 10, { delay: a.startup, col: WPN_COL[w] || '#fff' });
+}
+// ---- 손에 든 무기 (자세마다 각도) ----
+const GUNS = ['revolver', 'watergun', 'laser'], POLES = ['spear', 'trident'];
+// 자세별 무기 각도: 칼·배트류는 쉴 때 아래 앞으로 내리고 공격 때 위→아래로 휘두름 · 창은 찌르기 · 총은 겨눔
+function weaponAngle(w, mv, k, t) {
+  const L = (a, b) => a + (b - a) * clamp(k || 0, 0, 1);
+  if (GUNS.includes(w)) return mv === 'uppercut' ? -0.6 : mv === 'counter' ? -1.0 : mv ? 0 : 0.45;
+  if (POLES.includes(w)) return mv === 'uppercut' ? L(0.4, -1.0) : mv === 'counter' ? -1.1 : mv === 'spin' ? t * 0.5 : mv === 'throw' ? -0.3 : mv ? 0 : 0.25;
+  if (mv === 'jab' || mv === 'punch') return L(-1.5, 0.55);   // 내려 베기
+  if (mv === 'uppercut') return L(0.9, -1.4);   // 올려 베기
+  if (mv === 'dash') return 0.05;   // 앞으로 겨누고 돌진
+  if (mv === 'throw') return -0.5;
+  if (mv === 'spin') return t * 0.5;
+  if (mv === 'counter' || mv === 'block') return -1.25;   // 세워서 막기
+  return 0.75;   // 쉴 때: 아래 앞으로 내려 듦 (얼굴을 안 가림)
+}
+function drawWeapon(w, hx, hy, mv, k, t, air) {
+  const ang = weaponAngle(w, mv, k, t);
   ctx.save(); ctx.translate(hx, hy); ctx.rotate(ang); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2 * LWM;
   const blade = (len, c1, c2, wd = 5) => { const g = ctx.createLinearGradient(0, -wd, 0, wd); g.addColorStop(0, c1); g.addColorStop(1, c2); ctx.fillStyle = g; poly([[10, -wd], [len, -wd + 1], [len + 12, 0], [len, wd - 1], [10, wd]]); ctx.fill(); ctx.stroke(); };
   switch (w) {
@@ -1455,8 +1487,8 @@ function drawWeapon(w, hx, hy, sx, sy, t) {
     case 'candycane': ctx.lineWidth = 7; ctx.strokeStyle = '#fafafa'; ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(44, 0); ctx.arc(44, -10, 10, Math.PI / 2, -Math.PI / 2, true); ctx.stroke(); ctx.strokeStyle = '#e53935'; ctx.lineWidth = 7; ctx.setLineDash([5, 7]); ctx.stroke(); ctx.setLineDash([]); break;
     case 'fan': ctx.fillStyle = '#f8bbd0'; ctx.strokeStyle = '#c2185b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 40, -0.7, 0.7); ctx.closePath(); ctx.fill(); ctx.stroke(); for (let i = -2; i <= 2; i++) line(0, 0, Math.cos(i * 0.3) * 40, Math.sin(i * 0.3) * 40); ctx.fillStyle = '#fff'; ell(28, -4, 5, 5); ctx.fill(); break;
     case 'lantern': ctx.strokeStyle = '#424242'; ctx.lineWidth = 3; line(0, 0, 30, 0); line(30, 0, 30, 10); ctx.fillStyle = '#37474f'; rr(20, 10, 20, 26, 4); ctx.fill(); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(105,240,174,${0.7 + 0.3 * Math.sin(t * 0.2)})`; ell(30, 23, 7, 9); ctx.fill(); ctx.restore(); break;
-    case 'guitar': ctx.fillStyle = '#212121'; ctx.fillRect(10, -3, 54, 6); ctx.fillStyle = '#e040fb'; ctx.beginPath(); ctx.ellipse(0, 0, 22, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#212121'; ell(2, 0, 5, 5); ctx.fill(); ctx.fillStyle = '#e040fb'; poly([[62, -6], [74, -10], [74, 10], [62, 6]]); ctx.fill(); ctx.strokeStyle = '#eee'; ctx.lineWidth = 1; line(-10, 0, 64, 0); break;
-    case 'rockfist': ctx.rotate(-ang); ctx.fillStyle = '#4e342e'; ctx.strokeStyle = '#ff6d00'; ctx.lineWidth = 2.5; poly([[-14, -10], [-4, -18], [12, -14], [16, 2], [6, 14], [-12, 10]]); ctx.fill(); ctx.stroke(); break;
+    case 'guitar': ctx.fillStyle = '#e040fb'; poly([[-22, -7], [-12, -4], [-12, 4], [-22, 7]]); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#212121'; ctx.fillRect(-12, -3, 56, 6); ctx.fillStyle = '#e040fb'; ctx.beginPath(); ctx.ellipse(60, 0, 22, 16, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#212121'; ell(56, 0, 5, 5); ctx.fill(); ctx.fillRect(68, -7, 4, 14); ctx.strokeStyle = '#eee'; ctx.lineWidth = 1; line(-12, 0, 70, 0); break;   // 넥을 잡고 몸통이 앞쪽
+    case 'rockfist': ctx.rotate(-ang);   // 돌주먹은 손에 씌움 (기울이지 않음) ctx.fillStyle = '#4e342e'; ctx.strokeStyle = '#ff6d00'; ctx.lineWidth = 2.5; poly([[-14, -10], [-4, -18], [12, -14], [16, 2], [6, 14], [-12, 10]]); ctx.fill(); ctx.stroke(); break;
   }
   ctx.restore();
 }
@@ -2049,9 +2081,9 @@ function drawPig(x, y, face, C, p = {}) {
   else if (mv === 'dash' || p.roll !== undefined) fa = [-26, -50 + by];
   else if (air) fa = [44, -80 + by];
   else fa = [50, -84 + by];
+  if (C.wpn && !p.weapon) drawWeapon(C.wpn, fa[0], fa[1], mv, k, t, air);   // 업데이트 돼지: 손에 든 무기 (팔보다 먼저 → 발굽이 손잡이를 쥔 것처럼 덮음)
   limb(20 * bw, -64 + by, fa[0], fa[1], 13, C, hc, hr);
   skinDeco('front', C, { bw, by, t });   // 🎨 스킨: 어깨 갑옷·고리 앞쪽
-  if (C.wpn && !p.weapon) drawWeapon(C.wpn, fa[0], fa[1], 20 * bw, -64 + by, t);   // 업데이트 돼지: 손에 든 무기
   if (p.weapon) {
     ctx.save(); ctx.translate(fa[0], fa[1]); ctx.rotate(-0.9);
     if (p.weapon === 'head') { ctx.fillStyle = '#f5f5f5'; rr(-4, -50, 8, 50, 4); ctx.fill(); ctx.fillStyle = '#e57373'; ell(0, -54, 14, 11); ctx.fill(); ctx.fillStyle = '#fff3e0'; ell(-4, -57, 5, 3); ctx.fill(); }
@@ -2253,6 +2285,7 @@ class Fighter {
     itUpdate(this);   // 이타돼리: 늦게 터지는 주먹 · 저주왕 칼날
     bigUpdate(this);
     big2Update(this);
+    nxRunTick(this);   // 소환형 필살기 진행
     if (this.sandT > 0) { this.sandT--; this.trail.unshift([this.x, this.y]); if (this.trail.length > 10) this.trail.pop(); } else if (this.trail.length) this.trail = [];
     if (this.cyberT > 0 && --this.cyberT === 0) popText(this.x, this.y - 200, '슈트 해제', '#ccc', 20);
     if (this.foxT > 0) { this.foxT--; if (this.state !== 'ko' && this.hp > 0) this.hp = Math.min(this.maxHp, this.hp + 0.02); }
@@ -2364,6 +2397,7 @@ function startAtk(f, name, def, chain) {
   if (f.ch.spirit && isPunch && f.standOn) f.atk.spiritPunch = true;   // 돼타로: 스탠드를 꺼내 둔 동안 I/O 평타는 뚱타플레티나가 (스탠드 자리에서) 때림
   if (f.ch.blackFlash && !def.skill && !def.grab && f.atk.dmg && srnd() < (cursed(f) ? 0.25 : 0.12)) { f.atk.dmg *= 2.5; f.atk.boltCrit = true; f.atk.hitstop = 18; f.atk.shake = 14; }   // 평타 검은 번개
   f.state = 'attack'; f.af = 0; f.atkHit = false; f.hitsDone = 0; f.lastHitF = 0;
+  if (f.ch && f.ch.wpn && isPunch && !def.skill && typeof wpnAttack === 'function') wpnAttack(f);   // 무기 든 돼지: 주먹 대신 무기로
   if (!chain) { f.chain = 0; f.cbuf = null; }
   if (def.rise) f.vy = def.rise;
   if (!def.skill && !def.grab) SFX.whiff();
@@ -5042,7 +5076,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-4';
+const BUILD = '20261113-5';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -9060,7 +9094,11 @@ function balSim() {
   setTimeout(chunk, 0);
 }
 if (new URLSearchParams(location.search).get('view') === 'balsim') balSim();
-if (VIEW === 'fightc') { const q = new URLSearchParams(location.search), fc = n => CHARS.find(c => c.name === n) || CHARS[0]; mode = +(q.get('mode') || 1); p1.setChar(fc(q.get('a'))); p2.setChar(fc(q.get('b'))); startMatch(); for (let n = 0; n < 160 && scene !== 'fight'; n++) step(); for (let n = 0; n < 30; n++) step(); if (q.get('ult')) { p1.x = 330; p2.x = 560; p1.facing = 1; p1.state = 'idle'; p1.meter = 100; startUlt(p1); for (let n = 0; n < +q.get('ult'); n++) step(); } step = () => {}; }   // 아무 돼지 싸움 화면 확인용 (&ult=프레임: 필살기) (?view=fightc&a=이름&b=이름)
+if (VIEW === 'poses') { step = () => {}; const pg = +new URLSearchParams(location.search).get('page') || 0, PO = [null, 'jab', 'punch', 'uppercut', 'throw', 'dash', 'spin', 'counter']; draw = () => {   // 무기 든 돼지 자세 확인용 (?view=poses&page=0|1|2)
+  ctx.fillStyle = '#37474f'; ctx.fillRect(0, 0, W, H); const L = CHARS.filter(c => c.costume).slice(pg * 6, pg * 6 + 6);
+  PO.forEach((m, j) => txt(m || 'idle', 60 + j * 115, 12, 11, '#fff', null));
+  L.forEach((c, i) => PO.forEach((m, j) => drawPig(50 + j * 115, 100 + i * 88, 1, c.look, { scale: 0.42, t: 40, move: m || undefined, k: 1 }))); }; }
+else if (VIEW === 'fightc') { const q = new URLSearchParams(location.search), fc = n => CHARS.find(c => c.name === n) || CHARS[0]; mode = +(q.get('mode') || 1); p1.setChar(fc(q.get('a'))); p2.setChar(fc(q.get('b'))); startMatch(); for (let n = 0; n < 160 && scene !== 'fight'; n++) step(); for (let n = 0; n < 30; n++) step(); if (q.get('ult')) { p1.x = 330; p2.x = 560; p1.facing = 1; p1.state = 'idle'; p1.meter = 100; startUlt(p1); for (let n = 0; n < +q.get('ult'); n++) step(); } step = () => {}; }   // 아무 돼지 싸움 화면 확인용 (&ult=프레임: 필살기) (?view=fightc&a=이름&b=이름)
 else if (VIEW === 'selc') { mode = 1; selFor = 'run'; scene = 'select'; const i = CHARS.findIndex(c => c.name === new URLSearchParams(location.search).get('a')); if (i >= 0) sel.c1 = i; }
 if (VIEW === 'skins') { step = () => {}; const pg = +new URLSearchParams(location.search).get('page') || 0; draw = () => {   // 스킨 모양 확인용 (?view=skins&page=0|1): 돼지마다 기본 · 리컬러 · 섀도우 · 대표 스킨
   ctx.fillStyle = '#263238'; ctx.fillRect(0, 0, W, H); gT++; const L = CHARS.slice(pg * 12, pg * 12 + 12), cw = W / 12;
