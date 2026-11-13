@@ -5093,7 +5093,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-9';
+const BUILD = '20261113-10';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -5907,7 +5907,7 @@ function pigSkins(c) {
   ];
 }
 const SKIN_RANK = [['일반', '#b0bec5', 60], ['희귀', '#40c4ff', 28], ['영웅', '#e040fb', 9], ['전설', '#ffd740', 3]];
-const skinOn = (c, s) => (!c.relId || isRel(c.relId)) && (!s.rel || isRel(s.rel));   // 공개 안 된 업데이트의 돼지·스킨은 안 나옴
+const skinOn = (c, s) => (IS_TESTER && isMember()) || ((!c.relId || isRel(c.relId)) && (!s.rel || isRel(s.rel)));   // 테스트 계정은 공개 전 돼지·스킨도 다 보임   // 공개 안 된 업데이트의 돼지·스킨은 안 나옴
 const ownsPigSkin = (c, s) => !!(inv.own['ps:' + c.name + ':' + s.key] || IS_TESTER);   // 공용 스킨은 없음 · 돼지마다 따로
 // 예전 공용 스킨(지옥불 등)은 없앴음 → 가진 개수만큼 스킨 상자 값(100만)씩 한 번 돌려줌
 function refundOldSkins() {
