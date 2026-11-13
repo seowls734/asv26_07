@@ -5403,7 +5403,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-16';
+const BUILD = '20261113-17';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -8607,7 +8607,8 @@ function drawHUD() {
   rr(W / 2 - 38, 12, 76, 54, 10); ctx.fill(); ctx.stroke();
   txt(String(Math.max(0, Math.ceil(timer / 60))), W / 2, 40, 36, timer < 600 ? '#ff5252' : '#fff', null);
   if (mode === 1) txt(`${ranked ? "랭크전 · " : ""}${streak}연승 중`, W / 2, 82, 15, '#ffeb3b', '#000', 4);
-  if ((mode === 1 || mode === 6) && (scene === 'fight' || scene === 'intro')) drawQuitBtn(W / 2 - 60, 94, 120, 28);   // 모바일에서도 그만둘 수 있게
+  if (mode === 1 && (scene === 'fight' || scene === 'intro')) drawQuitBtn(W / 2 - 60, 94, 120, 28);
+  if (mode === 6 && (scene === 'fight' || scene === 'intro')) drawQuitBtn(W / 2 - 85, 94, 170, 34);   // 🥊 연습 모드 나가기   // 모바일에서도 그만둘 수 있게
   if (mode === 4) {
     txt(bet4.stake ? `🎲 ${(bet4.side ? p2 : p1).base}에 ${fmtN(bet4.stake)}코인` : '👀 구경 중', W / 2, 82, 14, '#ffd740', '#000', 4);
     ctx.fillStyle = bet4.fast ? '#ff9100' : 'rgba(0,0,0,0.55)'; rr(W / 2 - 64, 136, 128, 26, 8); ctx.fill();
@@ -8857,7 +8858,8 @@ function drawQuitBtn(x, y, w, h) {
   if (quitAskT > 0) quitAskT--;
   const ask = risky && quitAskT > 0;
   ctx.fillStyle = ask ? 'rgba(198,40,40,0.9)' : 'rgba(0,0,0,0.5)'; rr(x, y, w, h, 8); ctx.fill();
-  txt(ask ? '한 번 더: 패배로 나가기' : '그만하기', x + w / 2, y + h / 2, fitSize(ask ? '한 번 더: 패배로 나가기' : '그만하기', 14, w - 8), '#fff', null);
+  const qt = ask ? '한 번 더: 패배로 나가기' : mode === 6 ? (TOUCH ? '🚪 연습 나가기' : '🚪 연습 나가기 [Esc]') : '그만하기';
+  txt(qt, x + w / 2, y + h / 2, fitSize(qt, 14, w - 8), '#fff', null);
   addHot(x, y, w, h, () => { if (risky && quitAskT <= 0) { quitAskT = 150; SFX.select(); } else { quitAskT = 0; pressed.Escape = true; } });
 }
 function drawVs() {
@@ -9140,7 +9142,7 @@ if (/autotest/.test(location.search)) {
       { lsSet('sgf_awake', {}); const A = AWAKE['이타돼리']; for (const st of A.steps) for (let k = 0; k < st.goal; k++) awkAdd('이타돼리', st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`awake: ${isAwake('이타돼리')}`); if (!isAwake('이타돼리')) throw new Error('각성 실패');
         mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); const d0 = p1.dmgMul('punch'); p1.awk = true; const d1 = p1.dmgMul('punch'); out.push(`awake dmg ${d0.toFixed(2)} -> ${d1.toFixed(2)}`); if (!(d1 > d0)) throw new Error('각성 공격력 실패'); for (let n = 0; n < 130; n++) step(); draw(); lsSet('sgf_awake', {}); POPQ.length = 0; POP = null; showAwake(); POPQ.length = 0; }
       { const CB = CHARS.find(c => c.name === '캡틴베이컨'); mode = 0; p1.setChar(CB); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 300; p2.x = 560; p1.facing = 1; p2.facing = -1; p1.state = 'idle'; p2.state = 'idle'; p1.inp = { down: true }; startSkill(p1, false); const d0 = p2.x - p1.x; for (let n = 0; n < 40; n++) { p2.inp = {}; step(); } const d1 = p2.x - p1.x; out.push('pull: ' + (d0 | 0) + ' -> ' + (d1 | 0)); if (!(d1 < 170)) throw new Error('갈고리 끌어오기 실패'); }
-      { mode = 6; ranked = false; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 160 && scene !== 'fight'; n++) step(); const tm = timer, x2 = p2.x; p2.hp = 3; const r = dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 16 }); for (let n = 0; n < 200; n++) step(); out.push('practice: scene=' + scene + ' hp=' + p2.hp.toFixed(0) + ' timer=' + tm + '->' + timer + ' moved=' + Math.abs(p2.x - x2).toFixed(0) + ' meter=' + p1.meter); if (scene !== 'fight' || timer !== tm || !(p2.hp > 50) || p1.meter < 100) throw new Error('연습 모드 실패'); mode = 1; toTitle(); }
+      { mode = 6; ranked = false; p1.setChar(CHARS[0]); p2.setChar(CHARS[1]); startMatch(); for (let n = 0; n < 160 && scene !== 'fight'; n++) step(); const tm = timer, x2 = p2.x; p2.hp = 3; const r = dealHit(p1, p2, { dmg: 10, kind: 'punch', src: p1.x, height: 'mid', stun: 16 }); for (let n = 0; n < 200; n++) step(); out.push('practice: scene=' + scene + ' hp=' + p2.hp.toFixed(0) + ' timer=' + tm + '->' + timer + ' moved=' + Math.abs(p2.x - x2).toFixed(0) + ' meter=' + p1.meter); if (scene !== 'fight' || timer !== tm || !(p2.hp > 50) || p1.meter < 100) throw new Error('연습 모드 실패'); pressed.Escape = true; step(); out.push('practice exit: ' + scene); if (scene !== 'title') throw new Error('연습 모드 나가기 실패'); mode = 1; }
       { const HK = CHARS.find(c => c.name === '합기돈'); mode = 0; p1.setChar(HK); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); p1.x = 400; p2.x = 520; p1.facing = 1; p2.facing = -1; p1.state = 'idle'; p2.state = 'idle'; p1.parryT = 45; const h1 = p1.hp, h2 = p2.hp, r = dealHit(p2, p1, { dmg: 6, kind: 'punch', src: p2.x, height: 'mid', stun: 16 }); out.push('parry: ' + r + ' me=' + (h1 - p1.hp).toFixed(1) + ' opp=' + (h2 - p2.hp).toFixed(1) + ' side=' + (p2.x < p1.x)); if (r !== 'block' || p1.hp !== h1 || !(p2.hp < h2) || !(p2.x < p1.x)) throw new Error('흘려 받기 실패'); }
       { coins = 1e9; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'meter'); openQty(mk.sel); hot = []; draw(); const tap = (x, y) => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + x * r.width / W, clientY: r.top + y * r.height / H, bubbles: true })); }; const m0 = inv.use.meter || 0; tap(W / 2 - 230 + 22 + 3 * 86 + 30, 130 + 158); if (qm.n !== 11) throw new Error('터치 +10 실패 n=' + qm.n); tap(W / 2 - 230 + 150, 130 + 238); out.push('touch qty: ' + m0 + ' -> ' + inv.use.meter); if (inv.use.meter !== m0 + 11 || qm) throw new Error('터치 사기 실패'); }
       { POPQ.length = 0; POP = null; openPigs(); PG.sel = 0; cv.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, cancelable: true })); step(); const s1 = PG.sel; cv.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, cancelable: true })); step(); out.push('wheel pigs: 0 -> ' + s1 + ' -> ' + PG.sel); if (s1 !== 7 || PG.sel !== 0) throw new Error('휠 스크롤 실패'); toTitle(); }
