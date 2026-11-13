@@ -270,7 +270,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
 <div class="toast" id="toast"></div>
 <script>
 // 관리자 페이지도 새 버전이 올라오면 1분 안에 저절로 새로 불러옴 (브라우저가 10분 동안 옛 페이지를 들고 있어서)
-const ADMIN_BUILD = 'a-20261113-6';
+const ADMIN_BUILD = 'a-20261113-7';
 setInterval(() => { if (document.hidden) return; fetch('admin.html?t=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => { const m = t.match(/ADMIN_BUILD = '([^']+)'/); if (m && m[1] !== ADMIN_BUILD && !document.querySelector('[style*="z-index:99"]')) location.reload(); }).catch(() => {}); }, 60000);
 // 브라우저 창(confirm·prompt) 대신 페이지 안 창
 function uiAsk(msg, opt = {}) {
@@ -404,10 +404,13 @@ async function openUser(uid) {
 // 돈 칸: 숫자 또는 게임 돈 단위로 (예: 5SpVg · 462T · 3.5Qa · 4e61) → 자동으로 숫자로 바꿈 (단위는 대소문자 상관없음)
 const MONEY_IDS = ['f_coin', 'f_debt', 'f_bank', 'f_debtbase'];
 function parseMoney(v) { v = String(v).replace(/[,s]/g, ''); const m = v.match(/^([0-9]*.?[0-9]+(?:e[+-]?[0-9]+)?)([a-zA-Z]*)$/); if (!m) return NaN; const n = +m[1]; if (!m[2]) return n; const u = MONEY_U.find(x => x[1].toLowerCase() === m[2].toLowerCase()); return u ? n * u[0] : NaN; }
+// 칸에는 단위로 보여 주고(1000 → 1K), 정확한 숫자는 data-exact에 따로 둠 → 저장할 때 정확한 숫자로
+const moneyVal = el => { const v = el.value.trim(); if (v === '') return null; if (el.dataset.exact != null && v === compact(+el.dataset.exact)) return +el.dataset.exact; return parseMoney(v); };
+function showMoney(el, n) { if (n == null || !isFinite(n)) return; el.dataset.exact = String(n); el.value = compact(n); }
 const QUICK = { f_coin: 'sgf_coin', f_debt: 'sgf_debt', f_bank: 'sgf_bank', f_debtbase: 'sgf_debtbase', f_tp: 'sgf_tp', f_rbest: 'sgf_rbest' };
 const TYK = ['grade', 'grill', 'rep', 'staff', 'menu', 'side', 'deco', 'chain', 'idle', 'shifts', 'total', 'best'];
 function fillForm() {
-  for (const [id, k] of Object.entries(QUICK)) { const v = getV(k); $(id).value = v == null ? '' : v; }
+  for (const [id, k] of Object.entries(QUICK)) { const v = getV(k); delete $(id).dataset.exact; $(id).value = v == null ? '' : v; if (v != null && MONEY_IDS.includes(id)) showMoney($(id), +v); }
   $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank'));
   $('h_tp').textContent = '티어: ' + tierOf(+getV('sgf_tp') || 0);
   const ends = getV('sgf_end') || [];
@@ -418,7 +421,7 @@ function fillForm() {
 }
 // 빠른 입력칸 → 저장 데이터에 반영
 function formToSave() {
-  for (const [id, k] of Object.entries(QUICK)) { const v = $(id).value.trim(); if (v === '') { delete save[k]; continue; } const n = MONEY_IDS.includes(id) ? parseMoney(v) : +v; if (!isFinite(n)) { toast(`${v}: 숫자나 돈 단위(예: 5SpVg)를 알아볼 수 없어요`); continue; } setV(k, Math.min(1e308, Math.max(0, Math.round(n)))); }
+  for (const [id, k] of Object.entries(QUICK)) { const v = $(id).value.trim(); if (v === '') { delete save[k]; continue; } const n = MONEY_IDS.includes(id) ? moneyVal($(id)) : +v; if (!isFinite(n)) { toast(`${v}: 숫자나 돈 단위(예: 5SpVg)를 알아볼 수 없어요`); continue; } setV(k, Math.min(1e308, Math.max(0, Math.round(n)))); }
   setV('sgf_end', [...document.querySelectorAll('[data-end]')].filter(c => c.checked).map(c => c.dataset.end));
   if ($('f_unlock_gold').checked) setV('sgf_unlock_금한돈', true); else delete save['sgf_unlock_금한돈'];
   if ($('f_unlock_jo').checked) setV('sgf_unlock_돼타로', true); else delete save['sgf_unlock_돼타로']; delete save['sgf_unlock_무뚝돈'];   // 예전 이름 칸은 정리
@@ -426,7 +429,8 @@ function formToSave() {
   TYK.forEach(k => { const v = $('t_' + k).value.trim(); if (v !== '') ty[k] = Math.max(0, Math.round(+v || 0)); });
   if (Object.keys(ty).length) setV('sgf_tycoon', ty);
 }
-for (const id of MONEY_IDS) $(id) && $(id).addEventListener('input', () => { const h = { f_coin: 'h_coin', f_debt: 'h_debt', f_bank: 'h_bank' }[id]; if (!h) return; const n = parseMoney($(id).value.trim()); $(h).textContent = $(id).value.trim() === '' ? '' : isFinite(n) ? '= ' + full(n) : '❌ 알아볼 수 없는 단위'; });   // 적는 동안 바로 보여 줌
+for (const id of MONEY_IDS) $(id) && $(id).addEventListener('blur', () => { const el = $(id), n = moneyVal(el); if (n != null && isFinite(n)) showMoney(el, Math.round(n)); });   // 칸을 벗어나면 1000 → 1K 처럼 단위로
+for (const id of MONEY_IDS) $(id) && $(id).addEventListener('input', () => { delete $(id).dataset.exact; const h = { f_coin: 'h_coin', f_debt: 'h_debt', f_bank: 'h_bank' }[id]; if (!h) return; const n = parseMoney($(id).value.trim()); $(h).textContent = $(id).value.trim() === '' ? '' : isFinite(n) ? '= ' + full(n) : '❌ 알아볼 수 없는 단위'; });   // 적는 동안 바로 보여 줌
 $('detail').addEventListener('change', e => { const el = e.target; if (el.tagName !== 'INPUT' || el.closest('#raw')) return; formToSave(); renderRaw(); fillHints(); });
 function fillHints() { $('h_coin').textContent = '= ' + full(getV('sgf_coin')); $('h_debt').textContent = '= ' + full(getV('sgf_debt')); $('h_bank').textContent = '= ' + full(getV('sgf_bank')); $('h_tp').textContent = '티어: ' + tierOf(+getV('sgf_tp') || 0); }
 function renderRaw() {
