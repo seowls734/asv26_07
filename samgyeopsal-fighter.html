@@ -1797,7 +1797,7 @@ function skinDeco2(L, C, d, k) {
 // L: 'aura'(돼지 뒤 빛·입자) · 'back'(날개·망토·칼·제트팩) · 'body'(갑옷·무늬) · 'head'(왕관·뿔·바이저·가면) · 'front'(어깨 갑옷·고리 앞쪽)
 // deco: spots(일반 리컬러) · dark(희귀 섀도우 악마) · 대표 스킨: fire 불꽃 전사 · lava 용암 골렘 · ice 얼음 기사 · bolt 네온 사이버 · coin 황제
 //       star 우주 스타 · rainbow 유니콘 천사 · petal 벚꽃 요정 · poison 유령 해적 · shadow 달빛 닌자
-const CASUAL = { hanbok: '한복', school: '교복', pajama: '잠옷', police: '경찰', doctor: '의사', farmer: '농부' }, CASUAL_K = Object.keys(CASUAL);   // 일반 스킨 의상 (돼지마다 하나)
+const CASUAL = { sport: '스포츠', cowboy: '카우보이', beach: '바캉스', santa: '산타', knight: '기사', punk: '펑크' }, CASUAL2 = { hanbok: '한복', school: '교복', pajama: '잠옷', police: '경찰', doctor: '의사', farmer: '농부' }, CASUAL_K = Object.keys(CASUAL);   // 일반 스킨 의상 (돼지마다 하나)
 function skinDeco(L, C, d) {
   const S = C.skinFx; if (!S || !S.deco) return;
   const { bw = 1, by = 0, hx = 0, hy = 0, ex = 0, ey = 0, t = 0 } = d, k = S.deco, A = S.aura || '#ffffff', P = C.brow;
@@ -1826,7 +1826,36 @@ function skinDeco(L, C, d) {
     else if (L === 'body') { ctx.save(); ell(0, -60 + by, 46 * bw, 34); ctx.clip(); ctx.fillStyle = U2.main; ctx.fillRect(-50 * bw, -96 + by, 100 * bw, 76); ctx.strokeStyle = U2.sub; ctx.globalAlpha *= 0.35; ctx.lineWidth = 2; for (let i = 0; i < 8; i++) line(-46 * bw + i * 12 * bw, -96 + by, -46 * bw + i * 12 * bw, -20 + by); ctx.globalAlpha /= 0.35; ctx.fillStyle = U2.sub; ctx.fillRect(-50 * bw, -50 + by, 100 * bw, 6); ctx.fillStyle = '#fff'; ell(4 * bw, -76 + by, 11, 11); ctx.fill(); ctx.strokeStyle = U2.sub; ctx.lineWidth = 2.5; ctx.stroke(); txt(U2.em, 4 * bw, -75 + by, 13, '#fff', null); ctx.restore(); }
     ctx.restore(); return;
   }
-  if (CASUAL[k]) {   // 일반 스킨: 평상복 (업데이트 돼지 의상과 안 겹침 · 색은 원래 돼지 그대로)
+  if (CASUAL[k]) {   // 일반 스킨: 평상복 테마 의상 (색은 원래 돼지 그대로)
+    const T = S.aura || '#1e88e5';
+    if (L === 'head') {
+      if (k === 'sport') { ctx.fillStyle = T; ctx.strokeStyle = '#000'; ctx.lineWidth = 2 * LWM; ctx.beginPath(); ctx.ellipse(hx - 2, hy - 20, 29, 16, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ell(hx - 32, hy - 21, 14, 5, 0.15); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffffff'; ell(hx - 2, hy - 35, 4, 3); ctx.fill(); }
+      else if (k === 'cowboy') { ctx.fillStyle = '#8d6e63'; ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 2 * LWM; ell(hx - 2, hy - 26, 42, 9, -0.05); ctx.fill(); ctx.stroke(); rr(hx - 19, hy - 56, 34, 30, 9); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#3e2723'; ctx.fillRect(hx - 19, hy - 36, 34, 6); ctx.strokeStyle = '#5d4037'; line(hx - 2, hy - 56, hx - 2, hy - 46); }
+      else if (k === 'beach') { ctx.fillStyle = '#111'; ell(ex + 3, ey, 11, 8); ctx.fill(); ell(ex + 25, ey + 1, 7, 7); ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 3 * LWM; line(ex + 12, ey - 2, ex + 19, ey - 1); line(ex - 8, ey - 2, hx - 26, ey - 6); ctx.fillStyle = 'rgba(255,255,255,0.7)'; ell(ex, ey - 3, 3, 2); ctx.fill(); ctx.fillStyle = '#ff4081'; for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; ell(hx - 18 + Math.cos(a) * 5, hy - 22 + Math.sin(a) * 5, 4, 4); ctx.fill(); } ctx.fillStyle = '#ffd740'; ell(hx - 18, hy - 22, 3, 3); ctx.fill(); }
+      else if (k === 'santa') { ctx.fillStyle = '#d32f2f'; ctx.strokeStyle = '#7f0000'; ctx.lineWidth = 2 * LWM; ctx.beginPath(); ctx.moveTo(hx - 26, hy - 24); ctx.quadraticCurveTo(hx - 6, hy - 76, hx - 40, hy - 64 + Math.sin(t * 0.1) * 3); ctx.lineTo(hx - 30, hy - 56); ctx.quadraticCurveTo(hx - 4, hy - 56, hx + 24, hy - 24); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fafafa'; rr(hx - 30, hy - 30, 58, 11, 5); ctx.fill(); ell(hx - 42, hy - 64 + Math.sin(t * 0.1) * 3, 7, 7); ctx.fill(); }
+      else if (k === 'knight') { ctx.save(); ell(hx, hy, 31, 30); ctx.clip(); const g = ctx.createLinearGradient(hx - 30, hy - 30, hx + 30, hy); g.addColorStop(0, '#eceff1'); g.addColorStop(1, '#78909c'); ctx.fillStyle = g; ctx.fillRect(hx - 32, hy - 32, 64, 26); ctx.fillStyle = '#263238'; ctx.fillRect(hx + 2, ey - 3, 30, 4); ctx.restore(); ctx.fillStyle = '#d32f2f'; for (let i = 0; i < 4; i++) { ell(hx - 6 - i * 7, hy - 36 + i * 2 + Math.sin(t * 0.2 + i) * 2, 6, 10, -0.6 - i * 0.2); ctx.fill(); } }
+      else if (k === 'punk') { ctx.fillStyle = T; ctx.strokeStyle = '#000'; ctx.lineWidth = 2 * LWM; for (let i = 0; i < 5; i++) { const x = hx - 20 + i * 9; poly([[x - 5, hy - 24], [x - 2 - i, hy - 52 - (i === 2 ? 10 : 0)], [x + 5, hy - 26]]); ctx.fill(); ctx.stroke(); } ctx.fillStyle = '#cfd8dc'; ell(hx - 10, hy - 6, 3, 3); ctx.fill(); }
+    } else if (L === 'body') {
+      ctx.save(); ell(0, -60 + by, 46 * bw, 34); ctx.clip();
+      if (k === 'sport') { ctx.fillStyle = T; ctx.fillRect(-50 * bw, -96 + by, 100 * bw, 48); ctx.fillStyle = '#ffffff'; ctx.fillRect(-50 * bw, -60 + by, 100 * bw, 5); ctx.fillRect(-50 * bw, -52 + by, 100 * bw, 3); ell(-12 * bw, -78 + by, 9, 9); ctx.fill(); ctx.fillStyle = T; ell(-12 * bw, -78 + by, 5, 5); ctx.fill(); }
+      else if (k === 'cowboy') { ctx.fillStyle = '#795548'; ctx.fillRect(-50 * bw, -96 + by, 30 * bw, 76); ctx.fillStyle = '#ffd740'; star(-6 * bw, -72 + by, 8, 3.5); ctx.fill(); ctx.fillStyle = '#4e342e'; ctx.fillRect(-50 * bw, -44 + by, 100 * bw, 7); ctx.fillStyle = '#ffca28'; rr(10 * bw, -46 + by, 12, 11, 2); ctx.fill(); }
+      else if (k === 'beach') { ctx.fillStyle = '#26a69a'; ctx.fillRect(-50 * bw, -96 + by, 100 * bw, 50); for (const [x, y] of [[-30, -80], [-6, -62], [-40, -56], [12, -86]]) { ctx.fillStyle = '#ffeb3b'; for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; ell(x * bw + Math.cos(a) * 4, y + by + Math.sin(a) * 4, 3.4, 3.4); ctx.fill(); } ctx.fillStyle = '#ff5722'; ell(x * bw, y + by, 2.4, 2.4); ctx.fill(); } }
+      else if (k === 'santa') { ctx.fillStyle = '#d32f2f'; ctx.fillRect(-50 * bw, -96 + by, 100 * bw, 76); ctx.fillStyle = '#fafafa'; ctx.fillRect(-50 * bw, -36 + by, 100 * bw, 10); ctx.fillRect(14 * bw, -96 + by, 9, 64); ctx.fillStyle = '#212121'; ctx.fillRect(-50 * bw, -56 + by, 100 * bw, 8); ctx.strokeStyle = '#ffd740'; ctx.lineWidth = 2.5; ctx.strokeRect(-4 * bw, -57 + by, 12, 10); }
+      else if (k === 'knight') { const g = ctx.createLinearGradient(-40 * bw, -96 + by, 40 * bw, -30 + by); g.addColorStop(0, '#eceff1'); g.addColorStop(1, '#607d8b'); ctx.fillStyle = g; ctx.fillRect(-50 * bw, -96 + by, 100 * bw, 76); ctx.strokeStyle = '#455a64'; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) line(-50 * bw, -76 + by + i * 14, 50 * bw, -76 + by + i * 14); ctx.fillStyle = '#d32f2f'; poly([[10 * bw, -88 + by], [26 * bw, -88 + by], [26 * bw, -70 + by], [18 * bw, -62 + by], [10 * bw, -70 + by]]); ctx.fill(); }
+      else if (k === 'punk') { ctx.fillStyle = '#212121'; ctx.fillRect(-50 * bw, -96 + by, 52 * bw, 76); ctx.fillRect(24 * bw, -96 + by, 30 * bw, 76); ctx.fillStyle = '#cfd8dc'; for (let i = 0; i < 6; i++) { ell(-4 * bw, -88 + by + i * 9, 2.2, 2.2); ctx.fill(); ell(26 * bw, -88 + by + i * 9, 2.2, 2.2); ctx.fill(); } ctx.strokeStyle = '#b0bec5'; ctx.lineWidth = 2.5; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse(-30 * bw + i * 7, -42 + by + Math.sin(i) * 2, 4, 2.5, 0, 0, Math.PI * 2); ctx.stroke(); } }
+      ctx.restore();
+    } else if (L === 'back') {
+      if (k === 'santa') { ctx.fillStyle = '#a1887f'; ctx.strokeStyle = '#4e342e'; ctx.lineWidth = 2.5 * LWM; ell(-52 * bw, -96 + by, 24, 28, -0.3); ctx.fill(); ctx.stroke(); ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 4 * LWM; line(-40 * bw, -118 + by, -32 * bw, -112 + by); }
+      else if (k === 'cowboy') { ctx.strokeStyle = '#d7a86e'; ctx.lineWidth = 3 * LWM; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(-36 * bw, -48 + by, 13 - i * 2, 9 - i, 0.3, 0, Math.PI * 2); ctx.stroke(); } }
+      else if (k === 'knight') { ctx.fillStyle = '#b71c1c'; const w = Math.sin(t * 0.15) * 6; ctx.beginPath(); ctx.moveTo(10 * bw, -92 + by); ctx.quadraticCurveTo(-40 * bw, -100 + by, -64 * bw - w, -30 + by); ctx.lineTo(-20 * bw, -24 + by); ctx.quadraticCurveTo(-10 * bw, -70 + by, 10 * bw, -92 + by); ctx.fill(); }
+    } else if (L === 'front') {
+      if (k === 'beach') { ctx.lineWidth = 11 * LWM; ctx.setLineDash([14, 10]); ctx.strokeStyle = '#ff5252'; ctx.beginPath(); ctx.ellipse(0, -40 + by, 52 * bw, 12, 0, 0, Math.PI); ctx.stroke(); ctx.lineDashOffset = 14; ctx.strokeStyle = '#fafafa'; ctx.stroke(); ctx.setLineDash([]); }
+      else if (k === 'knight') pauldron('#b0bec5', '#455a64', null);
+      else if (k === 'punk') pauldron('#212121', '#000', '#cfd8dc');
+    }
+    ctx.restore(); return;
+  }
+  if (CASUAL2[k]) {   // (안 씀) 평상복 2 (업데이트 돼지 의상과 안 겹침 · 색은 원래 돼지 그대로)
     const T = S.aura || '#e91e63';
     if (L === 'head') {
       if (k === 'hanbok') { ctx.fillStyle = '#e91e63'; for (let j = 0; j < 5; j++) { const a = j / 5 * Math.PI * 2; ell(hx - 20 + Math.cos(a) * 4, hy - 24 + Math.sin(a) * 4, 3.5, 3.5); ctx.fill(); } ctx.fillStyle = '#ffd740'; ell(hx - 20, hy - 24, 2.5, 2.5); ctx.fill(); ctx.strokeStyle = '#ffd740'; ctx.lineWidth = 3 * LWM; line(hx - 30, hy - 18, hx - 8, hy - 30); }
@@ -5403,7 +5432,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-17';
+const BUILD = '20261113-18';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -6220,10 +6249,10 @@ function pigSkins(c) {
   const sig = { body: G[1], dark: hueShift(G[1], 0, 1, 0.45), belly: hueShift(G[1], 0, 0.8, 1.35), snout: hueShift(G[1], 0, 1, 0.85), hoof: hueShift(G[1], 0, 1, 0.3), brow: G[2] };
   return [
     { key: 'hue', deco: CASUAL_K[i % CASUAL_K.length], name: `${CASUAL[CASUAL_K[i % CASUAL_K.length]]} ${base.name}`, rare: 0, pal: {}, fx: [recolor.body, '#ffffff', recolor.dark], kind: 'star', aura: recolor.body },
-    { key: 'shadow', deco: 'shade', name: `그림자 ${base.name}`, rare: 1, pal: shadow, fx: ['#212121', '#9e9e9e', '#000000'], kind: 'shadow', aura: '#616161' },
-    { key: 'sig', deco: G[3], lite: true, name: G[0], rare: G[4], pal: sig, fx: [G[1], G[2], '#ffffff'], kind: G[3], aura: G[2] },
+    { key: 'shadow', deco: 'dark', name: `악마 ${base.name}`, rare: 1, pal: shadow, fx: ['#212121', '#9e9e9e', '#000000'], kind: 'shadow', aura: '#616161' },
+    { key: 'sig', deco: G[3], name: G[0], rare: G[4], pal: sig, fx: [G[1], G[2], '#ffffff'], kind: G[3], aura: G[2] },
     ...(base.name === '야구돈' ? TEAM_SKINS.map(([key, nm, main, sub, em, cap, brim]) => ({ key, deco: 'uniform', team: { main, sub, em, cap, brim }, name: `${nm} 야구돈`, rare: 3, w: 0.15, pal: {}, fx: [main, sub, '#ffffff'], kind: 'star', aura: sub })) : []),
-    ...UPDATES.filter(u => u.skins.includes(base.name)).map(u => ({ key: 'u_' + u.id, deco: 'tint', name: `${u.name} ${base.name}`, rare: 2, pal: { body: hueShift(u.col, 0, 0.8, 1.15), belly: hueShift(u.col, 0, 0.5, 1.5), dark: hueShift(u.col, 0, 1, 0.55) }, fx: [u.col, '#ffffff', u.col], kind: 'star', aura: u.col, rel: u.id }))   // 🎉 업데이트 스킨
+    ...UPDATES.filter(u => u.skins.includes(base.name)).map(u => ({ key: 'u_' + u.id, deco: u.deco, name: `${u.name} ${base.name}`, rare: 2, pal: {}, fx: [u.col, '#ffffff', u.col], kind: 'star', aura: u.col, rel: u.id }))   // 🎉 업데이트 스킨
   ];
 }
 const SKIN_RANK = [['일반', '#b0bec5', 60], ['희귀', '#40c4ff', 28], ['영웅', '#e040fb', 9], ['전설', '#ffd740', 3]];
