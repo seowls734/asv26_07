@@ -108,7 +108,8 @@ async function totpAt(secret, step) {
   const h = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg)), o = h[19] & 15;
   return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0');
 }
-async function totpOk(secret, code) {   // 앞뒤 30초까지 봐 줌 (폰 시계가 조금 틀려도 됨)
+async function totpOk(secret, code) {   // 앞뒤 30초까지 봐 줌 (폰 시계가 조금 틀려도 됨) · 'pin:'으로 시작하면 2차 비밀번호
+  if (secret && secret.startsWith('pin:')) { const [, salt, h] = secret.split(':'), p = String(code || '').replace(/\D/g, ''); return p.length >= 4 && p.length <= 8 && (await pbkdf2(p, salt)) === h; }
   code = String(code || '').replace(/\D/g, ''); if (!secret || code.length !== 6) return false;
   const st = Math.floor(Date.now() / 30000);
   for (const d of [0, -1, 1]) if (await totpAt(secret, st + d) === code) return true;
@@ -123,7 +124,7 @@ async function check2fa(db, u, code) {
   if (await totpOk(u.totp, code)) return null;
   const n = f && now - f.t < FAIL_WIN ? f.n + 1 : 1;
   await db.prepare('INSERT INTO fails (login, n, t) VALUES (?, ?, ?) ON CONFLICT(login) DO UPDATE SET n = excluded.n, t = excluded.t').bind(u.login, n, now).run();
-  return err('인증 코드가 틀렸어요. 인증 앱의 지금 숫자를 넣어 주세요', 401);
+  return err(u.totp && u.totp.startsWith('pin:') ? '2차 비밀번호가 틀렸어요' : '인증 코드가 틀렸어요. 인증 앱의 지금 숫자를 넣어 주세요', 401);
 }
 async function body(req) { try { return await req.json(); } catch (e) { return null; } }
 async function newSession(db, uid) {
@@ -439,9 +440,16 @@ export default {
       const u = await who(db, req);
       if (!u) return err('로그인이 만료됐어요', 401);
       if (isBanned(u)) return err(banMsg(u), 403);
-      if (path === '/2fa' && req.method === 'GET') return json({ on: !!u.totp_on });
+      if (path === '/2fa' && req.method === 'GET') return json({ on: !!u.totp_on, kind: u.totp && u.totp.startsWith('pin:') ? 'pin' : 'app' });
       if (req.method !== 'POST') return err('없는 주소예요', 404);
       const b = (await body(req)) || {};
+      if (path === '/2fa/pin') {   // 🔢 2차 비밀번호로 켜기 (인증 앱 필요 없음)
+        if (u.totp_on) return err('이미 2단계 인증이 켜져 있어요');
+        const p = String(b.pin || ''); if (!/^\d{4,8}$/.test(p)) return err('2차 비밀번호는 숫자 4~8자리로 정해 주세요');
+        const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+        await db.prepare('UPDATE users SET totp = ?, totp_on = 1 WHERE uid = ?').bind('pin:' + salt + ':' + (await pbkdf2(p, salt)), u.uid).run();
+        return json({ ok: true, on: true, kind: 'pin' });
+      }
       if (path === '/2fa/setup') {
         if (u.totp_on) return err('이미 2단계 인증이 켜져 있어요');
         const secret = b32enc(crypto.getRandomValues(new Uint8Array(20)));
@@ -457,7 +465,7 @@ export default {
       }
       if (path === '/2fa/off') {
         if (!u.totp_on) return json({ ok: true, on: false });
-        if (!(await totpOk(u.totp, b.code))) return err('숫자가 틀렸어요. 인증 앱에 지금 보이는 6자리를 넣어 주세요');
+        if (!(await totpOk(u.totp, b.code))) return err(u.totp && u.totp.startsWith('pin:') ? '2차 비밀번호가 틀렸어요' : '숫자가 틀렸어요. 인증 앱에 지금 보이는 6자리를 넣어 주세요');
         await db.prepare('UPDATE users SET totp_on = 0, totp = NULL WHERE uid = ?').bind(u.uid).run();
         return json({ ok: true, on: false });
       }

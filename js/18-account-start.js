@@ -74,8 +74,8 @@ function openAuth(page, arg) {
     <button class="sub" data-go="tfa">🔐 2단계 인증 설정</button>
     <button data-logout>🚪 로그아웃</button><button class="sub" data-back>닫기</button>
     <small>로그아웃하면 이 기기의 기록은 지워지고 게스트로 바뀌어요. (계정 기록은 서버에 남아 있어요)</small>`;
-  else if (page === '2fa') h = `<h2>🔐 2단계 인증</h2><p>인증 앱(구글 OTP 등)에 보이는 6자리 숫자를 넣어 주세요</p>
-    <input id="a_code" inputmode="numeric" autocomplete="one-time-code" placeholder="6자리 숫자" maxlength="6">
+  else if (page === '2fa') h = `<h2>🔐 2단계 인증</h2><p>2차 비밀번호 또는 인증 앱(구글 OTP 등)의 6자리 숫자를 넣어 주세요</p>
+    <input id="a_code" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="2차 비밀번호 / 인증 앱 숫자" maxlength="8">
     <div class="err"></div><button data-ok>확인</button><button class="sub" data-back>뒤로</button>
     <small>폰을 잃어버렸으면 관리자에게 2단계 인증을 꺼 달라고 하세요.</small>`;
   else if (page === 'tfa') { h = `<h2>🔐 2단계 인증</h2><div class="err">불러오는 중...</div><div id="tfa"></div><button class="sub" data-back>뒤로</button>`; setTimeout(tfaLoad); }
@@ -91,7 +91,7 @@ function authBusy(on, msg) { authEl.querySelectorAll('button').forEach(b => b.di
 function authSubmit() {
   if (authPage === '2fa') {   // 2단계 인증 숫자 넣고 다시 로그인
     const code = authEl.querySelector('#a_code').value.replace(/\D/g, '');
-    if (code.length !== 6) return authBusy(false, '6자리 숫자를 넣어 주세요');
+    if (code.length < 4 || code.length > 8) return authBusy(false, '2차 비밀번호(숫자 4~8자리) 또는 인증 앱의 6자리를 넣어 주세요');
     if (!pend2fa) return openAuth('choose');
     authBusy(true, '확인 중...');
     return authFetch(pend2fa.credential ? '/google' : '/login', 'POST', { ...pend2fa, code }).then(d => authDone(d, 'login')).catch(authFail);
@@ -152,12 +152,20 @@ const tfaBox = html => { const el = authEl.querySelector('#tfa'); if (el) el.inn
 const codeIn = '<input id="a_code" inputmode="numeric" autocomplete="one-time-code" placeholder="인증 앱의 6자리 숫자" maxlength="6">';
 function tfaLoad() {
   authFetch('/2fa').then(d => tfaBox(d.on
-    ? `<p class="gok">✅ 2단계 인증이 켜져 있어요</p><small>로그인할 때 비밀번호(또는 구글) 다음에 인증 앱 숫자를 한 번 더 넣어요.</small>${codeIn}<button data-tfa="off">2단계 인증 끄기</button>`
-    : `<p>로그인할 때 <b>폰 인증 앱의 숫자</b>까지 확인해서, 비밀번호가 새어 나가도 계정을 지켜 줘요.</p><button data-tfa="setup">🔐 2단계 인증 켜기</button>`))
+    ? `<p class="gok">✅ 2단계 인증이 켜져 있어요 (${d.kind === 'pin' ? '🔢 2차 비밀번호' : '📱 인증 앱'})</p><small>로그인할 때 비밀번호(또는 구글) 다음에 ${d.kind === 'pin' ? '2차 비밀번호' : '인증 앱 숫자'}를 한 번 더 넣어요.</small>${d.kind === 'pin' ? '<input id="a_code" type="password" inputmode="numeric" placeholder="2차 비밀번호" maxlength="8">' : codeIn}<button data-tfa="off">2단계 인증 끄기</button>`
+    : `<p>로그인할 때 한 번 더 확인해서, 비밀번호가 새어 나가도 계정을 지켜 줘요.</p><button data-tfa="pinset">🔢 2차 비밀번호로 켜기 (앱 필요 없음)</button><button class="sub" data-tfa="setup">📱 인증 앱(구글 OTP)으로 켜기</button>`))
     .catch(authFail);
 }
 function tfaAct(a) {
   const code = (authEl.querySelector('#a_code') || {}).value || '';
+  if (a === 'pinset') { tfaBox(`<small>로그인할 때 비밀번호 다음에 넣을 <b>숫자 4~8자리</b>를 정해 주세요. 앱은 필요 없어요.</small><input id="a_pin" type="password" inputmode="numeric" placeholder="2차 비밀번호 (숫자 4~8자리)" maxlength="8"><input id="a_pin2" type="password" inputmode="numeric" placeholder="한 번 더" maxlength="8"><button data-tfa="pinon">2차 비밀번호 켜기</button>`); return; }
+  if (a === 'pinon') {
+    const p = ((authEl.querySelector('#a_pin') || {}).value || '').trim(), p2 = ((authEl.querySelector('#a_pin2') || {}).value || '').trim();
+    if (!/^\d{4,8}$/.test(p)) return authBusy(false, '숫자 4~8자리로 정해 주세요');
+    if (p !== p2) return authBusy(false, '두 번 넣은 숫자가 달라요');
+    authBusy(true, '켜는 중...');
+    authFetch('/2fa/pin', 'POST', { pin: p }).then(() => { SFX.confirm(); toast('🔢 2차 비밀번호를 켰어요! 다음 로그인부터 물어봐요'); openAuth('tfa'); }).catch(authFail); return;
+  }
   if (a === 'setup') {
     authBusy(true, '준비 중...');
     authFetch('/2fa/setup', 'POST', {}).then(d => {
@@ -168,7 +176,7 @@ function tfaAct(a) {
       loadQr().then(() => { const q = authEl.querySelector('#qr'); if (q) new QRCode(q, { text: d.uri, width: 168, height: 168 }); }).catch(() => { const q = authEl.querySelector('#qr'); if (q) q.outerHTML = '<small>QR을 못 불러왔어요. 위 키를 앱에 직접 넣어 주세요</small>'; });
     }).catch(authFail);
   } else if (a === 'on' || a === 'off') {
-    if (code.replace(/\D/g, '').length !== 6) return authBusy(false, '인증 앱의 6자리 숫자를 넣어 주세요');
+    const cl = code.replace(/\D/g, '').length; if (cl < 4 || cl > 8) return authBusy(false, '2차 비밀번호 또는 인증 앱의 6자리 숫자를 넣어 주세요');
     authBusy(true, '확인 중...');
     authFetch('/2fa/' + a, 'POST', { code }).then(() => { SFX.confirm(); toast(a === 'on' ? '🔐 2단계 인증을 켰어요! 다음 로그인부터 숫자를 물어봐요' : '2단계 인증을 껐어요'); openAuth('tfa'); }).catch(authFail);
   }
