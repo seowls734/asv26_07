@@ -66,7 +66,7 @@ function drawPigs() {
     if (on) { ctx.strokeStyle = '#ffcc80'; ctx.lineWidth = 2; rr(x, y, 78, 104, 9); ctx.stroke(); }
     ctx.save(); ctx.beginPath(); ctx.rect(x, y, 78, 84); ctx.clip();
     if (hidden) txt('❓', x + 39, y + 44, 30, '#888', null);
-    else { if (!got) ctx.filter = 'brightness(0.15)'; drawPig(x + 36, y + 80, 1, (pigSkinEq(c) ? { ...c.look, ...pigSkinEq(c).pal, skinFx: pigSkinEq(c) } : c.look), { scale: 0.42, t: gT + i * 7 }); ctx.filter = 'none'; }
+    else { if (!got) ctx.filter = 'brightness(0.15)'; drawPig(x + 36, y + 80, 1, (pigSkinEq(c) ? skinLook(c.look, pigSkinEq(c)) : c.look), { scale: 0.42, t: gT + i * 7 }); ctx.filter = 'none'; }
     ctx.restore();
     const nm = hidden ? '???' : c.name;
     txt(nm, x + 39, y + 90, fitSize(nm, 12, 72), got ? '#fff' : '#888', null);

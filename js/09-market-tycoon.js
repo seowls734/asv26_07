@@ -52,7 +52,10 @@ const titleName = () => { const t = inv.eq && inv.eq.title && SHOP.find(x => x.i
 const itPrice = it => Math.round((it.id === 'honor' ? 1e9 * 10 ** honorLv() : it.price) * (1 - (evLive() ? Math.min(90, +EVT.sale || 0) : 0) / 100));   // 이벤트 할인
 const USE_ICON = { skinBoxP: '💎', honor: '🏅', skinBox: '🎨', skinBox10: '🎁', fastSpin: '💨', meter: '⚡', hpup: '🛡️', revive: '💖', bigRevive: '💎', rankShield: '🏅', fullMeter: '🔥', luckyCharm: '🍀', tix10: '🎟️' };
 const COS_IDS = SHOP.filter(s => s.type !== 'use').map(s => s.id);
-const withCos = (ch, cos = inv.eq) => { const r = withCos0(ch, cos), ps = typeof pigSkinEq === 'function' ? pigSkinEq(ch) : null; if (ps) r.look = { ...r.look, ...ps.pal, skinFx: ps }; return r; };   // 🎨 그 돼지에 장착한 전용 스킨
+// 스킨을 끼면 원래 옷·모자·소품은 숨기고 몸 특징(엄니·수염·흉터 등)만 남김 → 스킨이 잘 보임
+const SKIN_KEEP_ACC = ['bold', 'tusks', 'whisker', 'spots', 'bristle', 'scar', 'muscle'];
+const skinLook = (look, ps) => ({ ...look, ...ps.pal, skinFx: ps, acc: (look.acc || []).filter(a => SKIN_KEEP_ACC.includes(a)), hat: null });
+const withCos = (ch, cos = inv.eq) => { const r = withCos0(ch, cos), ps = typeof pigSkinEq === 'function' ? pigSkinEq(ch) : null; if (ps) r.look = skinLook(r.look, ps); return r; };   // 🎨 그 돼지에 장착한 전용 스킨
 const withCos0 = (ch, cos = inv.eq) => ({ ...ch, look: { ...ch.look, hat: COS_IDS.includes(cos && cos.hat) ? cos.hat : null, fx: COS_IDS.includes(cos && cos.fx) ? cos.fx : null } });
 // ---- 스킬 효과음 (합성음만, 음성 없음) ----
 // 재료: 여러 겹 톱니파 + 필터 열림(두껍게 '부우웅'), FM(쇳소리·칼날), 공간 울림(리버브), 좌우 퍼짐
