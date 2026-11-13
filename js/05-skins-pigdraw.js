@@ -69,6 +69,54 @@ function skinDeco3(L, C, d, k) {
 }
 // 스킨 색: 무기(모든 스킨) · 스킬 이펙트(희귀 이상)를 그 스킨 색으로 돌림
 const skinHue = S => S && S.whue != null ? `hue-rotate(${S.whue}deg) saturate(1.25)` : '';
+// ================= 🎨 돼지마다 다른 조합 스킨 (머리 소품 × 몸 무늬 × 등 소품 × 색) =================
+const CB_HEAD = [['beret', '베레모'], ['beanie', '털모자'], ['cap', '야구모자'], ['phones', '헤드폰'], ['flowers', '꽃 화관'], ['bow', '리본'], ['goggles', '고글'], ['halo', '천사 고리'], ['antenna', '더듬이'], ['minihat', '꼬마 모자'], ['bandana', '두건'], ['tiara', '티아라']];
+const CB_BODY = [['stripeH', '가로줄'], ['stripeV', '세로줄'], ['dots', '물방울'], ['stars', '별무늬'], ['hearts', '하트'], ['checks', '체크'], ['zigzag', '번개무늬'], ['sash', '어깨띠']];
+const CB_BACK = [['minicape', '망토'], ['backpack', '가방'], ['balloon', '풍선'], ['wings', '작은 날개'], ['scarf', '목도리'], ['shell', '등껍질'], ['flag', '깃발'], ['bubble', '비눗방울']];
+const CB_COL = [['#e91e63', '#ffeb3b'], ['#3f51b5', '#ff9800'], ['#009688', '#ffffff'], ['#9c27b0', '#00e5ff'], ['#f44336', '#212121'], ['#4caf50', '#ffeb3b'], ['#ff5722', '#03a9f4'], ['#795548', '#ffd54f'], ['#00bcd4', '#e91e63'], ['#607d8b', '#ffc107']];
+function skinCombo(L, C, d) {
+  const S = C.skinFx, cb = S && S.combo; if (!cb) return false;
+  const { bw = 1, by = 0, hx = 0, hy = 0, ex = 0, ey = 0, t = 0 } = d, [c1, c2] = cb.col;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 2 * LWM; ctx.strokeStyle = '#000';
+  if (L === 'body' && cb.body) {
+    ctx.save(); ell(0, -60 + by, 46 * bw, 34); ctx.clip(); ctx.fillStyle = c1; ctx.globalAlpha *= 0.9; ctx.fillRect(-50 * bw, -96 + by, 100 * bw, 50); ctx.globalAlpha /= 0.9; ctx.fillStyle = c2; ctx.strokeStyle = c2;
+    const k = cb.body;
+    if (k === 'stripeH') for (let i = 0; i < 4; i++) ctx.fillRect(-50 * bw, -92 + i * 12 + by, 100 * bw, 5);
+    else if (k === 'stripeV') for (let i = 0; i < 7; i++) ctx.fillRect((-46 + i * 14) * bw, -96 + by, 5, 50);
+    else if (k === 'dots') for (let i = 0; i < 10; i++) { ell((-40 + (i * 19) % 80) * bw, -90 + ((i * 13) % 40) + by, 4, 4); ctx.fill(); }
+    else if (k === 'stars') for (let i = 0; i < 6; i++) { star((-36 + (i * 23) % 76) * bw, -86 + ((i * 17) % 36) + by, 6, 2.5); ctx.fill(); }
+    else if (k === 'hearts') for (let i = 0; i < 6; i++) txt('♥', (-36 + (i * 23) % 76) * bw, -84 + ((i * 17) % 36) + by, 13, c2, null);
+    else if (k === 'checks') for (let i = 0; i < 8; i++) for (let j = 0; j < 4; j++) if ((i + j) % 2) ctx.fillRect((-50 + i * 13) * bw, -96 + j * 13 + by, 13 * bw, 13);
+    else if (k === 'zigzag') { ctx.lineWidth = 4; ctx.beginPath(); for (let i = 0; i <= 10; i++) ctx.lineTo((-50 + i * 10) * bw, -76 + (i % 2 ? -8 : 8) + by); ctx.stroke(); }
+    else if (k === 'sash') { ctx.lineWidth = 9; line(-30 * bw, -96 + by, 30 * bw, -44 + by); ctx.fillStyle = '#ffd740'; star(4 * bw, -70 + by, 6, 2.6); ctx.fill(); }
+    ctx.restore();
+  } else if (L === 'head' && cb.head) {
+    const k = cb.head; ctx.fillStyle = c1;
+    if (k === 'beret') { ell(hx - 6, hy - 26, 24, 9, -0.2); ctx.fill(); ctx.stroke(); ctx.fillStyle = c2; ell(hx - 4, hy - 34, 3, 3); ctx.fill(); }
+    else if (k === 'beanie') { ctx.beginPath(); ctx.ellipse(hx - 2, hy - 20, 28, 18, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = c2; ctx.fillRect(hx - 30, hy - 24, 56, 6); ell(hx - 2, hy - 40, 7, 7); ctx.fill(); }
+    else if (k === 'cap') { ctx.beginPath(); ctx.ellipse(hx - 2, hy - 20, 28, 15, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = c2; ell(hx + 26, hy - 21, 15, 5, -0.1); ctx.fill(); ctx.stroke(); }
+    else if (k === 'phones') { ctx.strokeStyle = c1; ctx.lineWidth = 5 * LWM; ctx.beginPath(); ctx.arc(hx - 2, hy - 6, 30, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke(); ctx.fillStyle = c2; ell(hx - 28, hy - 6, 8, 11); ctx.fill(); }
+    else if (k === 'flowers') for (let i = 0; i < 5; i++) { ctx.fillStyle = i % 2 ? c1 : c2; ell(hx - 22 + i * 10, hy - 26 - Math.sin(i / 4 * Math.PI) * 7, 5, 5); ctx.fill(); }
+    else if (k === 'bow') { ctx.fillStyle = c1; poly([[hx - 12, hy - 28], [hx - 26, hy - 38], [hx - 26, hy - 18]]); ctx.fill(); ctx.stroke(); poly([[hx - 12, hy - 28], [hx + 2, hy - 38], [hx + 2, hy - 18]]); ctx.fill(); ctx.stroke(); ctx.fillStyle = c2; ell(hx - 12, hy - 28, 4, 4); ctx.fill(); }
+    else if (k === 'goggles') { ctx.fillStyle = c1; ctx.fillRect(hx - 30, hy - 26, 60, 6); ctx.fillStyle = c2; for (const dx of [-8, 10]) { ell(hx + dx, hy - 24, 8, 7); ctx.fill(); ctx.stroke(); } }
+    else if (k === 'halo') { ctx.strokeStyle = c2; ctx.lineWidth = 4 * LWM; ctx.beginPath(); ctx.ellipse(hx - 2, hy - 48 + Math.sin(t * 0.1) * 2, 18, 5, 0, 0, Math.PI * 2); ctx.stroke(); }
+    else if (k === 'antenna') { ctx.strokeStyle = '#212121'; for (const dx of [-10, 8]) { line(hx + dx, hy - 26, hx + dx + 4, hy - 50); ctx.fillStyle = dx < 0 ? c1 : c2; ell(hx + dx + 4, hy - 52, 5, 5); ctx.fill(); } }
+    else if (k === 'minihat') { ctx.fillStyle = c1; rr(hx - 12, hy - 50, 20, 22, 3); ctx.fill(); ctx.stroke(); ell(hx - 2, hy - 28, 18, 4); ctx.fill(); ctx.stroke(); ctx.fillStyle = c2; ctx.fillRect(hx - 12, hy - 36, 20, 4); }
+    else if (k === 'bandana') { ctx.save(); ell(hx, hy, 31, 30); ctx.clip(); ctx.fillStyle = c1; ctx.fillRect(hx - 34, hy - 34, 70, 14); ctx.fillStyle = c2; for (let i = 0; i < 6; i++) { ell(hx - 26 + i * 10, hy - 26, 2, 2); ctx.fill(); } ctx.restore(); ctx.fillStyle = c1; poly([[hx - 28, hy - 24], [hx - 44, hy - 30 + Math.sin(t * 0.3) * 4], [hx - 40, hy - 16]]); ctx.fill(); }
+    else if (k === 'tiara') { ctx.fillStyle = '#ffd740'; poly([[hx - 18, hy - 26], [hx - 14, hy - 38], [hx - 6, hy - 30], [hx, hy - 42], [hx + 6, hy - 30], [hx + 14, hy - 38], [hx + 18, hy - 26]]); ctx.fill(); ctx.stroke(); ctx.fillStyle = c1; ell(hx, hy - 34, 3, 3); ctx.fill(); }
+  } else if (L === 'back' && cb.back) {
+    const k = cb.back, w = Math.sin(t * 0.15) * 5;
+    if (k === 'minicape') { ctx.fillStyle = c1; ctx.beginPath(); ctx.moveTo(10 * bw, -92 + by); ctx.quadraticCurveTo(-40 * bw, -96 + by, -56 * bw - w, -46 + by); ctx.lineTo(-14 * bw, -40 + by); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    else if (k === 'backpack') { ctx.fillStyle = c1; rr(-62 * bw, -96 + by, 24, 32, 6); ctx.fill(); ctx.stroke(); ctx.fillStyle = c2; rr(-60 * bw, -78 + by, 20, 10, 3); ctx.fill(); }
+    else if (k === 'balloon') { ctx.strokeStyle = '#757575'; ctx.lineWidth = 1.5; line(-40 * bw, -80 + by, -56 * bw + w, -150 + by); ctx.fillStyle = c1; ell(-56 * bw + w, -164 + by, 13, 16); ctx.fill(); ctx.stroke(); }
+    else if (k === 'wings') { ctx.fillStyle = c2; ctx.globalAlpha *= 0.85; ctx.save(); ctx.translate(-16 * bw, -92 + by); ctx.rotate(-0.6 + Math.sin(t * 0.3) * 0.2); ell(-16, -14, 18, 10); ctx.fill(); ctx.stroke(); ctx.restore(); }
+    else if (k === 'scarf') { ctx.strokeStyle = c1; ctx.lineWidth = 8 * LWM; ctx.beginPath(); ctx.moveTo(12 * bw, -90 + by); ctx.quadraticCurveTo(-30 * bw, -96 + by + w, -66 * bw, -80 + by + w * 2); ctx.stroke(); }
+    else if (k === 'shell') { ctx.fillStyle = c1; ctx.beginPath(); ctx.ellipse(-30 * bw, -86 + by, 28 * bw, 18, -0.2, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.strokeStyle = c2; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) line((-48 + i * 14) * bw, -88 + by, (-44 + i * 14) * bw, -100 + by); }
+    else if (k === 'flag') { ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 3; line(-44 * bw, -70 + by, -50 * bw, -150 + by); ctx.fillStyle = c1; poly([[-50 * bw, -150 + by], [-24 * bw + w, -140 + by], [-48 * bw, -128 + by]]); ctx.fill(); ctx.stroke(); }
+    else if (k === 'bubble') for (let i = 0; i < 4; i++) { const u = ((t * 0.5 + i * 25) % 100) / 100; ctx.strokeStyle = `rgba(255,255,255,${0.8 - u * 0.6})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-40 * bw + i * 8, -80 + by - u * 90, 4 + i * 2, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  ctx.restore(); return true;
+}
 let WPN_TINT = '';   // 지금 그리는 돼지 스킨의 무기 색
 const CASUAL = { sport: '스포츠', cowboy: '카우보이', beach: '바캉스', santa: '산타', knight: '기사', punk: '펑크' }, CASUAL2 = { hanbok: '한복', school: '교복', pajama: '잠옷', police: '경찰', doctor: '의사', farmer: '농부' }, CASUAL_K = Object.keys(CASUAL);   // 일반 스킨 의상 (돼지마다 하나)
 function skinDeco(L, C, d) {
@@ -85,6 +133,8 @@ function skinDeco(L, C, d) {
   };
   const flame = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x - w, y); ctx.quadraticCurveTo(x - w * 0.8, y - h * 0.6, x + w * 0.2, y - h); ctx.quadraticCurveTo(x + w * 0.4, y - h * 0.45, x + w, y); ctx.closePath(); ctx.fill(); };
 
+  if (S.combo) skinCombo(L, C, d);   // 돼지마다 다른 조합 (머리·무늬·등·색)
+  if (k === 'combo') { ctx.restore(); return; }
   if (skinDeco3(L, C, d, k)) { ctx.restore(); return; }   // 스킨 전용 의상
   if (skinDeco2(L, C, d, k)) { ctx.restore(); return; }   // 업데이트 21~30 의상
   if (S.lite) {   // 대표 스킨: 옷·모자·날개는 안 입음 (색 + 몸 무늬 + 빛나는 눈 + 주변 빛만)
