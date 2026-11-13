@@ -144,17 +144,73 @@ const SIG_SKIN = {
 // ⚾ 야구단 유니폼 (야구돈 전설 스킨 · 스킨 상자에서 아주 드물게): [키, 이름, 바탕, 포인트, 가슴 그림, 모자, 챙]
 const TEAM_SKINS = [['tigers', '호랑이 유니폼', '#c8102e', '#111111', '🐯', '#111111', '#c8102e'], ['lions', '사자 유니폼', '#ffffff', '#074ca1', '🦁', '#074ca1', '#074ca1'], ['wiz', '마법사 유니폼', '#111111', '#e4002b', '🧙', '#111111', '#e4002b'], ['eagles', '독수리 유니폼', '#ff6600', '#0a1e3f', '🦅', '#0a1e3f', '#ff6600']];
 const hueOfHex = h => { const [r, g, b] = hex2rgb(h).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d2 = mx - mn; if (!d2) return 0; const hh = mx === r ? (g - b) / d2 + (g < b ? 6 : 0) : mx === g ? (b - r) / d2 + 2 : (r - g) / d2 + 4; return Math.round(hh * 60); };
+// 돼지마다 어울리는 스킨 조합: [일반 머리, 일반 무늬, 희귀 머리, 희귀 무늬, 희귀 등, 영웅·전설 테마]
+const SKIN_FIT = {"분홍이":["bow","hearts","tiara","dots","wings","jester"],
+  "깜돌이":["bandana","zigzag","goggles","stripeH","backpack","vampire"],
+  "멧돌이":["cap","stripeV","bandana","checks","flag","viking"],
+  "꼬미":["beanie","dots","antenna","stars","balloon","sailor"],
+  "얼음이":["beanie","stars","goggles","dots","scarf","snowman"],
+  "족발왕":["bandana","sash","tiara","stripeV","minicape","pharaoh"],
+  "오겹장군":["minihat","checks","tiara","sash","flag","viking"],
+  "양념이":["bandana","zigzag","phones","hearts","minicape","vampire"],
+  "항정":["bandana","stripeV","goggles","checks","scarf","detective"],
+  "목살":["cap","sash","bandana","stars","minicape","viking"],
+  "갈비":["beret","checks","minihat","stripeH","backpack","detective"],
+  "감자탕":["beanie","dots","flowers","checks","bubble","mummy"],
+  "냉삼":["beanie","stripeH","goggles","stars","scarf","sailor"],
+  "금한돈":["minihat","stars","tiara","sash","minicape","pharaoh"],
+  "돼타로":["cap","stripeV","minihat","stars","scarf","detective"],
+  "볼트돈":["antenna","zigzag","goggles","checks","backpack","diver"],
+  "돼루토":["bandana","stripeH","goggles","zigzag","scarf","jester"],
+  "이타돼리":["cap","stripeV","phones","zigzag","scarf","vampire"],
+  "훈제돈":["beret","checks","bandana","dots","backpack","detective"],
+  "우주꿀돈":["antenna","stars","goggles","dots","backpack","diver"],
+  "핑크하트":["bow","hearts","phones","stars","wings","jester"],
+  "캡틴베이컨":["bandana","stripeH","minihat","sash","flag","sailor"],
+  "꿀린":["minihat","stars","halo","dots","minicape","jester"],
+  "기사돈":["beret","sash","tiara","checks","flag","viking"],
+  "산타돈":["beanie","dots","bow","stripeH","backpack","snowman"],
+  "카우돈":["cap","checks","bandana","stripeV","flag","detective"],
+  "펑크돈":["phones","zigzag","goggles","stars","backpack","jester"],
+  "바캉스돈":["cap","dots","goggles","stripeH","balloon","sailor"],
+  "야구돈":["cap","stripeV","phones","sash","backpack","sailor"],
+  "네온돈":["phones","zigzag","antenna","checks","backpack","detective"],
+  "용암돈":["bandana","zigzag","goggles","dots","shell","viking"],
+  "눈꽃돈":["beanie","stars","tiara","dots","scarf","snowman"],
+  "황제돈":["tiara","sash","minihat","stars","minicape","pharaoh"],
+  "은하돈":["antenna","stars","halo","dots","balloon","diver"],
+  "유니돈":["bow","hearts","halo","stars","wings","jester"],
+  "벚꽃돈":["flowers","dots","bow","hearts","wings","sailor"],
+  "유령돈":["beanie","stripeH","halo","dots","bubble","mummy"],
+  "그림자돈":["bandana","stripeV","goggles","zigzag","scarf","vampire"],
+  "악마돈":["antenna","zigzag","minihat","hearts","minicape","vampire"],
+  "불꽃돈":["bandana","zigzag","goggles","stars","flag","vampire"],
+  "펀치돈":["cap","sash","bandana","stripeV","minicape","viking"],
+  "드래곤돈":["antenna","zigzag","tiara","checks","wings","viking"],
+  "메카돈":["goggles","checks","antenna","zigzag","backpack","diver"],
+  "마녀돈":["minihat","stars","flowers","dots","minicape","mummy"],
+  "호박돈":["beanie","checks","minihat","zigzag","bubble","mummy"],
+  "어부돈":["cap","stripeH","beanie","dots","shell","sailor"],
+  "궁수돈":["beret","stripeV","bandana","stars","flag","detective"],
+  "마술돈":["minihat","stars","bow","checks","balloon","jester"],
+  "태권돈":["bandana","sash","phones","stripeH","flag","viking"],
+  "번개신돈":["goggles","zigzag","tiara","stars","minicape","viking"],
+  "꿀벌돈":["antenna","stripeH","flowers","dots","wings","jester"],
+  "합기돈":["bandana","sash","beret","checks","scarf","detective"]};
+const cbName = (L, k) => (L.find(x => x[0] === k) || [k, k])[1];
 function pigSkins(c) {
   const base = CHARS.find(x => x.name === c.name) || c, i = Math.max(0, CHARS.indexOf(base)), L = base.look;   // 꾸미기가 붙은 복사본이 와도 원래 돼지 기준
   const deg = 110 + (i * 47) % 140;
   const recolor = Object.fromEntries(PAL_KEYS.map(k => [k, hueShift(L[k], deg, 1.15, 1)]));
   const shadow = Object.fromEntries(PAL_KEYS.map(k => [k, hueShift(L[k], 0, 0.6, k === 'belly' || k === 'snout' ? 0.5 : 0.35)]));
+  const FT = SKIN_FIT[base.name] || [CB_HEAD[(i * 5) % 12][0], CB_BODY[(i * 3) % 8][0], CB_HEAD[(i * 7 + 3) % 12][0], CB_BODY[(i * 5 + 1) % 8][0], CB_BACK[(i * 3 + 2) % 8][0], FANCY_K[i % FANCY_K.length]];   // 어울리는 조합
+  const MC = [L.band || L.brow || '#e91e63', '#ffffff'], RC = [L.brow || '#212121', L.band || '#ffd740'];   // 그 돼지의 포인트 색
   const G = SIG_SKIN[base.name] || [`스페셜 ${base.name}`, hueShift(L.body, 180, 1.2, 1), '#ffd740', 'star', 2];
   const sig = { body: G[1], dark: hueShift(G[1], 0, 1, 0.45), belly: hueShift(G[1], 0, 0.8, 1.35), snout: hueShift(G[1], 0, 1, 0.85), hoof: hueShift(G[1], 0, 1, 0.3), brow: G[2] };
   return [
-    { key: 'hue', deco: 'combo', combo: { head: CB_HEAD[(i * 5) % 12][0], body: CB_BODY[(i * 3) % 8][0], col: CB_COL[i % 10] }, name: `${CB_HEAD[(i * 5) % 12][1]} ${CB_BODY[(i * 3) % 8][1]} ${base.name}`, rare: 0, pal: {}, whue: (i * 53) % 360, fx: [recolor.body, '#ffffff', recolor.dark], kind: 'star', aura: recolor.body },
-    { key: 'shadow', deco: 'combo', combo: { head: CB_HEAD[(i * 7 + 3) % 12][0], body: CB_BODY[(i * 5 + 1) % 8][0], back: CB_BACK[(i * 3 + 2) % 8][0], col: CB_COL[(i * 3 + 4) % 10] }, name: `${CB_BACK[(i * 3 + 2) % 8][1]} ${CB_HEAD[(i * 7 + 3) % 12][1]} ${base.name}`, rare: 1, pal: {}, whue: (i * 71 + 90) % 360, fxTint: true, fx: ['#212121', '#9e9e9e', '#000000'], kind: 'shadow', aura: '#616161' },
-    { key: 'sig', deco: FANCY_K[i % FANCY_K.length], combo: { back: CB_BACK[(i * 5 + 6) % 8][0], col: [G[2], G[1]] }, name: `${FANCY[FANCY_K[i % FANCY_K.length]]} ${base.name}`, rare: G[4], c2: G[1], whue: (hueOfHex(G[2]) + 300) % 360, fxTint: true, pal: sig, fx: [G[1], G[2], '#ffffff'], kind: G[3], aura: G[2] },
+    { key: 'hue', deco: 'combo', combo: { head: FT[0], body: FT[1], col: MC }, name: `${cbName(CB_HEAD, FT[0])} ${cbName(CB_BODY, FT[1])} ${base.name}`, rare: 0, pal: {}, whue: (i * 53) % 360, fx: [recolor.body, '#ffffff', recolor.dark], kind: 'star', aura: recolor.body },
+    { key: 'shadow', deco: 'combo', combo: { head: FT[2], body: FT[3], back: FT[4], col: RC }, name: `${cbName(CB_BACK, FT[4])} ${cbName(CB_HEAD, FT[2])} ${base.name}`, rare: 1, pal: {}, whue: (i * 71 + 90) % 360, fxTint: true, fx: ['#212121', '#9e9e9e', '#000000'], kind: 'shadow', aura: '#616161' },
+    { key: 'sig', deco: FT[5], combo: { back: FT[4] === 'scarf' ? 'minicape' : 'scarf', col: [G[2], G[1]] }, name: `${FANCY[FT[5]]} ${base.name}`, rare: G[4], c2: G[1], whue: (hueOfHex(G[2]) + 300) % 360, fxTint: true, pal: sig, fx: [G[1], G[2], '#ffffff'], kind: G[3], aura: G[2] },
     ...(base.name === '야구돈' ? TEAM_SKINS.map(([key, nm, main, sub, em, cap, brim]) => ({ key, deco: 'uniform', team: { main, sub, em, cap, brim }, name: `${nm} 야구돈`, rare: 3, w: 0.15, pal: {}, fx: [main, sub, '#ffffff'], kind: 'star', aura: sub })) : []),
     ...UPDATES.filter(u => u.skins.includes(base.name)).map(u => ({ key: 'u_' + u.id, deco: FANCY_K[(UPDATES.indexOf(u) + 4) % FANCY_K.length], combo: { back: CB_BACK[(UPDATES.indexOf(u) * 3 + i) % 8][0], col: [u.col, '#ffffff'] }, name: `${u.icon} ${FANCY[FANCY_K[(UPDATES.indexOf(u) + 4) % FANCY_K.length]]} ${base.name}`, rare: 2, pal: {}, c2: u.col, whue: (hueOfHex(u.col) + 300) % 360, fxTint: true, fx: [u.col, '#ffffff', u.col], kind: 'star', aura: u.col, rel: u.id }))   // 🎉 업데이트 스킨
   ];
