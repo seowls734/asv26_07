@@ -5432,7 +5432,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-19';
+const BUILD = '20261113-20';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -6871,16 +6871,17 @@ function drawPopup() {
 }
 // ================= 티어 =================
 // 티어: 티어마다 4단계 (예: 골드 4 → 골드 1 → 플레티넘 4) · 맨 위 그렌드피아노(1700점)는 단계 없음
-const TIERS = [['아이언', 0, '#9e9e9e'], ['브론즈', 100, '#cd7f32'], ['실버', 220, '#cfd8dc'], ['골드', 360, '#ffd54f'],
-  ['플레티넘', 520, '#80cbc4'], ['에메랄드스플레시', 700, '#2ecc71'], ['다이아', 900, '#81d4fa'], ['울트라', 1080, '#ff8a65'],
-  ['마스터', 1250, '#ce93d8'], ['스타플래티나', 1410, '#b388ff'], ['그렌드마더', 1560, '#ff5252'], ['그렌드피아노', 1700, '#ffd700']];
+const TIERS = [['아이언', 0, '#9e9e9e'], ['브론즈', 1000, '#cd7f32'], ['실버', 2200, '#cfd8dc'], ['골드', 3600, '#ffd54f'],
+  ['플레티넘', 5200, '#80cbc4'], ['에메랄드스플레시', 7000, '#2ecc71'], ['다이아', 9000, '#81d4fa'], ['울트라', 10800, '#ff8a65'],
+  ['마스터', 12500, '#ce93d8'], ['스타플래티나', 14100, '#b388ff'], ['그렌드마더', 15600, '#ff5252'], ['그렌드피아노', 17000, '#ffd700']];
 const TIER_DIVS = 4, OLD_TIER_T = [0, 100, 250, 450, 700, 1000, 1400, 1850, 2350, 2900, 3500, 4200];
 // 예전 점수(최고 4200) → 새 점수(최고 1700): 같은 티어 안의 같은 위치로 (한 번만)
 function migrateTP() {
-  if (lsGet('sgf_tpv2', false)) return;
-  const o = +lsGet('sgf_tp', 0) || 0; let i = 0; OLD_TIER_T.forEach((v, k) => { if (o >= v) i = k; });
-  const n = i >= OLD_TIER_T.length - 1 ? TIERS[i][1] + (o - OLD_TIER_T[i]) * 0.4 : TIERS[i][1] + (o - OLD_TIER_T[i]) / (OLD_TIER_T[i + 1] - OLD_TIER_T[i]) * (TIERS[i + 1][1] - TIERS[i][1]);
-  lsSet('sgf_tp', Math.round(n)); lsSet('sgf_tpv2', true);
+  if (lsGet('sgf_tpv3', false)) return;
+  const o = +lsGet('sgf_tp', 0) || 0, src = lsGet('sgf_tpv2', false) ? [0, 100, 220, 360, 520, 700, 900, 1080, 1250, 1410, 1560, 1700] : OLD_TIER_T;   // 지난번에 1700 기준으로 옮긴 사람 / 아직 예전 4200 기준인 사람
+  let i = 0; src.forEach((v, k) => { if (o >= v) i = k; });
+  const last = src.length - 1, n = i >= last ? TIERS[last][1] + (o - src[last]) * (TIERS[last][1] / src[last]) : TIERS[i][1] + (o - src[i]) / (src[i + 1] - src[i]) * (TIERS[i + 1][1] - TIERS[i][1]);
+  lsSet('sgf_tp', Math.round(n)); lsSet('sgf_tpv3', true);
 }
 migrateTP();
 let tp = lsGet('sgf_tp', 0);
@@ -6973,8 +6974,8 @@ function borrow(amt) {
 // · 티어가 높을수록 이기면 덜 오르고, 지면 더 많이 깎임
 // · 다음 티어 문턱에 닿으면 바로 못 올라가고 '승급전'(3판 2선승)을 이겨야 승급. 지면 문턱 아래로 밀려남
 let promo = lsGet('sgf_promo', null);   // { w, l } 승급전 진행 중일 때만
-const winTP = (i, online) => (online ? Math.max(8, 20 - i) : Math.max(6, 16 - i)) + (online ? 0 : Math.min(2, Math.floor(streak / 4)));
-const loseTP = (i, online) => (online ? 12 : 10) + i;
+const winTP = (i, online) => ((online ? Math.max(8, 20 - i) : Math.max(6, 16 - i)) + (online ? 0 : Math.min(2, Math.floor(streak / 4)))) * 10;   // 최고 17000점 기준 (10배)
+const loseTP = (i, online) => ((online ? 12 : 10) + i) * 10;
 function rankedResult(win, online, revived = false) { const lb0 = tierLabel(tp), t0 = tierOf(tp), msg = rankedResult0(win, online, revived), lb1 = tierLabel(tp), t1 = tierOf(tp), ns = nextStep(tp);
   if (t1 > t0) startPromoFx(t1); else if (lb1 !== lb0) toast(win ? `⬆ ${lb0} → ${lb1}` : `⬇ ${lb0} → ${lb1}`);
   const left = promo ? '' : ns ? ` · ${ns.label}까지 ${ns.need}점` : ' · 최고 티어!';   // 판 끝나면 다음 단계까지 남은 점수
@@ -6986,7 +6987,7 @@ function rankedResult0(win, online, revived = false) {
     if (win) promo.w++; else promo.l++;
     let msg;
     if (promo.w >= 2) { tp = next[1]; promo = null; msg = `🎉 승급전 통과! ${next[0]} 승급` + checkUnlocks(); }
-    else if (promo.l >= 2) { tp = Math.max(0, next[1] - 40); promo = null; msg = '💥 승급전 실패... 다시 도전하세요'; }
+    else if (promo.l >= 2) { tp = Math.max(0, next[1] - 400); promo = null; msg = '💥 승급전 실패... 다시 도전하세요'; }
     else msg = `승급전 ${promo.w}승 ${promo.l}패 (3판 2선승)`;
     lsSet('sgf_promo', promo); lsSet('sgf_tp', tp); return msg;
   }
@@ -9109,7 +9110,7 @@ if (/autotest/.test(location.search)) {
     coins = 5000; debt = 10000; bankDebt = 0; chapSeen = []; scene = 'bank'; draw(); repay('debt', 3000);
     out.push(`repay: debt=${debt} coins=${coins} scene=${scene} chap=${chapSeen.join(',')}`);
     scene = 'bank'; coins = 0; borrow(100); out.push(`loan: bankDebt=${bankDebt} coins=${coins} limit=${loanLimit()}`);
-    { const L = [0, 30, 99, 100, 359, 360, 1699, 1700, 2500].map(v => tierLabel(v)); out.push('tiers: ' + L.join(',')); if (L[0] !== '아이언 4' || L[2] !== '아이언 1' || L[3] !== '브론즈 4' || L[5] !== '골드 4' || L[7] !== '그렌드피아노' || nextStep(0).need !== 25) throw new Error('티어 단계 실패'); const t0 = tp, p0 = promo; tp = 40; promo = null; const m = rankedResult(true, false); out.push('ranked msg: ' + m); if (!/까지 [0-9]+점/.test(m)) throw new Error('남은 점수 표시 실패'); tp = t0; promo = p0; lsSet('sgf_tp', tp); lsSet('sgf_promo', promo); }
+    { const L = [0, 300, 999, 1000, 3599, 3600, 16999, 17000, 25000].map(v => tierLabel(v)); out.push('tiers: ' + L.join(',')); if (L[0] !== '아이언 4' || L[2] !== '아이언 1' || L[3] !== '브론즈 4' || L[5] !== '골드 4' || L[7] !== '그렌드피아노' || nextStep(0).need !== 250) throw new Error('티어 단계 실패'); const t0 = tp, p0 = promo; tp = 400; promo = null; const m = rankedResult(true, false); out.push('ranked msg: ' + m); if (!/까지 [0-9]+점/.test(m)) throw new Error('남은 점수 표시 실패'); tp = t0; promo = p0; lsSet('sgf_tp', tp); lsSet('sgf_promo', promo); }
     tp = 720; out.push('tier 720 = ' + tierLabel(tp)); draw(); openRanking(false); draw(); rk.tab = 1; draw(); scene = 'title'; draw();
     mode = 1;
     out.push('ults used: ' + JSON.stringify(ultCount));

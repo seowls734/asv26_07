@@ -270,7 +270,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
 <div class="toast" id="toast"></div>
 <script>
 // 관리자 페이지도 새 버전이 올라오면 1분 안에 저절로 새로 불러옴 (브라우저가 10분 동안 옛 페이지를 들고 있어서)
-const ADMIN_BUILD = 'a-20261113-4';
+const ADMIN_BUILD = 'a-20261113-5';
 setInterval(() => { if (document.hidden) return; fetch('admin.html?t=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => { const m = t.match(/ADMIN_BUILD = '([^']+)'/); if (m && m[1] !== ADMIN_BUILD && !document.querySelector('[style*="z-index:99"]')) location.reload(); }).catch(() => {}); }, 60000);
 // 브라우저 창(confirm·prompt) 대신 페이지 안 창
 function uiAsk(msg, opt = {}) {
@@ -290,7 +290,7 @@ function uiAsk(msg, opt = {}) {
 const uiConfirm = m => uiAsk(m), uiPrompt = (m, d) => uiAsk(m, { input: true, def: d });
 'use strict';
 const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
-const TIERS = [['아이언', 0], ['브론즈', 100], ['실버', 220], ['골드', 360], ['플레티넘', 520], ['에메랄드스플레시', 700], ['다이아', 900], ['울트라', 1080], ['마스터', 1250], ['스타플래티나', 1410], ['그렌드마더', 1560], ['그렌드피아노', 1700]];   // 게임과 같음 (티어마다 4단계)
+const TIERS = [['아이언', 0], ['브론즈', 1000], ['실버', 2200], ['골드', 3600], ['플레티넘', 5200], ['에메랄드스플레시', 7000], ['다이아', 9000], ['울트라', 10800], ['마스터', 12500], ['스타플래티나', 14100], ['그렌드마더', 15600], ['그렌드피아노', 17000]];   // 게임과 같음 (티어마다 4단계 · 최고 17000)
 const ENDINGS = [['ending', '빚 청산'], ['rich', '재벌'], ['master', '마블링 마스터'], ['bad', '삼겹살']];
 const $ = id => document.getElementById(id);
 let token = sessionStorage.getItem('sgf_admin_token') || '', meLogin = sessionStorage.getItem('sgf_admin_login') || '';
