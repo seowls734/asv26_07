@@ -129,7 +129,8 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
       <section class="card">
         <h3 style="margin:0 0 8px">🚀 업데이트 공개</h3>
         <p class="muted" style="margin:0 0 6px">누르면 모든 사람 게임에 10초 안에 공개돼요. 싸우는 중인 사람은 그 판이 승리로 처리되고, 예고편이 나와요. <b>공개는 다시 끌 수 없어요.</b> 이타돼리는 공개 후 10일 안에 퀘스트를 깨야 얻고, 기간은 언제든 다시 열 수 있어요. 대규모 업데이트는 훈제돈·핑크하트 무료, 우주꿀돈은 퀘스트예요.</p>
-        <div class="actions"><button id="relItadori" class="primary">👊 새 돼지 이타돼리 공개</button><button id="relBig1" class="primary">🎉 대규모 업데이트 공개 (훈제돈·우주꿀돈·핑크하트)</button><button id="relBig2" class="primary">🏴‍☠️ 대규모 업데이트 2 공개 (캡틴베이컨·꿀린)</button></div>
+        <div class="actions"><button id="relItadori" class="primary">👊 새 돼지 이타돼리 공개</button><button id="relBig1" class="primary">🎉 대규모 업데이트 공개 (훈제돈·우주꿀돈·핑크하트)</button><button id="relBig2" class="primary">🏴‍☠️ 대규모 업데이트 · 해적과 마법사 공개 (캡틴베이컨·꿀린)</button></div>
+        <div class="actions" id="relMore" style="flex-wrap:wrap;margin-top:6px"></div>
         <p id="relNow" class="muted" style="margin:6px 0 0">-</p>
       </section>
       <section class="card">
@@ -269,7 +270,7 @@ legend{padding:0 6px;color:var(--gold);font-weight:700}
 <div class="toast" id="toast"></div>
 <script>
 // 관리자 페이지도 새 버전이 올라오면 1분 안에 저절로 새로 불러옴 (브라우저가 10분 동안 옛 페이지를 들고 있어서)
-const ADMIN_BUILD = 'a-20261112-4';
+const ADMIN_BUILD = 'a-20261112-5';
 setInterval(() => { if (document.hidden) return; fetch('admin.html?t=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => { const m = t.match(/ADMIN_BUILD = '([^']+)'/); if (m && m[1] !== ADMIN_BUILD && !document.querySelector('[style*="z-index:99"]')) location.reload(); }).catch(() => {}); }, 60000);
 // 브라우저 창(confirm·prompt) 대신 페이지 안 창
 function uiAsk(msg, opt = {}) {
@@ -572,10 +573,25 @@ $('giftOff').onclick = async () => {
 $('evOff').onclick = async () => {
   try { await api('/admin/event', 'POST', {}); showEvent(null); toast('이벤트를 껐어요'); } catch (e) { toast(e.message); }
 };
-function showRel(rel) { rel = rel || {}; const b2 = !!rel.big2; $('relBig2').disabled = b2; $('relBig2').textContent = b2 ? `🏴‍☠️ 대규모 업데이트 2 공개됨 (${when(rel.big2)})` : '🏴‍☠️ 대규모 업데이트 2 공개 (캡틴베이컨·꿀린)'; const b1 = !!rel.big1; $('relBig1').disabled = b1; $('relBig1').textContent = b1 ? `🎉 대규모 업데이트 공개됨 (${when(rel.big1)})` : '🎉 대규모 업데이트 공개 (훈제돈·우주꿀돈·핑크하트)'; const on = !!rel.itadori, end = (rel.itadoriWin || rel.itadori || 0) + 10 * 86400000, open = on && Date.now() < end; $('relNow').textContent = on ? `✅ 이타돼리 공개됨 (${when(rel.itadori)}) · 퀘스트 기간 ${open ? when(end) + '까지 (진행 중)' : '끝남'}` : '아직 공개 안 함'; $('relItadori').textContent = on ? '🔁 이타돼리 퀘스트 기간 다시 열기 (지금부터 10일)' : '👊 새 돼지 이타돼리 공개 (퀘스트 10일 시작)'; $('relItadori').dataset.on = on ? 1 : ''; }
+// 미리 넣어 둔 대규모 업데이트 (게임의 UPDATES와 같음): [id, 아이콘, 이름, 새 돼지, 돼지 값]
+const UPD_LIST = [['big3', '⚔️', '기사단', '기사돈', 1000000000000000], ['big4', '🎅', '겨울 축제', '산타돈', 1800000000000000], ['big5', '🤠', '황야의 총잡이', '카우돈', 3240000000000000], ['big6', '🎸', '록 페스티벌', '펑크돈', 5830000000000000], ['big7', '🏖️', '여름 바캉스', '바캉스돈', 10500000000000000], ['big8', '⚾', '야구장', '야구돈', 18900000000000000], ['big9', '🌃', '네온 시티', '네온돈', 34010000000000000], ['big10', '🌋', '화산섬', '용암돈', 61220000000000000], ['big11', '❄️', '눈의 왕국', '눈꽃돈', 110200000000000000], ['big12', '👑', '황금 제국', '황제돈', 198360000000000000], ['big13', '🌌', '은하 여행', '은하돈', 357050000000000000], ['big14', '🦄', '무지개 동산', '유니돈', 642680000000000000], ['big15', '🌸', '벚꽃 축제', '벚꽃돈', 1156830000000000000], ['big16', '👻', '유령선', '유령돈', 2082300000000000000], ['big17', '🌙', '달밤의 닌자', '그림자돈', 3748130000000000000], ['big18', '😈', '지옥문', '악마돈', 6746640000000000000], ['big19', '🔥', '불꽃 전사', '불꽃돈', 12143950000000000000], ['big20', '🥊', '세계 챔피언전', '펀치돈', 21859120000000000000]];
+const fmtBig = n => { const u = [[1e21, 'Sx'], [1e18, 'Qi'], [1e15, 'Qa'], [1e12, 'T']].find(x => n >= x[0]); return u ? +(n / u[0]).toFixed(1) + u[1] : String(n); };
+function showRelMore(rel) {
+  const box = $('relMore'); box.innerHTML = '';
+  for (const [id, icon, nm, ch, price] of UPD_LIST) {
+    const b = document.createElement('button'); b.className = rel[id] ? '' : 'primary'; b.disabled = !!rel[id];
+    b.textContent = rel[id] ? `${icon} ${nm} 공개됨 (${when(rel[id])})` : `${icon} 대규모 업데이트 · ${nm} 공개 (새 돼지 ${ch} · ${fmtBig(price)})`;
+    b.onclick = async () => {
+      if (!await uiConfirm(`대규모 업데이트 · ${nm}을(를) 공개할까요? (새 돼지 ${ch}는 도감에서 코인으로 사고, 업데이트 스킨 2개가 스킨 상자에 들어가요) 한 번 공개하면 다시 끌 수 없어요.`)) return;
+      try { const d = await api('/admin/release', 'POST', { id }); showRel(d.rel); toast(`${nm} 업데이트를 공개했어요! (10초 안에 모두에게)`); } catch (e) { toast(e.message); }
+    };
+    box.appendChild(b);
+  }
+}
+function showRel(rel) { rel = rel || {}; showRelMore(rel); const b2 = !!rel.big2; $('relBig2').disabled = b2; $('relBig2').textContent = b2 ? `🏴‍☠️ 대규모 업데이트 · 해적과 마법사 공개됨 (${when(rel.big2)})` : '🏴‍☠️ 대규모 업데이트 · 해적과 마법사 공개 (캡틴베이컨·꿀린)'; const b1 = !!rel.big1; $('relBig1').disabled = b1; $('relBig1').textContent = b1 ? `🎉 대규모 업데이트 공개됨 (${when(rel.big1)})` : '🎉 대규모 업데이트 공개 (훈제돈·우주꿀돈·핑크하트)'; const on = !!rel.itadori, end = (rel.itadoriWin || rel.itadori || 0) + 10 * 86400000, open = on && Date.now() < end; $('relNow').textContent = on ? `✅ 이타돼리 공개됨 (${when(rel.itadori)}) · 퀘스트 기간 ${open ? when(end) + '까지 (진행 중)' : '끝남'}` : '아직 공개 안 함'; $('relItadori').textContent = on ? '🔁 이타돼리 퀘스트 기간 다시 열기 (지금부터 10일)' : '👊 새 돼지 이타돼리 공개 (퀘스트 10일 시작)'; $('relItadori').dataset.on = on ? 1 : ''; }
 $('relBig2').onclick = async () => {
-  if (!await uiConfirm('대규모 업데이트 2(캡틴베이컨 무료 · 꿀린 퀘스트)를 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
-  try { const d = await api('/admin/release', 'POST', { id: 'big2' }); showRel(d.rel); toast('대규모 업데이트 2를 공개했어요!'); } catch (e) { toast(e.message); }
+  if (!await uiConfirm('대규모 업데이트 · 해적과 마법사(캡틴베이컨 무료 · 꿀린 퀘스트)를 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
+  try { const d = await api('/admin/release', 'POST', { id: 'big2' }); showRel(d.rel); toast('대규모 업데이트 · 해적과 마법사를 공개했어요!'); } catch (e) { toast(e.message); }
 };
 $('relBig1').onclick = async () => {
   if (!await uiConfirm('대규모 업데이트(새 돼지 3마리)를 모두에게 공개할까요? 한 번 공개하면 다시 끌 수 없어요.')) return;
