@@ -61,6 +61,7 @@ function startMatch() {
     if (awkOn(p1.ch.name) && (p1.ch.name !== '이타돼리' || p1.itForm === 'sukuna')) { p1.awk = true; p1.hpMul = (p1.hpMul || 1) * AWAKE[p1.ch.name].hp; toast(`⚡ ${AWAKE[p1.ch.name].title}`); }   // 각성한 돼지
     saveInv();
   }
+  if (mode === 6 && p1.ch.name === '이타돼리') applyItForm(p1, itForm());   // 연습에서도 고른 모습으로
 
   round = 1; sizzleOff(); startRound();
 }
@@ -905,7 +906,7 @@ function drawFinal(f) {
 
   if (mode === 1 && !runOver) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(W - 130, 8, 120, 34, 8); ctx.fill(); txt('그만하기', W - 70, 25, 15, '#fff', null); addHot(W - 130, 8, 120, 34, () => { pressed.Escape = true; }); }
   if (mode === 3) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(W - 130, 8, 120, 34, 8); ctx.fill(); txt('나가기', W - 70, 25, 15, '#fff', null); addHot(W - 130, 8, 120, 34, () => { pressed.Escape = true; }); }
-  if (mode === 4 && f > 0.8) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 230, 196, 460, 44, 12); ctx.fill(); txt(bet4.stake ? (cut.earn.bet > 0 ? `🎉 베팅 적중! +${fmtN(cut.earn.bet)} 코인` : `💸 베팅 실패... -${fmtN(bet4.stake)} 코인`) : '👀 구경 끝!', W / 2, 218, 24, cut.earn.bet > 0 ? '#ffd740' : '#fff', '#000', 5); }
+  if (mode === 4 && f > 0.8) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 230, 196, 460, 44, 12); ctx.fill(); { const bm = bet4.stake ?(cut.earn.bet > 0 ? `🎉 베팅 적중! +${fmtN(cut.earn.bet)} 코인 (건 돈 빼고 +${fmtN(cut.earn.bet - bet4.stake)})` : `💸 베팅 실패... -${fmtN(bet4.stake)} 코인`) : '👀 구경 끝!'; txt(bm, W / 2, 218, fitSize(bm, 24, 440), cut.earn.bet > 0 ? '#ffd740' : '#fff', '#000', 5); } }
   const hint = mode === 4 ? '[Enter] 다음 경기 베팅      [Esc] 타이틀' : mode === 3 ? '[Enter] 재대결 (둘 중 한 명)      [Esc] 방 나가기' : mode !== 1 ? '[Enter] 타이틀' : runOver ? '[Enter] 랭킹 보기      [Esc] 타이틀' : '[Enter] 다음 상대      [Esc] 그만하기(기록 저장)';
   if (f > 0.6 && gT % 60 < 42) txt(hint, W / 2, H - 28, 22, '#fff', '#000', 5);
 }

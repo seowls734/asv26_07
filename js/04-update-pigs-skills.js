@@ -373,7 +373,7 @@ function nySkillStart(f, s) {
   switch (t) {
     case 'yDrBreath': addObj({ owner: f, kind: 'yBreath', x: f.x + F * 130 * k, y: hy, w: 200, h: 90, dmg: 3, burn: 100, multi: 6, maxHits: 4, kb: 2, stun: 16, life: 40, delay: D, dir: F }); break;
     case 'yDrTail': nxFx(f, 'slash', f.x + F * 60 * k, f.y - 40 * k, 12, { delay: D, col: '#7e57c2' }); break;
-    case 'yDrScale': f.invT = Math.max(f.invT || 0, 42); nxHeal(f, 6, ['#69f0ae', '#b9f6ca']); addObj({ owner: f, kind: 'yScaleFx', x: f.x, y: f.y - 90 * k, w: 1, h: 1, dmg: 0, life: 42 }); break;
+    case 'yDrScale': f.invT = Math.max(f.invT || 0, 20); f.scaleSh = true; nxHeal(f, 6, ['#69f0ae', '#b9f6ca']); for (let i = objs.length - 1; i >= 0; i--) if (objs[i].kind === 'yScaleFx' && objs[i].owner === f) objs.splice(i, 1); addObj({ owner: f, kind: 'yScaleFx', x: f.x, y: f.y - 90 * k, w: 1, h: 1, dmg: 0, life: 42 }); break;
     case 'yMcRocket': P({ kind: 'yFist', vx: F * 13, back: 0.45, w: 40, h: 30, dmg: 9, kb: 8, stun: 24, life: 90 }); break;
     case 'yMcMissile': for (let i = 0; i < 3; i++) P({ kind: 'yMissile', vx: F * 6, vy: -3 + i * 3, w: 24, h: 16, dmg: 4, kb: 3, stun: 16, life: 120, delay: D + i * 5 }); break;
     case 'yMcBoost': nxFx(f, 'dust', f.x, f.y, 24); break;
@@ -407,7 +407,7 @@ function nyObjTick(o) {
   const f = o.owner, d = f.opp, fs = f.sc / 1.15, k = d.sc / 1.15;
   if (K === 'yBreath') { o.x = f.x + o.dir * 130 * fs; o.y = f.y - 95 * fs; if (o.t % 2 === 0) flame(o.x + o.dir * rand(-80, 90), o.y + rand(-30, 30)); }
   if (K === 'yParryFx') { o.x = f.x; o.y = f.y - 90 * fs; if (!(f.parryT > 0)) o.life = 0; return true; }
-  if (K === 'yScaleFx') { o.x = f.x; o.y = f.y - 90 * fs; return true; }
+  if (K === 'yScaleFx') { o.x = f.x; o.y = f.y - 90 * fs; o.life = f.scaleSh ? Math.max(o.life, 13) : Math.min(o.life, 12); return true; }   // 방패가 남아 있는 동안 계속 보임
   if (K === 'yMissile' || K === 'yBee') {   // 따라가는 미사일 · 벌
     const sp = K === 'yMissile' ? 7 : 5, ang = Math.atan2(d.y - 95 * k - o.y, d.x - o.x), cur = Math.atan2(o.vy, o.vx); let da = ang - cur; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
     const na = cur + clamp(da, K === 'yMissile' ? -0.07 : -0.12, K === 'yMissile' ? 0.07 : 0.12); o.vx = Math.cos(na) * sp; o.vy = Math.sin(na) * sp;

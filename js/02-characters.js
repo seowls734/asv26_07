@@ -265,7 +265,7 @@ const CHARS = [
   { name: '드래곤돈', title: '용의 피를 이은 돼지', type: '드래곤', hp: 111, power: 1.01, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big21', buy: 39346410000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🐉 용의 둥지)', perk: '업데이트 돼지', costume: 'dragon', costumeCol: '#b388ff',
     look: look('#9575cd', '#5c497f', '#c5b3e4', '#b07aba', '#342948', '#311b92', '#7e57c2', ['bold'], 1.04),
     skill: { name: '용의 숨결', type: 'yDrBreath', cd: 200, desc: 'U: 앞으로 불을 뿜어 여러 번 태움' },
-    skills: [{ name: '용의 숨결', type: 'yDrBreath', cd: 200, desc: 'U: 앞으로 불을 뿜어 여러 번 태움' }, { name: '꼬리 휘두르기', type: 'yDrTail', cd: 170, desc: '↓+U: 낮게 휘둘러 넘어뜨림' }, { name: '비늘 방패', type: 'yDrScale', cd: 420, desc: '←→+U: 0.7초 무적 + 체력 6 회복' }],
+    skills: [{ name: '용의 숨결', type: 'yDrBreath', cd: 200, desc: 'U: 앞으로 불을 뿜어 여러 번 태움' }, { name: '꼬리 휘두르기', type: 'yDrTail', cd: 170, desc: '↓+U: 낮게 휘둘러 넘어뜨림' }, { name: '비늘 방패', type: 'yDrScale', cd: 420, desc: '←→+U: 체력 6 회복 + 비늘 방패 (맞기 전까지 유지 · 필살기 빼고 한 번 다 막음)' }],
     tf: { name: '드래곤 모드', type: 'champion', color: '#b388ff', desc: '펀치 피해·속도↑' },
     ult: { name: '드래곤 브레스', type: 'nyDragon', desc: '용이 나타나 바닥을 불바다로' } },
   { name: '메카돈', title: '강철 몸의 돼지 로봇', type: '메카', hp: 116, power: 1.05, speed: 0.95, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big22', buy: 70823530000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🤖 메카 공장)', perk: '업데이트 돼지', costume: 'mecha', costumeCol: '#00e5ff',

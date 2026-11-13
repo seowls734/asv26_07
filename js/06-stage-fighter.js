@@ -145,6 +145,7 @@ class Fighter {
   reset() {
     this.x = this.id === 0 ? 240 : 720; this.y = GROUND; this.vx = 0; this.vy = 0; this.facing = this.id === 0 ? 1 : -1;
     this.maxHp = Math.round(this.ch.hp * (1 + Math.min(0.35, 0.025 * this.cpuLv)) * (this.hpMul || 1)); this.hp = this.maxHp; this.dispHp = this.maxHp;
+    this.scaleSh = false;
     this.state = 'idle'; this.stun = 0; this.atk = null; this.af = 0; this.atkHit = false; this.hitsDone = 0; this.lastHitF = 0; this.chain = 0; this.cbuf = null; this.mot = null;
     this.flash = 0; this.t = 0; this.koT = 0; this.combo = 0; this.comboT = 0; this.skillCD = 0;
     this.tfOn = false; this.tfT = 0; this.stamina = 100;

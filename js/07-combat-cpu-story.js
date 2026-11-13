@@ -12,6 +12,11 @@ function dealHit(a, d, h) {
     popText(d.x, d.y - 190 * d.sc / 1.15, `${d.ch.standName || '스탠드'} 방어!`, '#d1c4e9', 28); return 'block';
   }
   if (d.state === 'ko') return 'miss';
+  if (d.scaleSh && !(TSTOP && TSTOP.owner === a)) {   // 드래곤돈 비늘 방패: 맞기 전까지 유지 · 필살기 빼고 한 번 다 막음 (필살기는 뚫고 방패도 깨짐)
+    d.scaleSh = false; burst(d.x, d.y - 90 * d.sc / 1.15, 14, ['#69f0ae', '#b9f6ca', '#fff'], 7);
+    if (!(h.kind === 'ult' || h.ult)) { SFX.block(); hitstop = Math.max(hitstop, 6); popText(d.x, d.y - 190 * d.sc / 1.15, '비늘 방패!', '#69f0ae', 28); return 'block'; }
+    popText(d.x, d.y - 190 * d.sc / 1.15, '방패가 깨졌다!', '#ff8a80', 24);
+  }
   if (!h.force) {
     if (['down', 'transforming', 'grabbed', 'grabbing', 'locked'].includes(d.state) || d.invT > 0) return 'miss';
     if (d.state === 'ult' && d.ultInv) return 'miss';

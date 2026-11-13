@@ -371,7 +371,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-28';
+const BUILD = '20261113-29';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -587,7 +587,8 @@ const IT_FORMS = {
   sukuna: { name: '스쿠나', acc: ['uniform', 'pinkhair', 'bold'], skills: [{ name: '크게 베기', type: 'cleave', cd: 200, desc: 'U: 앞을 크게 베어 날림' }, { name: '불화살', type: 'fireArrow', cd: 300, desc: '↓+U: 불타는 화살 · 화상' }, { name: '보이지 않는 칼날', type: 'slashWave', cd: 160, desc: '←→+U: 아주 빠른 칼날 바람' }], ult: { name: '저주 결계', type: 'curseKing', desc: '화면 전체를 저주 결계로 · 칼날이 반드시 벰 · 끝나면 불화살' } }
 };
 const itFormOk = k => k === 'base' || (k === 'sukuna' && isAwake('이타돼리'));   // 모듈로 모습은 뺐음 (예전에 골랐으면 기본 모습)
-const itForm = () => { const k = lsGet('sgf_itform', 'base'); return itFormOk(k) ? k : 'base'; };
+const itForm = () => { if (isAwake('이타돼리') && !lsGet('sgf_itsuk', false)) { lsSet('sgf_itsuk', true); lsSet('sgf_itform', 'sukuna'); }   // 각성하면 처음 한 번은 스쿠나 모습으로 바꿔 줌 (그 뒤엔 도감에서 고른 대로)
+  const k = lsGet('sgf_itform', 'base'); return itFormOk(k) ? k : 'base'; };
 function cycleItForm() { const L = ['base', 'sukuna'].filter(itFormOk); const i = L.indexOf(itForm()); const k = L[(i + 1) % L.length]; lsSet('sgf_itform', k); cloudDirty(); SFX.select(); toast(L.length < 2 ? '🔒 모듈로는 모듈로 각성 퀘스트(보상 센터), 스쿠나는 각성으로 열려요' : `👊 이타돼리 모습: ${IT_FORMS[k].name}`); }
 function applyItForm(f, k) {   // 싸우는 돼지에 모습 입히기 (그 돼지 것만 바뀜)
   const F = IT_FORMS[k] || IT_FORMS.base;

@@ -106,7 +106,7 @@ function drawFighter(f) {
   drawNewBack(f);
   if (f.tfIs('clone')) drawPig(f.x - f.facing * 45 * s, f.y, f.facing, f.C, { ...p, alpha: 0.35, aura: null });
   if (f.sukuna) p.curse = 1; else if (f.curseT > 0) p.curse = Math.min(1, f.curseT / 60); if (f.foxT > 0) p.foxTails = Math.min(1, f.foxT / 60);   // 몸에 붙는 효과
-  if (f.C.wpn) p.wpnOut = (f.state === 'attack' && f.atk && f.atk.skill && !['lowkick', 'highkick', 'sweep', 'roll', 'grab'].includes(f.atk.pose) && !(f.atk.pose === 'throw' && !GUNS.includes(f.C.wpn))) || f.state === 'ult' || f.swingT > 0;   // 무기는 스킬·필살기 때만 손에 (평타는 맨손 · 던지는 스킬은 빈손으로)
+  if (f.C.wpn) p.wpnOut = (f.state === 'attack' && f.atk && f.atk.skill && !['lowkick', 'highkick', 'sweep', 'roll', 'grab'].includes(f.atk.pose) && !(f.atk.pose === 'throw' && !GUNS.includes(f.C.wpn) && f.C.wpn !== 'fan')) || f.state === 'ult' || f.swingT > 0;   // 무기는 스킬·필살기 때만 손에 (평타는 맨손 · 던지는 스킬은 빈손으로)
   drawPig(f.x, f.y, f.facing, f.C, p);
   drawNewFront(f);
   drawCurse(f);   // 저주왕
