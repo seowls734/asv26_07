@@ -441,7 +441,7 @@ function updateObjs(onlyTs) {   // onlyTs: 시간 정지 중 → 로드롤러처
 }
 function drawObjs() {
   drawNxTint();   // 업데이트 돼지 필살기 화면 색
-  for (const o of objs) {
+  for (const o of objs) { const tn = o.owner && o.owner.C && o.owner.C.skinFx && o.owner.C.skinFx.fxTint ? skinHue(o.owner.C.skinFx) : ''; if (tn) { ctx.save(); ctx.filter = tn; } try {   // 스킨 색 이펙트
     if (!o.owner) { drawEnv(o); continue; }
     if (o.kind === 'pclone') { drawClone(o); continue; }
     if (drawBigObj(o)) continue;
@@ -538,6 +538,6 @@ function drawObjs() {
       }
     }
     ctx.restore();
-  }
+  } finally { if (tn) ctx.restore(); } }
 }
 

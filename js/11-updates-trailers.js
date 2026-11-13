@@ -275,6 +275,7 @@ function nqAdd(id, v, max) {
 }
 // 이미 다 채운 퀘스트도 해금 (목표를 낮췄을 때 · 다른 기기에서 채웠을 때 등) — 1초마다 확인
 function questCheckAll() {
+  { const all = awkAll(); let ch = false; for (const [name, A] of Object.entries(AWAKE)) { const q = all[name] || {}; if (!q.done && A.steps.every(st => (q[st.id] || 0) >= st.goal)) { q.done = true; all[name] = q; ch = true; popup({ icon: '⚡', title: `${name} 각성!!!`, lines: [A.title, `체력 ×${A.hp} · 공격력 ×${A.power}`, A.note], big: true }); } } if (ch) { lsSet('sgf_awake', all); cloudDirty(); } }   // 이미 채운 각성 조건도 각성
   for (const Q of QUESTS) if (qOpen(Q) && qDoneN(Q) >= Q.steps.length) { lsSet(Q.unlockKey || 'sgf_unlock_' + Q.ch, true); cloudDirty(); popup({ icon: Q.icon, title: `${Q.prize || Q.ch} 해금!!`, lines: ['퀘스트를 모두 끝냈어요!', Q.prize ? '🐷 돼지 도감에서 모습을 바꿀 수 있어요' : '캐릭터 선택에서 골라 보세요'], big: true }); }
 }
 function questLines(Q) {
@@ -370,7 +371,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-23';
+const BUILD = '20261113-24';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -858,13 +859,12 @@ const AWAKE = {
     title: '각성 · 스쿠나', color: '#ff1744', hp: 1.2, power: 1.2,
     note: '스쿠나 모습이 열려요 (문신 · 팔 두 쌍 · 크게 베기 · 불화살 · 필살기 저주 결계)',
     steps: [
-      { id: 'win', name: '이타돼리로 150번 이기기', goal: 150 },
-      { id: 'bolt', name: '검은 번개 300번 터뜨리기 (평타·스킬 모두)', goal: 300 },
-      { id: 'dismko', name: '베어 가르기로 K.O. 60번', goal: 60 },
-      { id: 'blood', name: '피의 관통탄 500번 맞히기', goal: 500 },
-      { id: 'lose', name: '이타돼리로 50번 지기 (쓰러져야 강해진다)', goal: 50 },
-      { id: 'streak', name: '이타돼리로 연승 모드 30연승', goal: 30 },
-      { id: 'perfect', name: '이타돼리로 한 대도 안 맞고 이기기 25번', goal: 25 }
+      { id: 'win', name: '이타돼리로 40번 이기기', goal: 40 },
+      { id: 'bolt', name: '검은 번개 60번 터뜨리기 (평타·스킬 모두)', goal: 60 },
+      { id: 'ultko', name: '이타돼리 필살기로 K.O. 10번', goal: 10 },
+      { id: 'lose', name: '이타돼리로 15번 지기 (쓰러져야 강해진다)', goal: 15 },
+      { id: 'streak', name: '이타돼리로 연승 모드 10연승', goal: 10 },
+      { id: 'perfect', name: '이타돼리로 한 대도 안 맞고 이기기 5번', goal: 5 }
     ]
   }
 };

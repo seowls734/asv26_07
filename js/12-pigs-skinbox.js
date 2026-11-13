@@ -106,7 +106,7 @@ function drawPigs() {
 }
 // ================= 🎨 스킨 상자 (뽑기) =================
 // 일반 60% · 희귀 24% · 영웅 10% · 전설 6%. 이미 있는 스킨이 나오면 상자 값의 30%를 코인으로 돌려받음
-const SKIN_BOX_PRICE = 2e12;   // 스킨 상자 1개 2T
+const SKIN_BOX_PRICE = 1e15;   // 스킨 상자 1개 1Qa
 // ================= 🎨 돼지마다 다른 스킨 (돼지 하나에 3개씩) =================
 // 리컬러(일반): 그 돼지 색을 다른 색조로 · 섀도우(희귀): 그 돼지를 어둡게 · 테마(영웅/전설): 돼지마다 다른 테마
 // 가진 스킨: inv.own['ps:돼지:종류'] · 장착: inv.pskin[돼지] = 종류 (예전 공용 스킨을 가졌으면 그 테마는 모든 돼지에서 씀)
@@ -143,6 +143,7 @@ const SIG_SKIN = {
 };
 // ⚾ 야구단 유니폼 (야구돈 전설 스킨 · 스킨 상자에서 아주 드물게): [키, 이름, 바탕, 포인트, 가슴 그림, 모자, 챙]
 const TEAM_SKINS = [['tigers', '호랑이 유니폼', '#c8102e', '#111111', '🐯', '#111111', '#c8102e'], ['lions', '사자 유니폼', '#ffffff', '#074ca1', '🦁', '#074ca1', '#074ca1'], ['wiz', '마법사 유니폼', '#111111', '#e4002b', '🧙', '#111111', '#e4002b'], ['eagles', '독수리 유니폼', '#ff6600', '#0a1e3f', '🦅', '#0a1e3f', '#ff6600']];
+const hueOfHex = h => { const [r, g, b] = hex2rgb(h).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), d2 = mx - mn; if (!d2) return 0; const hh = mx === r ? (g - b) / d2 + (g < b ? 6 : 0) : mx === g ? (b - r) / d2 + 2 : (r - g) / d2 + 4; return Math.round(hh * 60); };
 function pigSkins(c) {
   const base = CHARS.find(x => x.name === c.name) || c, i = Math.max(0, CHARS.indexOf(base)), L = base.look;   // 꾸미기가 붙은 복사본이 와도 원래 돼지 기준
   const deg = 110 + (i * 47) % 140;
@@ -151,14 +152,14 @@ function pigSkins(c) {
   const G = SIG_SKIN[base.name] || [`스페셜 ${base.name}`, hueShift(L.body, 180, 1.2, 1), '#ffd740', 'star', 2];
   const sig = { body: G[1], dark: hueShift(G[1], 0, 1, 0.45), belly: hueShift(G[1], 0, 0.8, 1.35), snout: hueShift(G[1], 0, 1, 0.85), hoof: hueShift(G[1], 0, 1, 0.3), brow: G[2] };
   return [
-    { key: 'hue', deco: CASUAL_K[i % CASUAL_K.length], name: `${CASUAL[CASUAL_K[i % CASUAL_K.length]]} ${base.name}`, rare: 0, pal: {}, fx: [recolor.body, '#ffffff', recolor.dark], kind: 'star', aura: recolor.body },
-    { key: 'shadow', deco: 'dark', name: `악마 ${base.name}`, rare: 1, pal: shadow, fx: ['#212121', '#9e9e9e', '#000000'], kind: 'shadow', aura: '#616161' },
-    { key: 'sig', deco: G[3], name: G[0], rare: G[4], pal: sig, fx: [G[1], G[2], '#ffffff'], kind: G[3], aura: G[2] },
+    { key: 'hue', deco: Object.keys(CASUAL2)[i % 6], name: `${Object.values(CASUAL2)[i % 6]} ${base.name}`, rare: 0, pal: {}, whue: (i * 53) % 360, fx: [recolor.body, '#ffffff', recolor.dark], kind: 'star', aura: recolor.body },
+    { key: 'shadow', deco: ONESIE_K[i % 4], name: `${ONESIE[ONESIE_K[i % 4]]} ${base.name}`, rare: 1, pal: {}, whue: (i * 71 + 90) % 360, fxTint: true, fx: ['#212121', '#9e9e9e', '#000000'], kind: 'shadow', aura: '#616161' },
+    { key: 'sig', deco: FANCY_K[i % FANCY_K.length], name: `${FANCY[FANCY_K[i % FANCY_K.length]]} ${base.name}`, rare: G[4], c2: G[1], whue: (hueOfHex(G[2]) + 300) % 360, fxTint: true, pal: sig, fx: [G[1], G[2], '#ffffff'], kind: G[3], aura: G[2] },
     ...(base.name === '야구돈' ? TEAM_SKINS.map(([key, nm, main, sub, em, cap, brim]) => ({ key, deco: 'uniform', team: { main, sub, em, cap, brim }, name: `${nm} 야구돈`, rare: 3, w: 0.15, pal: {}, fx: [main, sub, '#ffffff'], kind: 'star', aura: sub })) : []),
-    ...UPDATES.filter(u => u.skins.includes(base.name)).map(u => ({ key: 'u_' + u.id, deco: u.deco, name: `${u.name} ${base.name}`, rare: 2, pal: {}, fx: [u.col, '#ffffff', u.col], kind: 'star', aura: u.col, rel: u.id }))   // 🎉 업데이트 스킨
+    ...UPDATES.filter(u => u.skins.includes(base.name)).map(u => ({ key: 'u_' + u.id, deco: FANCY_K[(UPDATES.indexOf(u) + 4) % FANCY_K.length], name: `${u.icon} ${FANCY[FANCY_K[(UPDATES.indexOf(u) + 4) % FANCY_K.length]]} ${base.name}`, rare: 2, pal: {}, c2: u.col, whue: (hueOfHex(u.col) + 300) % 360, fxTint: true, fx: [u.col, '#ffffff', u.col], kind: 'star', aura: u.col, rel: u.id }))   // 🎉 업데이트 스킨
   ];
 }
-const SKIN_RANK = [['일반', '#b0bec5', 60], ['희귀', '#40c4ff', 28], ['영웅', '#e040fb', 9], ['전설', '#ffd740', 3]];
+const SKIN_RANK = [['일반', '#b0bec5', 62], ['희귀', '#40c4ff', 28], ['영웅', '#e040fb', 9], ['전설', '#ffd740', 1]];   // 전설 1%
 const skinOn = (c, s) => (IS_TESTER && isMember()) || ((!c.relId || isRel(c.relId)) && (!s.rel || isRel(s.rel)));   // 테스트 계정은 공개 전 돼지·스킨도 다 보임   // 테스트 계정은 공개 전 돼지·스킨도 다 보임   // 공개 안 된 업데이트의 돼지·스킨은 안 나옴
 const ownsPigSkin = (c, s) => !!(inv.own['ps:' + c.name + ':' + s.key] || IS_TESTER);   // 공용 스킨은 없음 · 돼지마다 따로
 // 예전 공용 스킨(지옥불 등)은 없앴음 → 가진 개수만큼 스킨 상자 값(100만)씩 한 번 돌려줌
@@ -181,7 +182,7 @@ function openSkinBox(n = 1, minRk = 0) {   // minRk 2: 프리미엄 상자 (영�
   const res = [];
   for (let k = 0; k < n; k++) {
     let r = Math.random() * 100, rk = 0; for (let j = 0; j < SKIN_RANK.length; j++) { if (r < SKIN_RANK[j][2]) { rk = j; break; } r -= SKIN_RANK[j][2]; rk = j; }
-    if (rk < minRk) rk = Math.random() < 0.25 ? 3 : 2;
+    if (rk < minRk) rk = Math.random() < 0.1 ? 3 : 2;   // 프리미엄 상자: 전설 10%
     const pool = []; for (const c of CHARS) for (const s of pigSkins(c)) if (s.rare === rk && skinOn(c, s)) pool.push([c, s]);
     const [c, s] = (() => { const P = pool.length ? pool : [[CHARS[0], pigSkins(CHARS[0])[0]]], tot = P.reduce((a, x) => a + (x[1].w || 1), 0); let r = Math.random() * tot; for (const x of P) { r -= x[1].w || 1; if (r <= 0) return x; } return P[P.length - 1]; })(), id = 'ps:' + c.name + ':' + s.key, dup = !!inv.own[id];
     if (dup) addCoins(Math.round(SKIN_BOX_PRICE * 0.3)); else inv.own[id] = true;

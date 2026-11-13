@@ -303,6 +303,10 @@ const GUNS = ['revolver', 'watergun', 'laser'], POLES = ['spear', 'trident'];
 const handAt = (mv, k, by) => mv === 'jab' ? [38 + 50 * k, -82 + by] : mv === 'punch' ? [38 + 66 * k, -72 + by] : mv === 'uppercut' ? [lerp(40, 60, k), lerp(-46, -150, k) + by] : mv === 'throw' ? [38 + 60 * k, -92 + by] : mv === 'counter' ? [60, -104 + by] : mv === 'dash' ? [-26, -50 + by] : [50, -84 + by];
 const WPN_BACK = ['spear', 'trident', 'bat', 'guitar', 'candycane', 'scepter'];   // 등에 메는 긴 무기 (나머지는 허리에)
 function drawWeapon(w, hx, hy, ang, t, sheath) {
+  if (WPN_TINT) { ctx.save(); ctx.filter = WPN_TINT; drawWeapon0(w, hx, hy, ang, t, sheath); ctx.restore(); return; }   // 스킨 색 무기
+  drawWeapon0(w, hx, hy, ang, t, sheath);
+}
+function drawWeapon0(w, hx, hy, ang, t, sheath) {
   ctx.save(); ctx.translate(hx, hy); ctx.rotate(ang); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2 * LWM;
   const blade = (len, c1, c2, wd = 5) => { if (sheath) { ctx.fillStyle = '#3e2723'; rr(10, -wd - 1, len + 4, wd * 2 + 2, wd); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffd740'; ctx.fillRect(len + 4, -wd, 4, wd * 2); return; } const g = ctx.createLinearGradient(0, -wd, 0, wd); g.addColorStop(0, c1); g.addColorStop(1, c2); ctx.fillStyle = g; poly([[10, -wd], [len, -wd + 1], [len + 12, 0], [len, wd - 1], [10, wd]]); ctx.fill(); ctx.stroke(); };   // sheath: 칼집
   if (sheath && HOLSTER_W.includes(w)) {   // 권총집: 손잡이만 위로 보임
