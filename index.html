@@ -189,6 +189,16 @@ cv.addEventListener('pointerdown', e => {
   const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
   for (let i = hot.length - 1; i >= 0; i--) { const h = hot[i]; if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { h.fn(); e.preventDefault(); return; } }
 });
+// 🖱️ 목록 화면 스크롤: PC는 마우스 휠, 모바일은 손가락으로 위아래로 밀기 → ↑↓ 키를 누른 것처럼 (고른 칸 따라 화면이 넘어감)
+const SCROLL_SCENES = ['select', 'pigs', 'market', 'tycoon', 'reward', 'cutlist', 'ranking', 'endings', 'keys', 'betpick', 'bank'];
+const canScroll = () => SCROLL_SCENES.includes(scene) && !(scene === 'tycoon' && TY.phase !== 'lobby') && !POP && !qm && !(typeof authOpen === 'function' && authOpen());
+function scrollStep(dir) { if (canScroll()) pressed[dir > 0 ? 'ArrowDown' : 'ArrowUp'] = true; }
+let wheelAcc = 0;
+cv.addEventListener('wheel', e => { if (!canScroll()) return; e.preventDefault(); wheelAcc += e.deltaY; if (Math.abs(wheelAcc) >= 50) { scrollStep(Math.sign(wheelAcc)); wheelAcc = 0; } }, { passive: false });
+const swipe = {};
+cv.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') swipe[e.pointerId] = e.clientY; });
+cv.addEventListener('pointermove', e => { const y0 = swipe[e.pointerId]; if (y0 == null || !canScroll()) return; const r = cv.getBoundingClientRect(), dy = (y0 - e.clientY) * H / r.height; if (Math.abs(dy) >= 45) { scrollStep(Math.sign(dy)); swipe[e.pointerId] = e.clientY; } });
+addEventListener('pointerup', e => { delete swipe[e.pointerId]; }); addEventListener('pointercancel', e => { delete swipe[e.pointerId]; });
 
 // ---- 모바일 터치 패드 ----
 // 왼쪽: 아무 데나 누르고 끌면 움직이는 조이스틱 (↖↗ 대각선 점프 · 아래로 끌면 앉기 · 뒤로 끌면 막기)
@@ -5076,7 +5086,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-5';
+const BUILD = '20261113-6';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -8732,6 +8742,7 @@ if (/autotest/.test(location.search)) {
       { lsSet('sgf_awake', {}); const A = AWAKE['이타돼리']; for (const st of A.steps) for (let k = 0; k < st.goal; k++) awkAdd('이타돼리', st.id, st.id === 'streak' ? k + 1 : 1, st.id === 'streak'); out.push(`awake: ${isAwake('이타돼리')}`); if (!isAwake('이타돼리')) throw new Error('각성 실패');
         mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); const d0 = p1.dmgMul('punch'); p1.awk = true; const d1 = p1.dmgMul('punch'); out.push(`awake dmg ${d0.toFixed(2)} -> ${d1.toFixed(2)}`); if (!(d1 > d0)) throw new Error('각성 공격력 실패'); for (let n = 0; n < 130; n++) step(); draw(); lsSet('sgf_awake', {}); POPQ.length = 0; POP = null; showAwake(); POPQ.length = 0; }
       { coins = 1e9; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'meter'); openQty(mk.sel); hot = []; draw(); const tap = (x, y) => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + x * r.width / W, clientY: r.top + y * r.height / H, bubbles: true })); }; const m0 = inv.use.meter || 0; tap(W / 2 - 230 + 22 + 3 * 86 + 30, 130 + 158); if (qm.n !== 11) throw new Error('터치 +10 실패 n=' + qm.n); tap(W / 2 - 230 + 150, 130 + 238); out.push('touch qty: ' + m0 + ' -> ' + inv.use.meter); if (inv.use.meter !== m0 + 11 || qm) throw new Error('터치 사기 실패'); }
+      { POPQ.length = 0; POP = null; openPigs(); PG.sel = 0; cv.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, cancelable: true })); step(); const s1 = PG.sel; cv.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, cancelable: true })); step(); out.push('wheel pigs: 0 -> ' + s1 + ' -> ' + PG.sel); if (s1 !== 7 || PG.sel !== 0) throw new Error('휠 스크롤 실패'); toTitle(); }
       { coins = 1e7; openMarket(); mk.tab = 1; mk.sel = SHOP.findIndex(x => x.id === 'meter'); const m0 = inv.use.meter || 0; pressed.Enter = true; step(); if (!qm) throw new Error('수량 창이 안 열림'); pressed.ArrowUp = true; step(); pressed.ArrowRight = true; step(); draw(); pressed.Enter = true; step(); out.push(`qty buy: meter ${m0} -> ${inv.use.meter} qm=${!!qm}`); if (inv.use.meter !== m0 + 12 || qm) throw new Error('수량 사기 실패'); scene = 'title'; }
       { coins = 1e10; const c0 = CHARS[0], l0 = pigLv(c0.name); upgradePig(c0); upgradePig(c0); out.push(`pig lv: ${l0} -> ${pigLv(c0.name)} coins=${fmtN(coins)}`); if (pigLv(c0.name) !== l0 + 2) throw new Error('돼지 강화 실패'); mode = 1; ranked = false; p1.setChar(c0); p2.setChar(CHARS[1]); startMatch(); out.push(`lvMul=${p1.lvMul}`); if (!(p1.lvMul > 1)) throw new Error('강화 적용 실패'); lsSet('sgf_piglv', {}); openPigs(); for (let n = 0; n < 5; n++) { pressed.KeyD = true; step(); draw(); } scene = 'title';
         for (const k in inv.own) if (k.startsWith('ps:')) delete inv.own[k]; const own0 = 0; coins = 1e14; shopAct(SHOP.findIndex(x => x.id === 'skinBox10')); const own1 = Object.keys(inv.own).filter(k => k.startsWith('ps:')).length; out.push(`skin box: skins ${own0} -> ${own1}`); if (own1 <= own0 && own0 < 10) throw new Error('스킨 상자 실패'); POPQ.length = 0; POP = null;
