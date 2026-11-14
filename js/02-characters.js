@@ -373,7 +373,9 @@ const WEAPON = { head: '목살 몽둥이', belly: '삼겹 채찍', legs: '족발
 // ---- 로컬 저장 (연승 랭킹 · 닉네임) ----
 // 🌍 월드3는 월드1과 같은 게임이지만 돈(💵 돼지달러)·빚·냉장고를 따로 저장: 월드3에 있으면 이 키들은 '_w3'이 붙은 칸을 씀
 let WORLD = 1; try { WORLD = JSON.parse(localStorage.getItem('sgf_world')) === 3 ? 3 : 1; } catch (e) {}
-const W3_KEYS = ['sgf_coin', 'sgf_debt', 'sgf_bank', 'sgf_debtbase', 'sgf_fridge', 'sgf_tp', 'sgf_rbest', 'sgf_ranked', 'sgf_rank', 'sgf_promo'];   // 돈·빚·냉장고 + 랭크(티어 점수·최고 연승·승급전)
+const W3_KEYS = ['sgf_coin', 'sgf_debt', 'sgf_bank', 'sgf_debtbase', 'sgf_fridge', 'sgf_tycoon', 'sgf_tp', 'sgf_rbest', 'sgf_ranked', 'sgf_rank', 'sgf_promo'];   // 돈·빚·냉장고 + 랭크(티어 점수·최고 연승·승급전)
+// 월드3 고침 (한 번만): 포장마차 장사가 월드1과 같이 쓰여서 월드3에 큰돈이 들어오던 것 → 월드3 지갑을 처음 상태로
+try { if (!localStorage.getItem('sgf_w3v2')) { if (localStorage.getItem('sgf_debt_w3') !== null) { [['sgf_coin_w3', 1000], ['sgf_debt_w3', 1e9], ['sgf_debtbase_w3', 1e9], ['sgf_bank_w3', 0], ['sgf_fridge_w3', []]].forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v))); ['sgf_tycoon_w3', 'sgf_w3chap', 'sgf_w3clear'].forEach(k => localStorage.removeItem(k)); } localStorage.setItem('sgf_w3v2', '1'); } } catch (e) {}
 const wKey = k => WORLD === 3 && W3_KEYS.includes(k) ? k + '_w3' : k;
 function lsGet(k, d) { try { const v = localStorage.getItem(wKey(k)); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(wKey(k), JSON.stringify(v)); } catch (e) {} if (!SAVE_SKIP.includes(k)) cloudDirty(); }
