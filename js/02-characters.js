@@ -159,7 +159,7 @@ const CHARS = [
     skills: [{ name: '검 휘두르기', type: 'xKnSlash', cd: 150, desc: 'U: 긴 검으로 크게 벰' }, { name: '방패 밀치기', type: 'xKnBash', cd: 220, desc: '↓+U: 방패로 밀쳐 날림 (맞아도 안 밀림)' }, { name: '검기 날리기', type: 'xKnWave', cd: 200, desc: '←→+U: 초승달 검기를 날림' }], wpn: 'sword',
     tf: { name: '기사 모드', type: 'champion', color: '#90a4ae', desc: '펀치 피해·속도↑' },
     ult: { name: '천공의 성검', type: 'nxExcalibur', desc: '하늘에서 거대한 성검이 떨어짐' } },
-  { name: '산타돈', title: '선물 주머니를 멘 돼지 산타', type: '축제', hp: 129, power: 1.09, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big4', buy: 1800000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🎅 겨울 축제)', perk: '업데이트 돼지', costume: 'santa', costumeCol: '#d32f2f',
+  { name: '산타돈', title: '선물 주머니를 멘 돼지 산타', type: '축제', hp: 129, power: 1.09, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'xmas', quest: true, how: '🎄 크리스마스 퀘스트로 얻어요 (12월 1~25일 · 산타돈과 눈꽃돈을 같이 줘요)', perk: '🎄 크리스마스 돼지', costume: 'santa', costumeCol: '#d32f2f',
     look: look('#ffcdd2', '#9e7f82', '#ffe4e6', '#ffbcbe', '#59484a', '#fafafa', '#d32f2f', ['beard', 'bold'], 1.04),
     skill: { name: '선물 폭탄', type: 'xSaGift', cd: 180, desc: 'U: 떨어지면 터지는 선물 상자' },
     skills: [{ name: '선물 폭탄', type: 'xSaGift', cd: 180, desc: 'U: 떨어지면 터지는 선물 상자' }, { name: '눈덩이 3연발', type: 'xSaSnow', cd: 200, desc: '↓+U: 눈덩이 3개 · 맞으면 느려짐' }, { name: '쿠키 냠냠', type: 'xSaCookie', cd: 600, desc: '←→+U: 쿠키를 먹고 체력 12 회복' }], wpn: 'candycane',
@@ -201,7 +201,7 @@ const CHARS = [
     skills: [{ name: '바위 던지기', type: 'xLvRock', cd: 200, desc: 'U: 떨어지면 터지는 바위' }, { name: '용암 웅덩이', type: 'xLvPool', cd: 300, desc: '↓+U: 상대 발밑에 용암이 끓어오름' }, { name: '지진파', type: 'xLvQuake', cd: 220, desc: '←→+U: 바닥을 타고 가는 지진 · 넘어뜨림' }], wpn: 'rockfist',
     tf: { name: '골렘 모드', type: 'champion', color: '#ff6d00', desc: '펀치 피해·속도↑' },
     ult: { name: '화산 대폭발', type: 'nxVolcano', desc: '용암 바위가 하늘에서 쏟아짐' } },
-  { name: '눈꽃돈', title: '눈의 나라 돼지 기사', type: '얼음', hp: 130, power: 1.06, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big11', buy: 110200000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (❄️ 눈의 왕국)', perk: '업데이트 돼지', costume: 'ice', costumeCol: '#40c4ff',
+  { name: '눈꽃돈', title: '눈의 나라 돼지 기사', type: '얼음', hp: 130, power: 1.06, speed: 1, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'xmas', quest: true, how: '🎄 크리스마스 퀘스트로 얻어요 (12월 1~25일 · 산타돈과 눈꽃돈을 같이 줘요)', perk: '🎄 크리스마스 돼지', costume: 'ice', costumeCol: '#40c4ff',
     look: look('#e1f5fe', '#8c989d', '#effafe', '#e9dadf', '#4f5659', '#0277bd', '#40c4ff', ['bold'], 1.04),
     skill: { name: '얼음 창 찌르기', type: 'xIcSpear', cd: 160, desc: 'U: 긴 창으로 찌름 · 느려짐' },
     skills: [{ name: '얼음 창 찌르기', type: 'xIcSpear', cd: 160, desc: 'U: 긴 창으로 찌름 · 느려짐' }, { name: '눈꽃 표창', type: 'xIcFlake', cd: 180, desc: '↓+U: 눈꽃 표창 두 개' }, { name: '얼음벽', type: 'xIcWall', cd: 320, desc: '←→+U: 앞에 얼음벽을 세워 막음' }], wpn: 'spear',
@@ -549,6 +549,7 @@ function makeDish(o) { return { name: o[0], method: o[1], fit: o[2], ...METHODS[
 const COIN_MAX = 1e308;
 const fixCoins = v => (typeof v === 'number' && v === v) ? Math.min(COIN_MAX, Math.max(0, v)) : (v === null ? COIN_MAX : 0);
 let coins = fixCoins(lsGet('sgf_coin', 100)), bet = 0, betSel = 0;
+const EARN = 0.5;   // 돈 벌기 어렵게: 싸움·장사·보상으로 버는 코인 절반
 function addCoins(n) { coins = fixCoins(Math.round(coins + n)); lsSet('sgf_coin', coins); }
 // 음성(TTS)은 껐음 — 호출하는 곳은 그대로 두고 아무것도 하지 않음
 function speak() {}

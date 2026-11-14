@@ -165,6 +165,7 @@ const MENU = [
   ['🥊 연습 모드', '가만히 있는 상대에게 기술 연습 · 시간·체력·필살 무한', () => { mode = 6; ranked = false; selFor = 'run'; scene = 'select'; }],
   ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; ranked = false; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
+  ['🌍 월드', () => `${xmasOpen() ? '🎄 크리스마스 월드 열림! · ' : ''}월드2 포장마차 · 월드3 주식 · 💎 ${fmtN(diaGet())}`, () => openWorlds()],
   ['🎁 보상 센터', () => rewardBadge() ? (spinFree() ? `출석·미션 · 🎟️ 룰렛 티켓 ${spinFree()}장!` : '받을 보상이 있어요!') : '출석 체크 · 행운 룰렛 · 일일 미션', () => openReward()],
   ['🐷 돼지 도감', () => `모은 돼지 ${pigList().filter(c => isUnlocked(c)).length}/${pigList().length} · 강화 · 레벨업`, () => openPigs()],
   ['🏮 포장마차 시장', '장사로 돈 벌기 · 요리 팔기 · 상점', () => openMarket()],
@@ -175,7 +176,7 @@ const MENU = [
 // ================= 엔딩 수집 화면 =================
 // 이미 본 엔딩은 여기서만 다시 볼 수 있음. 안 본 엔딩은 얻는 방법 힌트만
 const END_INFO = {
-  ending: ['🎉', '사채 1000만 코인을 모두 갚기'],
+  ending: ['🎉', '사채 1억 코인을 모두 갚기'],
   rich: ['💰', '빚을 다 갚고 코인 3000만 모으기'],
   master: ['🏆', '랭크전 최고 티어(그렌드피아노) 달성'],
   bad: ['💀', '코인이 0이 되어 파산하기']

@@ -73,7 +73,7 @@ function startRound() {
   evT = 60 * 8; blackoutT = 0; saltT = 0; evBannerT = 0; firstHit = false;
 }
 function toTitle() {
-  scene = 'title'; sizzleOff(); parts = []; texts = []; objs = [];
+  scene = 'title'; sizzleOff(); parts = []; texts = []; objs = []; xmasTick();   // 🎄 골드 티어면 크리스마스 퀘스트 칸 채움
   if (!/autotest/.test(location.search)) checkChapters();   // 엔딩 조건(재벌·마스터·파산) 확인
 }
 let firstHit = false;
@@ -190,6 +190,10 @@ function step() {
   else if (scene === 'ranking') updateRanking();
   else if (scene === 'story') updateStory();
   else if (scene === 'bank') updateBank();
+  else if (scene === 'worlds') updateWorlds();
+  else if (scene === 'wplay') updateCatch();
+  else if (scene === 'wstory') updateWStory();
+  else if (scene === 'stock') updateStock();
   else if (scene === 'endings') updateEndings();
   else if (scene === 'reward') updateReward();
   else if (scene === 'trailer') updateTrailer();
@@ -320,7 +324,7 @@ function startCutscene(w, l) {
   if (mode === 1) {
     if (w === p1) {
       streak++;
-      cut.earn.win = (50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1) * evMul('coin'); if (p1.lucky) { cut.earn.win *= 5; p1.lucky = false; }   // 황금 행운 부적   // 금한돈: 승리 코인 3배
+      cut.earn.win = Math.round((50 + streak * 10) * (p1.ch.name === '금한돈' ? 3 : 1) * evMul('coin') * EARN); if (p1.lucky) { cut.earn.win *= 5; p1.lucky = false; }   // 황금 행운 부적   // 금한돈: 승리 코인 3배
       cut.earn.win += jackpotRoll(cut.earn.win); rwProgress('win'); if (ranked) rwProgress('ranked');   // 잭팟 이벤트 · 일일 미션
       if (ranked) nqAdd('ranked', 1); else nqAdd('streak', streak, true);   // 돼루토 퀘스트
       if (p1.ch.name === '이타돼리') { nqAdd('itwin', 1); if (!ranked) nqAdd('itstreak', streak, true); }   // 모듈로 각성 퀘스트
@@ -342,7 +346,7 @@ function startCutscene(w, l) {
   }
   if (mode === 3) {
     const meWin = w === NET.me;
-    cut.earn.win = meWin ? 80 * (NET.me.ch.name === '금한돈' ? 3 : 1) * evMul('coin') : 0; if (meWin) { cut.earn.win += jackpotRoll(cut.earn.win); rwProgress('win'); addCoins(cut.earn.win); }   // 금한돈: 3배
+    cut.earn.win = meWin ? Math.round(80 * (NET.me.ch.name === '금한돈' ? 3 : 1) * evMul('coin') * EARN) : 0; if (meWin) { cut.earn.win += jackpotRoll(cut.earn.win); rwProgress('win'); addCoins(cut.earn.win); }   // 금한돈: 3배
     const r = lsGet('sgf_online', { w: 0, l: 0 }); r[meWin ? 'w' : 'l']++; lsSet('sgf_online', r);
   }
   afterMatchEconomy(w);

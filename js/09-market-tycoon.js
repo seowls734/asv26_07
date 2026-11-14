@@ -10,7 +10,7 @@ const trend = (key, per) => 0.6 + (hashStr(key + '#' + per) % 1000) / 1000;   //
 const hotMethod = per => Object.keys(METHODS)[hashStr('hot' + per) % 5];      // 이번 시간 인기 조리법 ×1.8
 function dishPrice(d, per = marketPeriod()) {
   const base = MEAT_BASE[d.m] || 25, fitM = [1, 1.5, 1.15, 1][d.f] || 1, starM = 0.4 + d.s * 0.25;
-  return Math.max(5, Math.round(base * fitM * starM * trend(d.k, per) * Math.sqrt(trend(d.m, per)) * (hotMethod(per) === d.k ? 1.8 : 1)));
+  return Math.max(5, Math.round(base * fitM * starM * trend(d.k, per) * Math.sqrt(trend(d.m, per)) * (hotMethod(per) === d.k ? 1.8 : 1) * EARN));
 }
 function addDish(dish, meat, stars) {
   fridge.push({ n: dish.name, m: meat, k: dish.method, s: stars, f: dish.fit, t: Date.now() });
@@ -399,7 +399,7 @@ function tyServe(j) {
   const qs = tr.splice(0, c.n), pay = (qs.reduce((s, q) => s + tyPrice(c.k) * q, 0) + (c.side ? tySidePrice(c.side) : 0)) * (c.vip ? 3 : 1);
   TY.combo = Math.min(5, TY.combo + 1);
   const tip = 0.5 * (TY.ev && TY.ev.tip || 1) * (tyU.staff >= 5 ? 1.2 : 1);
-  const total = Math.round((pay + pay * tip * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)) * evMul('ty') * (1 + 0.1 * (tyU.sauce || 0)));   // 이벤트: 장사 N배   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
+  const total = Math.round((pay + pay * tip * (c.pat / c.max)) * (1 + 0.1 * (TY.combo - 1)) * evMul('ty') * (1 + 0.1 * (tyU.sauce || 0)) * EARN);   // 이벤트: 장사 N배   // 빨리 줄수록 팁↑ · 연속 서빙 보너스
   const avgQ = qs.reduce((a, b) => a + b, 0) / qs.length;
   TY.stars.push(clamp(2 + 3 * (c.pat / c.max) + (avgQ > 1.2 ? 0.5 : avgQ < 1 ? -0.5 : 0), 1, 5));
   addCoins(total); TY.earned += total; TY.served++; if (c.vip) TY.vip++; TY.cust.splice(j, 1); SFX.coin();

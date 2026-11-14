@@ -67,7 +67,7 @@ function drawTierBadge(x, y, v, size = 14, align = 'center') {
 }
 
 // ================= 빚 · 은행 =================
-const DEBT_START = 10000000;   // 사채 1000만
+const DEBT_START = 100000000;   // 사채 1억 (예전 1000만 → 10배)
 let debt = lsGet('sgf_debt', DEBT_START), bankDebt = lsGet('sgf_bank', 0);
 // 상환 목표: 처음엔 사채 1000만. 빚을 다 갚은 뒤 다시 빌리면 그 금액이 새 목표가 됨
 let debtBase = lsGet('sgf_debtbase', DEBT_START);
@@ -80,6 +80,11 @@ if (!lsGet('sgf_debt1e7', false)) {
     lsSet('sgf_debt', debt); lsSet('sgf_debtbase', debtBase);
   }
   lsSet('sgf_debt1e7', true);
+}
+// 빚 10배 (1000만 → 1억): 빚 청산 엔딩을 아직 못 본 사람만 남은 빚·목표를 10배로 (한 번만)
+if (!lsGet('sgf_debt1e8', false)) {
+  if (!lsGet('sgf_end', []).includes('ending') && debt > 0) { debt = Math.round(debt * 10); debtBase = Math.max(DEBT_START, Math.round(debtBase * 10)); lsSet('sgf_debt', debt); lsSet('sgf_debtbase', debtBase); }
+  lsSet('sgf_debt1e8', true);
 }
 const totalDebt = () => Math.max(0, debt) + Math.max(0, bankDebt);
 const repaidRatio = () => clamp(1 - totalDebt() / Math.max(1, debtBase));
@@ -98,12 +103,12 @@ function repay(which, amt) {
 function borrow(amt) {
   amt = Math.floor(Math.min(amt, loanLimit()));
   if (amt <= 0) { SFX.block(); toast('대출 한도 초과! 티어를 올리면 한도가 늘어요'); return; }
-  const owe = Math.round(amt * 1.1), fresh = totalDebt() <= 0;
+  const owe = Math.round(amt * 1.3), fresh = totalDebt() <= 0;
   addCoins(amt); bankDebt += owe;
   if (fresh) debtBase = owe;   // 빚 0에서 새로 빌림 → 이 대출이 새 상환 목표 (은행빚은 사채 스토리·엔딩과 상관없음)
   else debtBase += owe;   // 갚는 중에 더 빌리면 목표에 더함
   saveDebt(); SFX.coin();
-  toast(`${fmtN(amt)}코인 대출! 갚을 돈 ${fmtN(owe)} (수수료 10%)`); uploadRank();
+  toast(`${fmtN(amt)}코인 대출! 갚을 돈 ${fmtN(owe)} (수수료 30%)`); uploadRank();
 }
 // ---- 랭크 점수 (다른 대전 게임처럼) ----
 // · 티어가 높을수록 이기면 덜 오르고, 지면 더 많이 깎임
@@ -274,7 +279,7 @@ function drawBank() {
     txt(label, x + 109, y + 34, 16, i === 7 ? '#ff8a80' : '#fff', null);
     addHot(x, y, 218, 66, () => { bk.sel = i; pressed.Enter = true; });   // 한 번 탭하면 바로 실행
   });
-  txt('대출 수수료 10% · 사채는 판마다 이자 0.1% (최대 300) · W/A/S/D 이동, Enter 실행', 690, 470, 12, '#90a4ae', null);
+  txt('대출 수수료 30% · 사채는 판마다 이자 0.1% (최대 300) · W/A/S/D 이동, Enter 실행', 690, 470, 12, '#90a4ae', null);
   drawParts();
 }
 
@@ -403,7 +408,7 @@ const STORY = {
     { sp: '친구 멧돌이', tx: '"야, 돼지코인 알지? 지금 사면 무조건 100배야. 나만 믿어!"', art: 'whisper' },
     { sp: '{name}', tx: '"100배...? 가게 보증금에... 대출까지 탈탈 털어서... 레버리지 100배 몰빵!!"', art: 'pump' },
     { sp: '내레이션', tx: '...그리고 다음 날 아침. 돼지코인은 상장폐지되었습니다.', art: 'crash' },
-    { sp: '사채업자 멧돼지 실장', tx: '"빌려 간 돈 1000만 코인. 이자는 판마다 붙는다. 못 갚으면... 네가 삼겹살이다."', art: 'boss' },
+    { sp: '사채업자 멧돼지 실장', tx: '"빌려 간 돈 1억 코인. 이자는 판마다 붙는다. 못 갚으면... 네가 삼겹살이다."', art: 'boss' },
     { sp: '내레이션', tx: '살 길은 하나뿐. 철판 대난투에서 이기고, 포장마차에서 고기를 구워 팔아 빚을 갚는 것!', art: 'fight' },
     { sp: 'TIP', tx: '🏦 은행 메뉴에서 빚을 갚아요. 돈이 바닥나면 대출도 가능! 이길수록 티어가 오르고 대출 한도도 늘어요.', art: 'bank' }
   ],
@@ -548,7 +553,7 @@ function drawStoryArt(art, t) {
       ctx.fillStyle = '#ffd700'; ctx.lineWidth = 4; ctx.strokeStyle = '#ffd700'; ctx.beginPath(); ctx.arc(455, 225, 34, 0.3, Math.PI - 0.3); ctx.stroke();
       ctx.fillStyle = '#4e342e'; ctx.fillRect(170, 300, 620, 100); ctx.fillStyle = '#6d4c41'; ctx.fillRect(170, 300, 620, 12);
       ctx.save(); ctx.translate(560, 300); ctx.rotate(-0.1); ctx.fillStyle = '#fffde7'; ctx.fillRect(-70, -40, 140, 50);
-      txt('차 용 증', 0, -28, 14, '#333', null); txt('1000만 코인', 0, -8, 16, '#c62828', null); ctx.restore();
+      txt('차 용 증', 0, -28, 14, '#333', null); txt('1억 코인', 0, -8, 16, '#c62828', null); ctx.restore();
       ctx.save(); ctx.translate(320, 300); ctx.scale(0.45, 0.45); drawCleaver(0, 0, t % 60 < 10); ctx.restore();
       drawPig(110, 400, 1, me, { scale: 0.9, t, scared: true });
       break;

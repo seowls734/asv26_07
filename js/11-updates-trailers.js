@@ -269,14 +269,18 @@ function nqAdd(id, v, max) {
     const q = qState(Q), was = q[id] || 0; if (was >= st.goal) continue;
     q[id] = Math.min(st.goal, max ? Math.max(was, v) : was + v); lsSet(Q.key, q); cloudDirty();
     if (q[id] < st.goal) continue;
-    if (qDoneN(Q) >= Q.steps.length) { lsSet(Q.unlockKey || 'sgf_unlock_' + Q.ch, true); cloudDirty(); popup({ icon: Q.icon, title: `${Q.prize || Q.ch} 해금!!`, lines: ['퀘스트 4가지를 모두 끝냈어요!', Q.prize ? '🐷 돼지 도감에서 모습을 바꿀 수 있어요' : `캐릭터 선택에서 ${Q.ch}를 고를 수 있어요`], big: true }); }
+    if (qDoneN(Q) >= Q.steps.length) qGrant(Q, `캐릭터 선택에서 ${Q.ch}를 고를 수 있어요`);
     else toast(`${Q.icon} ${Q.ch} 퀘스트 완료: ${st.name} (${qDoneN(Q)}/${Q.steps.length})`);
   }
 }
 // 이미 다 채운 퀘스트도 해금 (목표를 낮췄을 때 · 다른 기기에서 채웠을 때 등) — 1초마다 확인
 function questCheckAll() {
   { const all = awkAll(); let ch = false; for (const [name, A] of Object.entries(AWAKE)) { const q = all[name] || {}; if (!q.done && A.steps.every(st => (q[st.id] || 0) >= st.goal)) { q.done = true; all[name] = q; ch = true; popup({ icon: '⚡', title: `${name} 각성!!!`, lines: [A.title, `체력 ×${A.hp} · 공격력 ×${A.power}`, A.note], big: true }); } } if (ch) { lsSet('sgf_awake', all); cloudDirty(); } }   // 이미 채운 각성 조건도 각성
-  for (const Q of QUESTS) if (qOpen(Q) && qDoneN(Q) >= Q.steps.length) { lsSet(Q.unlockKey || 'sgf_unlock_' + Q.ch, true); cloudDirty(); popup({ icon: Q.icon, title: `${Q.prize || Q.ch} 해금!!`, lines: ['퀘스트를 모두 끝냈어요!', Q.prize ? '🐷 돼지 도감에서 모습을 바꿀 수 있어요' : '캐릭터 선택에서 골라 보세요'], big: true }); }
+  for (const Q of QUESTS) if (qOpen(Q) && qDoneN(Q) >= Q.steps.length) qGrant(Q, '캐릭터 선택에서 골라 보세요');
+}
+function qGrant(Q, pickMsg) {   // 퀘스트 보상 주기 (Q.also: 같이 주는 돼지)
+  lsSet(Q.unlockKey || 'sgf_unlock_' + Q.ch, true); for (const n of Q.also || []) lsSet('sgf_unlock_' + n, true); cloudDirty();
+  popup({ icon: Q.icon, title: `${Q.prize || Q.ch} 해금!!`, lines: [`퀘스트 ${Q.steps.length}가지를 모두 끝냈어요!`, Q.msg || (Q.prize ? '🐷 돼지 도감에서 모습을 바꿀 수 있어요' : pickMsg)], big: true });
 }
 function questLines(Q) {
   const q = qState(Q), L = Q.steps.map(s => `${(q[s.id] || 0) >= s.goal ? '✅' : '⬜'} ${s.name}  ${Math.min(q[s.id] || 0, s.goal)}/${s.goal}`);
@@ -371,7 +375,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261113-29';
+const BUILD = '20261114-1';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -504,9 +508,11 @@ function drawNrTrailer() {
 // 저주를 몸에 품은 돼지 고등학생. 분홍 삐죽 머리 · 남색 교복 · 빨간 후드. 맨주먹 격투 (스킬 3개) + 필살기 '저주 결계'
 // 공개(REL.itadori)되면: 모두에게 무료 해금 + 예고편 한 번 (싸우는 중이면 그 판은 승리)
 let REL = lsGet('sgf_rel', {});   // 관리자가 공개한 업데이트 { itadori: 공개 시각 } — 서버가 10초마다 알려 줌
-const isRel = id => !!REL[id] || /newchars/.test(location.search);
+const xmasOpen = () => { const d = new Date(); return (d.getMonth() === 11 && d.getDate() <= 25) || /xmas/.test(location.search); };   // 🎄 크리스마스 업데이트: 해마다 12월 1~25일 자동
+const isRel = id => id === 'xmas' ? xmasOpen() || !!lsGet('sgf_unlock_산타돈', false) || !!lsGet('sgf_unlock_눈꽃돈', false) : !!REL[id] || /newchars/.test(location.search);
 function setRel(r) { if (!r || typeof r !== 'object') return; const was = { ...REL }; REL = { ...REL, ...r }; lsSet('sgf_rel', REL); if (!was.itadori && REL.itadori) toast('🆕 새 돼지 이타돼리 공개! 10일 안에 퀘스트를 깨면 해금'); else if (was.itadoriWin && REL.itadoriWin > was.itadoriWin) toast('👊 이타돼리 퀘스트 기간이 다시 열렸어요! (10일)'); if (!was.big1 && REL.big1) toast('🎉 대규모 업데이트 공개! 새 돼지 3마리'); if (!was.big2 && REL.big2) toast('🎉 대규모 업데이트 · 해적과 마법사 공개! 새 돼지 2마리');
-  for (const u of UPDATES) if (!was[u.id] && REL[u.id]) { const c = CHARS.find(x => x.name === u.ch); toast(`${u.icon} 대규모 업데이트 · ${u.name} 공개!`); if (Date.now() - REL[u.id] < 3 * 864e5) popup({ icon: u.icon, title: `대규모 업데이트 · ${u.name}!`, lines: [`🐷 새 돼지 ${u.ch}: 돼지 도감에서 🪙 ${fmtN(c ? c.buy : 0)}에 살 수 있어요`, `🎨 새 스킨: ${u.skins.map(n => u.name + ' ' + n).join(' · ')}`, '스킨 상자에서 나오고 도감에서 바로 살 수도 있어요'], big: true }); } }
+  for (const u of UPDATES) if (!was[u.id] && REL[u.id]) { const c = CHARS.find(x => x.name === u.ch); if (c && c.relId !== u.id) continue;
+    toast(`${u.icon} 대규모 업데이트 · ${u.name} 공개!`); if (Date.now() - REL[u.id] < 3 * 864e5) popup({ icon: u.icon, title: `대규모 업데이트 · ${u.name}!`, lines: [`🐷 새 돼지 ${u.ch}: 돼지 도감에서 🪙 ${fmtN(c ? c.buy : 0)}에 살 수 있어요`, `🎨 새 스킨: ${u.skins.map(n => u.name + ' ' + n).join(' · ')}`, '스킨 상자에서 나오고 도감에서 바로 살 수도 있어요'], big: true }); } }
 // 스킬 시작 효과
 function itSkillStart(f, s) {
   if (s.type === 'bloodShot' && f.awk && f.atk && f.atk.proj) f.atk.proj = { ...f.atk.proj, spread: 5 };   // 각성: 피의 화살 5개

@@ -224,7 +224,7 @@ const rwSave = () => { lsSet('sgf_reward', RW); };
 function rwBase() {
   const hs = (tyU.hist || []).filter(v => v > 0);
   const avg = hs.length ? hs.reduce((a, b) => a + b, 0) / hs.length : 0;
-  return Math.max(200, Math.round(avg * 0.25 / 10) * 10);
+  return Math.max(100, Math.round(avg * 0.25 / 10) * 10);
 }
 // ---- 출석 ----
 const ATT_MUL = [1, 2, 3, 4, 6, 8, 20];   // 7일째는 대박 (+무료 룰렛 2번 · 부활권)

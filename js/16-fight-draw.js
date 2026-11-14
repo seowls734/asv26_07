@@ -106,7 +106,7 @@ function drawFighter(f) {
   drawNewBack(f);
   if (f.tfIs('clone')) drawPig(f.x - f.facing * 45 * s, f.y, f.facing, f.C, { ...p, alpha: 0.35, aura: null });
   if (f.sukuna) p.curse = 1; else if (f.curseT > 0) p.curse = Math.min(1, f.curseT / 60); if (f.foxT > 0) p.foxTails = Math.min(1, f.foxT / 60);   // 몸에 붙는 효과
-  if (f.C.wpn) p.wpnOut = (f.state === 'attack' && f.atk && f.atk.skill && !['lowkick', 'highkick', 'sweep', 'roll', 'grab'].includes(f.atk.pose) && !(f.atk.pose === 'throw' && !GUNS.includes(f.C.wpn) && f.C.wpn !== 'fan')) || f.state === 'ult' || f.swingT > 0;   // 무기는 스킬·필살기 때만 손에 (평타는 맨손 · 던지는 스킬은 빈손으로)
+  if (f.C.wpn) p.wpnOut = (f.state === 'attack' && f.atk && !['lowkick', 'highkick', 'sweep', 'roll', 'grab'].includes(f.atk.pose) && (f.atk.skill || (!GUNS.includes(f.C.wpn) && ['punch', 'uppercut'].includes(f.atk.pose)))) || f.state === 'ult' || f.swingT > 0;   /* 무기를 더 자주: 스킬은 전부 무기로 · 근접 무기는 센 주먹(punch·uppercut)도 무기로 */   // 무기는 스킬·필살기 때만 손에 (평타는 맨손 · 던지는 스킬은 빈손으로)
   drawPig(f.x, f.y, f.facing, f.C, p);
   drawNewFront(f);
   drawCurse(f);   // 저주왕
@@ -504,6 +504,10 @@ function draw() {
   else if (scene === 'story') drawStory();
   else if (scene === 'bank') { drawBank(); ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(14, 10, 90, 30, 8); ctx.fill(); txt('← 나가기', 59, 25, 13, '#fff', null); addHot(14, 10, 90, 30, () => { pressed.Escape = true; }); }   // 마우스·터치로 나가기
   else if (scene === 'endings') drawEndings();
+  else if (scene === 'worlds') drawWorlds();
+  else if (scene === 'wplay') drawCatch();
+  else if (scene === 'wstory') drawWStory();
+  else if (scene === 'stock') drawStock();
   else if (scene === 'reward') drawReward();
   else if (scene === 'trailer') drawTrailer();
   else if (scene === 'nrtrailer') drawNrTrailer();

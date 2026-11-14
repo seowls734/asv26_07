@@ -481,7 +481,7 @@ function updateEvents() {
 function pickup(f, k) {
   SFX.bell();
   if (k === 'gold') {
-    if (f === p1 && mode === 1) addCoins(30);
+    if (f === p1 && mode === 1) addCoins(Math.round(30 * EARN));
     // (아이템 주울 때 뜨던 글씨는 뺐음)
   } else if (k === 'soju') { f.drunkT = 360; }
   else { f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.15); }
