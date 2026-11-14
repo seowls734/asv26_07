@@ -91,7 +91,7 @@ function timeOver() {
 function afterRound() {
   const champ = p1.wins >= 2 ? p1 : p2.wins >= 2 ? p2 : null;
   if (champ === p2 && mode === 1 && ((inv.use.bigRevive || 0) > 0 || (inv.use.revive || 0) > 0)) { RV.t = 0; RV.sel = 0; scene = 'revive'; return; }   // 졌을 때 부활권: 쓸지 물어봄
-  if (champ && mode === 8) return worldFightEnd(champ === p1);   // 🌍 월드 싸움: 해체·보상 뒤 로비로
+  if (mode === 8 && (p1.wins || p2.wins)) return worldFightEnd(p1.wins > 0);   // 🌍 사냥터: 한 판으로 끝 → 해체 (안 끊기게)
   if (champ) startCutscene(champ, champ.opp);
   else { round++; startRound(); }
 }

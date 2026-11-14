@@ -198,7 +198,7 @@ const BANK_ACTS = [
   ['💸 사채 1만 갚기', () => repay('debt', 10000)], ['💸 사채 10만 갚기', () => repay('debt', 100000)],
   ['💸 사채 가진 만큼 갚기', () => repay('debt', coins)], ['🏦 은행빚 전부 갚기', () => repay('bank', coins)],
   ['💰 대출 100 받기', () => borrow(100)], ['💰 대출 한도까지 받기', () => borrow(loanLimit())],
-  ['📖 스토리 다시 보기', () => startStory('intro', 'bank')], ['🗑️ 데이터 전체 초기화', () => resetAll()],
+  ['📖 스토리 다시 보기', () => startStory(WORLD === 3 ? 'w3intro' : 'intro', 'bank')], ['🗑️ 데이터 전체 초기화', () => resetAll()],
   ['← 나가기', () => toTitle()],
   ['🎬 엔딩 수집', () => replayNextEnding()]   // 오른쪽 아래 엔딩 수집 칸 (따로 그림)
 ];
@@ -450,6 +450,7 @@ let chapSeen = lsGet('sgf_chap', []);
 // 사채 스토리(ch1~3)·빚 청산 엔딩은 사채(멧돼지 실장)만 기준. 은행빚을 갚아도 사채 이야기는 안 나옴
 // 이미 본 엔딩은 다시 자동으로 안 나옴 → 은행의 '엔딩 수집'에서만 다시 볼 수 있음
 function checkChapters() {
+  if (WORLD === 3) return w3Chapters();   // 🌍 월드3는 자기 이야기·엔딩
   const r = Math.max(0, debt) / DEBT_START;
   for (const [k, th] of [['ch1', 0.75], ['ch2', 0.5], ['ch3', 0.25], ['ending', 0]]) {
     if (chapSeen.includes(k) || endSeen.includes(k)) continue;

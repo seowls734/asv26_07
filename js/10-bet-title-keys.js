@@ -241,7 +241,7 @@ function drawTitle() {
   txt('삼겹살 파이터', W / 2, 62 + b, 70, '#ffc1d0', '#5a1a2a', 14); ctx.restore();
   const evT = evText();   // 이벤트 중이면 부제 자리에 이벤트 안내
   if (evT) txt(evT, W / 2, 112, fitSize(evT, 18, W - 80), gT % 40 < 28 ? '#ffd740' : '#fff59d', '#000', 5);
-  else txt('철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, '#ffe0b2', '#000', 5);
+  else txt(WORLD === 3 ? '📈 월드3 · 증권가 · 증권사 빚 10억 달러를 갚아라!' : '철판 대난투 · 지는 돼지는 오늘의 요리가 된다!', W / 2, 112, 18, WORLD === 3 ? '#b3e5fc' : '#ffe0b2', '#000', 5);
   const best = Math.max(lsGet('sgf_rbest', 0), getRank().filter(r => r.name === playerName && r.rk).reduce((m, r) => Math.max(m, r.streak), 0));   // 랭킹과 같게: 랭크전 최고 연승도 같이 봄
   // 티어 배지 + 상태 줄을 한 덩어리로 가운데 정렬 (숫자가 길어져도 배지와 겹치지 않게, 너무 길면 글자를 줄임)
   const stat = `👤 ${honorTag()}${titleName() ? titleName() + ' ' : ''}${playerName}${isMember() ? '' : ' [N]'}  ·🏆 ${best}연승  ·  🪙 ${fmtN(coins)}  ·  💸 빚 ${fmtN(debt + bankDebt)}  ·  🧊 ${fridge.length}`;

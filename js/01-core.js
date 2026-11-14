@@ -79,6 +79,7 @@ function line(x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(
 // 글자가 maxW보다 넓으면 들어가도록 글자 크기를 줄여서 돌려줌 (최소 9px)
 function fitSize(s, size, maxW) { ctx.font = `900 ${size}px ${FONT}`; const w = ctx.measureText(s).width; return w > maxW ? Math.max(9, Math.floor(size * maxW / w)) : size; }
 function txt(s, x, y, size, fill, stroke = '#000', lw = 6, align = 'center') {
+  if (WORLD === 3 && typeof s === 'string') s = w3Txt(s);   // 월드3: 🪙 코인 → 💵 달러
   if (typeof s === 'string' && s.length > 14 && size > 9) { ctx.font = `900 ${size}px ${FONT}`; const tw = ctx.measureText(s).width, lim = W - 16; if (tw > lim) size = Math.max(9, Math.floor(size * lim / tw)); }   // 화면보다 긴 글은 자동으로 줄임
   if (ctx.getTransform().a < 0) {   // 좌우가 뒤집힌 화면(온라인 게스트)에서도 글자는 거꾸로 안 보이게
     ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1);
@@ -233,7 +234,7 @@ for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if 
 padReady = true; fit();
 let padShown = false;
 function syncPad() {
-  const want = TOUCH && mode !== 0 && mode !== 4 && ['intro', 'fight', 'roundEnd', 'wplay', 'lobby', 'snipe'].includes(scene);   // CPU끼리 싸우는 모드(구경·AI 베팅)엔 패드 숨김
+  const want = TOUCH && mode !== 0 && mode !== 4 && ['intro', 'fight', 'roundEnd', 'wplay', 'lobby'].includes(scene);   // CPU끼리 싸우는 모드(구경·AI 베팅)엔 패드 숨김
   if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; if (!want) { joyEnd(); padReleaseAll(); } }   // 숨길 때 눌린 키가 남지 않게
   if (!padShown) return;
   // 특수 버튼 상태: 쓸 수 있으면 빛나고(필살기), 못 쓰면 흐리게

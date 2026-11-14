@@ -371,8 +371,12 @@ const PARTNAME = { head: '목살', belly: '삼겹', legs: '족발' };
 const WEAPON = { head: '목살 몽둥이', belly: '삼겹 채찍', legs: '족발 망치' };
 
 // ---- 로컬 저장 (연승 랭킹 · 닉네임) ----
-function lsGet(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
-function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} if (!SAVE_SKIP.includes(k)) cloudDirty(); }
+// 🌍 월드3는 월드1과 같은 게임이지만 돈(💵 돼지달러)·빚·냉장고를 따로 저장: 월드3에 있으면 이 키들은 '_w3'이 붙은 칸을 씀
+let WORLD = 1; try { WORLD = JSON.parse(localStorage.getItem('sgf_world')) === 3 ? 3 : 1; } catch (e) {}
+const W3_KEYS = ['sgf_coin', 'sgf_debt', 'sgf_bank', 'sgf_debtbase', 'sgf_fridge'];
+const wKey = k => WORLD === 3 && W3_KEYS.includes(k) ? k + '_w3' : k;
+function lsGet(k, d) { try { const v = localStorage.getItem(wKey(k)); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(wKey(k), JSON.stringify(v)); } catch (e) {} if (!SAVE_SKIP.includes(k)) cloudDirty(); }
 
 // ---- 계정 (게스트 / 회원) ----
 // 회원 정보와 게임 진행 상황은 랭킹 서버와 따로, 회원 서버(Cloudflare Workers + D1)에 저장함.
@@ -381,7 +385,7 @@ const AUTH_URL = 'https://samgyeopsal-auth.123eet7-1fe.workers.dev';
 // 구글 로그인용 OAuth 클라이언트 ID (공개값). 비어 있으면 구글 버튼을 안 보여 줌. server/auth-worker.js의 DEFAULT_GOOGLE_CLIENT_ID와 같아야 함
 const GOOGLE_CLIENT_ID = '36016988229-39ku26haf3v904rslpfvh5vnjlb3fc3t.apps.googleusercontent.com';
 const AUTH_TEST = /autotest|view=|shot=|nettest/i.test(location.search);   // 자동 테스트에서는 회원 서버에 저장 안 함
-const SAVE_SKIP = ['sgf_dev', 'sgf_auth', 'sgf_pid', 'sgf_homeTip', 'sgf_pidDropped', 'sgf_tyseen'];   // 기기마다 다른 값 → 계정 저장에서 뺌
+const SAVE_SKIP = ['sgf_world', 'sgf_dev', 'sgf_auth', 'sgf_pid', 'sgf_homeTip', 'sgf_pidDropped', 'sgf_tyseen'];   // 기기마다 다른 값 → 계정 저장에서 뺌
 let auth = lsGet('sgf_auth', null);   // null: 아직 선택 안 함 · { guest: true } · { uid, login, token, syncT }
 const isMember = () => !!(auth && auth.token);
 function setAuth(a) { auth = a; try { localStorage.setItem('sgf_auth', JSON.stringify(a)); } catch (e) {} }

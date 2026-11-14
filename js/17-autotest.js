@@ -184,17 +184,26 @@ if (/autotest/.test(location.search)) {
         openLobby(2); POPQ.length = 0; POP = null; draw(); if (scene !== 'lobby' || LB.w !== 2) throw new Error('월드2 로비 실패');
         LB.x = 330; keys.KeyD = true; for (let n = 0; n < 10; n++) updateLobby(); keys.KeyD = false; LB.x = 330; updateLobby(); draw(); if (LB.near !== 1) throw new Error('로비 건물 앞 인식 실패');
         pressed.KeyW = true; updateLobby(); delete pressed.KeyW; if (mode !== 8 || scene !== 'intro') throw new Error('사냥터 싸움 시작 실패'); for (let n = 0; n < 140; n++) step(); draw();
-        p1.wins = 2; afterRound(); out.push('hunt fight -> ' + scene); if (scene !== 'butcher') throw new Error('싸움 이기고 해체로 안 감');
+        p1.wins = 1; afterRound(); out.push('hunt fight (1판) -> ' + scene); if (scene !== 'butcher') throw new Error('싸움 이기고 해체로 안 감');
         for (let i = 0; i < 3; i++) { BT.pos = BT.zone; pressed.Space = true; updateButcher(); delete pressed.Space; draw(); }
-        let mm = w2Meat(); out.push('butcher meat: ' + JSON.stringify(mm)); if (!BT.done || mm.mok !== 4 || mm.hang !== 4 || mm.sam !== 4) throw new Error('해체 고기 실패'); for (let n = 0; n < 40; n++) updateButcher(); pressed.Enter = true; updateButcher(); delete pressed.Enter; if (scene !== 'lobby') throw new Error('해체 뒤 로비로 안 감');
+        let mm = w2Meat(); out.push('butcher meat: ' + JSON.stringify(mm)); if (!BT.done || mm.mok !== 4 || mm.hang !== 4 || mm.sam !== 4) throw new Error('해체 고기 실패'); for (let n = 0; n < 40; n++) updateButcher(); pressed.Enter = true; updateButcher(); delete pressed.Enter; if (scene !== 'intro' || mode !== 8) throw new Error('해체 뒤 바로 다음 사냥 실패'); quitRun(); if (scene !== 'lobby') throw new Error('사냥 그만두고 로비로 안 감');
         worldFight(2); p2.wins = 2; afterRound(); if (scene !== 'lobby') throw new Error('사냥 지면 로비로 안 감'); worldFight(2); quitRun(); if (scene !== 'lobby' || mode === 8) throw new Error('싸움 그만두기 실패');
         startSnipe(); for (let n = 0; n < 30; n++) updateSnipe(); draw(); const tg = SN.tg.find(t => !t.dead); SN.cx = tg.x - Math.sin(SN.t * 0.05) * 7; SN.cy = tg.y - 60 * tg.s - Math.cos(SN.t * 0.07) * 5; snipeFire(); out.push('snipe hit=' + !!SN.hit);
         if (!SN.hit) throw new Error('저격 명중 실패'); for (let n = 0; n < 80 && scene === 'snipe'; n++) { updateSnipe(); if (n % 20 === 0) draw(); } if (scene !== 'butcher') throw new Error('저격 뒤 해체로 안 감'); BT = null; lobbyBack();
+        startSnipe(); for (let n = 0; n < 5; n++) updateSnipe(); { const t2 = SN.tg.find(t => !t.dead), r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + t2.x * r.width / W, clientY: r.top + (t2.y - 60 * t2.s) * r.height / H, pointerType: 'mouse', bubbles: true })); out.push('mouse aim hit=' + !!SN.hit); if (!SN.hit) throw new Error('마우스 조준 저격 실패'); } SN = null; scene = 'lobby';
         startSnipe(); for (let i = 0; i < 3; i++) { SN.cx = 30; SN.cy = 170; snipeFire(); } if (!SN.done || SN.hit) throw new Error('저격 3발 다 빗나감 처리 실패'); SN = null; lobbyBack();
         lsSet('sgf_w2meat', { sam: 20, mok: 20, hang: 20 }); openStall(); if (scene !== 'wstory') throw new Error('포장마차 이야기 실패'); for (let n = 0; n < 6 && scene === 'wstory'; n++) { pressed.Enter = true; updateWStory(); delete pressed.Enter; } draw();
         if (scene !== 'stall') throw new Error('포장마차 화면 실패'); stallAct(); POPQ.length = 0; POP = null; out.push(`stall: stage=${w2Stage()} meat=${JSON.stringify(w2Meat())}`); if (w2Stage() !== 1 || w2Meat().sam !== 16) throw new Error('납품 실패'); draw();
         lsSet('sgf_w2', 5); openStall(); draw(); const c0 = coins; stallAct(); if (!(coins > c0) || w2Meat().sam !== 0) throw new Error('클리어 뒤 고기 팔기 실패');
-        openLobby(3); draw(); if (scene !== 'lobby' || LB.w !== 3) throw new Error('월드3 로비 실패'); worldFight(3); for (let n = 0; n < 140; n++) step(); draw(); const c1 = coins; p1.wins = 2; afterRound(); POPQ.length = 0; POP = null; out.push(`w3 fight: coins +${coins - c1} scene=${scene}`); if (scene !== 'lobby' || !(coins > c1)) throw new Error('증권가 결투 보상 실패');
+        { const K3 = ['sgf_coin_w3', 'sgf_debt_w3', 'sgf_bank_w3', 'sgf_debtbase_w3', 'sgf_fridge_w3', 'sgf_w3intro', 'sgf_w3chap', 'sgf_w3clear']; K3.forEach(k => localStorage.removeItem(k)); const c1 = coins, d1 = debt;
+          setWorld(3); out.push(`w3: coins=${coins} debt=${debt} menu=${MENU.includes(W3_MENU)}`); if (WORLD !== 3 || coins !== 1000 || debt !== W3_DEBT || !MENU.includes(W3_MENU)) throw new Error('월드3 지갑 시작 실패');
+          addCoins(500); if (lsGet('sgf_coin', 0) !== 1500 || JSON.parse(localStorage.getItem('sgf_coin')) !== c1) throw new Error('월드3 돈이 월드1과 섞임');
+          if (w3Txt('🪙 100 코인 · 돼지코인 · 사채') !== '💵 100 달러 · 돼지코인 · 증권사 빚') throw new Error('월드3 화폐 표시 실패');
+          scene = 'title'; draw(); startStory('w3intro', 'title'); for (let n = 0; n < 4; n++) draw(); openStock(); draw(); scene = 'title';
+          debt = 0; bankDebt = 0; w3Chapters(); if (!lsGet('sgf_w3chap', []).includes('w3ch1')) throw new Error('월드3 이야기 실패'); scene = 'title';
+          coins = 0; debt = 5; lsSet('sgf_w3chap', ['w3ch1', 'w3ch2', 'w3ch3']); w3Chapters(); if (coins !== 1000 || debt !== W3_DEBT) throw new Error('월드3 파산 처음부터 실패'); scene = 'title';
+          worldGo(0); if (WORLD !== 1 || coins !== c1 || debt !== d1 || MENU.includes(W3_MENU)) throw new Error('월드1로 돌아가기 실패'); out.push('w3 -> w1 OK coins=' + coins);
+          K3.forEach(k => localStorage.removeItem(k)); scene = 'title'; }
         lsSet('sgf_w2', w2s); if (w2m) lsSet('sgf_w2meat', w2m); else localStorage.removeItem('sgf_w2meat'); mode = 1;
         const cnt = {}; for (let i = 0; i < 10000; i++) { const k = stockRoll(i / 10000).k; cnt[k] = (cnt[k] || 0) + 1; } out.push('stock odds: ' + JSON.stringify(cnt));
         if (cnt.jackpot !== 100 || cnt.up !== 1000 || cnt.meh !== 2000 || cnt.down !== 2900 || cnt.delist !== 4000) throw new Error('주식 확률 실패');

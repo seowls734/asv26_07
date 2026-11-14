@@ -20,20 +20,20 @@ function xmasTick() { if (tierOf(tp) >= 3) nqAdd('gold', 1, true); }   // 골드
 const WD = { sel: 0, shop: false, ssel: 0 };
 const WORLDS = [
   { icon: '🐷', name: '월드1 · 기본 월드', desc: '랭크전·연승·장사로 사채 1억 갚기 (타이틀 메뉴가 곧 월드1)', lock: () => '', clear: w1Clear,
-    go: () => { toTitle(); toast('🐷 월드1은 타이틀 메뉴 그대로예요 · 사채 1억을 다 갚으면 클리어'); } },
+    go: () => { toTitle(); toast('🐷 월드1 · 사채 1억을 다 갚으면 클리어'); } },
   { icon: '🎄', name: '크리스마스 월드', desc: '🎁 선물 받기: 산타 썰매에서 떨어지는 선물을 받아요 (석탄은 피하기)', lock: () => xmasOpen() ? '' : '🔒 12월 1일 ~ 25일에만 열려요', clear: () => !!lsGet('sgf_xmas_got', false),
     go: () => startCatch() },
   { icon: '🏮', name: '월드2 · 포장마차 (대규모 업데이트)', desc: () => `🚶 로비: 🥊 사냥터·🎯 저격장 → 🔪 해체 → 🏮 납품 · 이야기 ${Math.min(w2Stage(), W2_N)}/${W2_N}장`, lock: () => w1Clear() ? '' : '🔒 월드1 클리어(사채 빚 다 갚기 엔딩)가 필요해요', clear: w2Clear,
     go: () => openLobby(2) },
-  { icon: '📈', name: '월드3 · 증권가', desc: '🚶 로비: 🥊 증권가 결투장 · 📈 증권거래소(주식)', lock: () => w2Clear() ? '' : '🔒 월드2 클리어가 필요해요', clear: () => false,
-    go: () => openLobby(3) }
+  { icon: '📈', name: '월드3 · 증권가', desc: '월드1과 같은 게임 · 💵 돼지달러 따로 · 증권사 빚 10억 갚기 · 📈 주식', lock: () => w2Clear() ? '' : '🔒 월드2 클리어가 필요해요', clear: () => false,
+    go: () => enterW3() }
 ];
 const wLock = w => wTest() ? '' : w.lock();
 function openWorlds() {
   scene = 'worlds'; WD.shop = false; mode = 1;
   if ((w1Clear() || wTest()) && !lsGet('sgf_w2seen', false)) { lsSet('sgf_w2seen', true); popup({ icon: '🏮', title: '대규모 업데이트 · 월드2 포장마차!', lines: ['🥊 싸우거나 🎯 총으로 사냥 → 🔪 해체해서 고기 모으기', '이야기 5장을 다 깨면 📈 월드3 주식 시장이 열려요'], big: true }); }
 }
-function worldGo(i) { const w = WORLDS[i], lk = wLock(w); WD.sel = i; if (lk) { SFX.block(); toast(lk); return; } SFX.confirm(); w.go(); }
+function worldGo(i) { const w = WORLDS[i], lk = wLock(w); WD.sel = i; if (lk) { SFX.block(); toast(lk); return; } SFX.confirm(); if (i !== 3) setWorld(1); w.go(); }   // 월드3 말고는 월드1 지갑으로
 function updateWorlds() {
   if (WD.shop) return updateDiaShop();
   const n = WORLDS.length;
@@ -58,6 +58,7 @@ function drawWorlds() {
     txt(w.name, 210, y + 28, fitSize(w.name, 22, 480), lk ? '#9e9e9e' : '#fff', '#000', 4, 'left');
     const d = lk || wVal(w.desc); txt(d, 210, y + 60, fitSize(d, 14, 560), lk ? '#ff8a80' : '#ddd', null, 0, 'left');
     if (cl) txt('✅ 클리어', 830, y + 28, 15, '#69f0ae', '#000', 3, 'right');
+    if ((i === 3 && WORLD === 3) || (i === 0 && WORLD === 1)) txt('📍 지금 여기', 830, y + 60, 14, '#ffd740', '#000', 3, 'right');
     addHot(110, y, 740, 84, () => worldGo(i));
   });
   ctx.fillStyle = '#1565c0'; rr(W / 2 - 120, 466, 240, 36, 10); ctx.fill(); txt('💎 다이아 상점 [B]', W / 2, 484, 16, '#fff', null);
@@ -259,7 +260,7 @@ function drawWStory() {
   addHot(0, 0, W, H, () => { pressed.Enter = true; });
 }
 
-// ================= 🚶 로비 (월드2 포장마차 거리 · 월드3 증권가): 걸어 다니다 건물에 들어감 =================
+// ================= 🚶 로비 (월드2 포장마차 거리): 걸어 다니다 건물에 들어감 =================
 const w2Meat = () => ({ sam: 0, mok: 0, hang: 0, ...lsGet('sgf_w2meat', {}) });
 function addMeat(k, n) { const m = w2Meat(); m[k] = Math.max(0, m[k] + n); lsSet('sgf_w2meat', m); }
 const LOBBY = {
@@ -267,11 +268,7 @@ const LOBBY = {
     { x: 100, icon: '🚪', name: '월드로', col: '#546e7a', go: () => openWorlds() },
     { x: 330, icon: '🥊', name: '사냥터 (싸우기)', col: '#c62828', go: () => worldFight(2) },
     { x: 580, icon: '🎯', name: '저격장 (총 사냥)', col: '#2e7d32', go: () => startSnipe() },
-    { x: 830, icon: '🏮', name: '포장마차', col: '#e65100', go: () => openStall() }] },
-  3: { name: '📈 월드3 · 증권가', sky: ['#07131f', '#1a3a5c'], spots: [
-    { x: 100, icon: '🚪', name: '월드로', col: '#546e7a', go: () => openWorlds() },
-    { x: 420, icon: '🥊', name: '증권가 결투장', col: '#6a1b9a', go: () => worldFight(3) },
-    { x: 760, icon: '📈', name: '증권거래소 (주식)', col: '#1565c0', go: () => openStock() }] }
+    { x: 830, icon: '🏮', name: '포장마차', col: '#e65100', go: () => openStall() }] }
 };
 const LB = { w: 2, x: 200, vx: 0, face: 1, near: -1 };
 function openLobby(w, keepX) {
@@ -290,10 +287,8 @@ function updateLobby() {
 }
 function drawLobby() {
   const L = LOBBY[LB.w], gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, L.sky[0]); gr.addColorStop(1, L.sky[1]); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
-  if (LB.w === 3) { for (let i = 0; i < 12; i++) { const bh = 120 + (i * 53 % 140); ctx.fillStyle = 'rgba(30,60,90,0.8)'; ctx.fillRect(i * 82, GROUND - 120 - bh, 70, bh); ctx.fillStyle = 'rgba(255,235,59,0.5)'; for (let y = GROUND - 110 - bh; y < GROUND - 130; y += 22) for (let x = i * 82 + 8; x < i * 82 + 62; x += 18) if ((x + y + i) % 3) ctx.fillRect(x, y, 8, 10); }
-    const tk = '돼지코인 ▲3.2%  삼겹전자 ▼1.1%  포차홀딩스 ▲0.4%  꿀꿀식품 ▼7.7%  '; ctx.fillStyle = '#000'; ctx.fillRect(0, 70, W, 26); ctx.save(); ctx.beginPath(); ctx.rect(0, 70, W, 26); ctx.clip(); txt(tk + tk + tk, W - (gT * 2 % 700), 83, 15, '#69f0ae', null, 0, 'left'); ctx.restore(); }
-  else { for (let i = 0; i < 16; i++) { const on = (gT / 20 + i) % 3 < 2; ctx.fillStyle = on ? '#ffd740' : '#8d6e63'; ell(30 + i * 60, 96 + Math.sin(i) * 6, 5, 5); ctx.fill(); } ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 92); for (let i = 0; i <= 16; i++) ctx.lineTo(30 + i * 60, 96 + Math.sin(i) * 6); ctx.stroke(); }
-  ctx.fillStyle = LB.w === 3 ? '#263238' : '#3e2723'; ctx.fillRect(0, GROUND, W, H - GROUND); ctx.fillStyle = 'rgba(255,255,255,0.08)'; for (let x = 0; x < W; x += 60) ctx.fillRect(x, GROUND + 30, 30, 4);
+  { for (let i = 0; i < 16; i++) { const on = (gT / 20 + i) % 3 < 2; ctx.fillStyle = on ? '#ffd740' : '#8d6e63'; ell(30 + i * 60, 96 + Math.sin(i) * 6, 5, 5); ctx.fill(); } ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 92); for (let i = 0; i <= 16; i++) ctx.lineTo(30 + i * 60, 96 + Math.sin(i) * 6); ctx.stroke(); }
+  ctx.fillStyle = '#3e2723'; ctx.fillRect(0, GROUND, W, H - GROUND); ctx.fillStyle = 'rgba(255,255,255,0.08)'; for (let x = 0; x < W; x += 60) ctx.fillRect(x, GROUND + 30, 30, 4);
   L.spots.forEach((s, i) => {   // 건물
     const on = LB.near === i, bw = 170, bx = s.x - bw / 2, by = GROUND - 190;
     ctx.fillStyle = s.col; rr(bx, by, bw, 190, 10); ctx.fill(); ctx.strokeStyle = on ? '#ffd740' : '#000'; ctx.lineWidth = on ? 5 : 2; rr(bx, by, bw, 190, 10); ctx.stroke();
@@ -312,22 +307,20 @@ function drawLobby() {
   txt(TOUCH ? '조이스틱으로 걷기 · 건물을 누르면 들어가요' : 'A/D 걷기 · W/Enter 들어가기 · Esc 월드', W / 2, 526, 12, '#bbb', null);
 }
 
-// ---- 🥊 월드 싸움 (월드2 사냥터 · 월드3 증권가 결투장): 진짜 싸움 엔진 (mode 8) ----
+// ---- 🥊 월드2 사냥터 싸움: 진짜 싸움 엔진 (mode 8) ----
 const W2_FOES = ['분홍이', '깜돌이', '멧돌이', '꼬미', '얼음이', '족발왕', '오겹장군', '양념이', '항정', '목살', '갈비', '감자탕', '냉삼'];
 let WF = { w: 2 };
 function worldFight(w) {
-  const pool = w === 2 ? CHARS.filter(c => W2_FOES.includes(c.name)) : CHARS.filter(c => !c.relId || isRel(c.relId));
+  const pool = CHARS.filter(c => W2_FOES.includes(c.name));
   WF = { w }; mode = 8; ranked = false;
   p1.setChar(withCos(getChar(sel.c1))); p2.setChar(pool[Math.random() * pool.length | 0]); startMatch();
-  p2.cpuLv = w === 2 ? 1 + w2Stage() * 2 : 9; p1.reset(); p2.reset();
-  p1.name = playerName; p2.name = (w === 2 ? '야생 ' : '라이벌 투자자 ') + p2.base;
+  p2.cpuLv = 1 + w2Stage() * 2; p1.reset(); p2.reset();
+  p1.name = playerName; p2.name = '야생 ' + p2.base;
 }
 function worldFightEnd(win) {   // 싸움이 끝나면 (afterRound에서 부름)
   sizzleOff(); const foe = p2;
-  if (WF.w === 2) { if (win) return startButcher({ bonus: 1, look: foe.C, name: foe.base, how: '🥊 사냥 성공! (싸움 보너스: 부위마다 +1)' }); openLobby(2, true); toast('😵 사냥 실패... 다시 도전!'); return; }
-  openLobby(3, true);
-  if (win) { const c = Math.round(6000 * EARN); addCoins(c); addDia(1); SFX.coin(); popup({ icon: '🥊', title: '결투 승리!', lines: [`라이벌 투자자 ${foe.base}를 이겼어요`, `🪙 +${fmtN(c)} · 💎 +1`] }); }
-  else toast('😵 결투에서 졌어요...');
+  if (win) return startButcher({ bonus: 1, look: foe.C, name: foe.base, how: '🥊 사냥 성공! (싸움 보너스: 부위마다 +1)', again: () => worldFight(2) });
+  openLobby(2, true); toast('😵 사냥 실패... 다시 도전!');
 }
 function worldFightQuit() { sizzleOff(); openLobby(WF.w, true); toast('싸움을 그만뒀어요'); }
 
@@ -358,8 +351,9 @@ function updateSnipe() {
  
   if (s.done) {
     s.endT++;
-    if (s.hit && s.endT > 70) { const { tg, head } = s.hit; SN = null; return startButcher({ bonus: head ? 1 : 0, look: tg.ch.look, name: tg.ch.name, how: head ? '🎯 헤드샷! (부위마다 +1)' : '🎯 저격 성공!' }); }
-    if (!s.hit && s.endT > 30 && (pressed.Enter || pressed.Space || pressed.Escape)) { SN = null; lobbyBack(); }
+    if (s.hit && s.endT > 70) { const { tg, head } = s.hit; SN = null; return startButcher({ again: () => startSnipe(), bonus: head ? 1 : 0, look: tg.ch.look, name: tg.ch.name, how: head ? '🎯 헤드샷! (부위마다 +1)' : '🎯 저격 성공!' }); }
+    if (!s.hit && s.endT > 30 && (pressed.Enter || pressed.Space)) return startSnipe();   // 바로 다시 (안 끊기게)
+    if (!s.hit && s.endT > 30 && pressed.Escape) { SN = null; lobbyBack(); }
     return;
   }
   if (pressed.Escape) { SN = null; lobbyBack(); return; }
@@ -393,16 +387,15 @@ function drawSnipe() {
   txt('🎯 저격장', W / 2, 30, 24, '#fff', '#000', 5); wBack(() => { pressed.Escape = true; });
   txt('🔫'.repeat(s.ammo) + '▫️'.repeat(3 - s.ammo), 24, 64, 22, '#fff', null, 0, 'left');
   txt(`⏰ ${Math.ceil(Math.max(0, s.dur - s.t) / 60)}초`, W - 24, 64, 18, '#fff', '#000', 4, 'right');
-  if (!s.done && s.t < 150) txt(TOUCH ? '돼지를 누르면 그 자리를 쏴요 · 3발' : 'WASD/화살표 조준 · Space 발사 · 3발 · 머리를 맞히면 헤드샷', W / 2, 500, 15, '#fff', '#000', 4);
-  if (s.done && !s.hit) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 200, 220, 400, 100, 16); ctx.fill(); txt('😢 사냥 실패...', W / 2, 256, 28, '#ff8a80', '#000', 5); if (s.endT > 30) txt('Enter: 로비로', W / 2, 294, 14, '#bbb', null); }
-  if (!s.done) for (let gy = 150; gy < H; gy += 40) for (let gx = 0; gx < W; gx += 40) addHot(gx, gy, 40, 40, () => { if (!SN) return; SN.cx = gx + 20 - Math.sin(SN.t * 0.05) * 7; SN.cy = gy + 20 - Math.cos(SN.t * 0.07) * 5; snipeFire(); });
-  else if (!s.hit) addHot(0, 0, W, H, () => { pressed.Enter = true; });
+  if (!s.done && s.t < 150) txt(TOUCH ? '손가락으로 끌어서 조준 · 떼면 발사 · 3발 · 머리를 맞히면 헤드샷' : '마우스로 조준 · 클릭 발사 (WASD/화살표 + Space도 돼요) · 3발 · 헤드샷', W / 2, 500, 15, '#fff', '#000', 4);
+  if (s.done && !s.hit) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 200, 220, 400, 100, 16); ctx.fill(); txt('😢 사냥 실패...', W / 2, 256, 28, '#ff8a80', '#000', 5); if (s.endT > 30) txt('Enter: 다시 사냥 · Esc: 로비로', W / 2, 294, 14, '#bbb', null); }
+  if (s.done && !s.hit && s.endT > 30) addHot(0, 0, W, H, () => { pressed.Enter = true; });
 }
 
 // ---- 🔪 해체: 칼이 지나갈 때 맞춰 눌러 부위별로 자르기 (목살 → 항정살 → 삼겹살) ----
 const BCUTS = [['mok', '목살'], ['hang', '항정살'], ['sam', '삼겹살']];
 let BT = null;
-function startButcher(o) { BT = { i: 0, t: 0, pos: 0, dir: 1, zone: rand(0.3, 0.7), res: [], bonus: o.bonus || 0, look: o.look, name: o.name, how: o.how || '', done: false, endT: 0 }; parts = []; texts = []; mode = 7; scene = 'butcher'; }
+function startButcher(o) { BT = { again: o.again, i: 0, t: 0, pos: 0, dir: 1, zone: rand(0.3, 0.7), res: [], bonus: o.bonus || 0, look: o.look, name: o.name, how: o.how || '', done: false, endT: 0 }; parts = []; texts = []; mode = 7; scene = 'butcher'; }
 function butcherCut() {
   const b = BT; if (!b || b.done) return;
   const d = Math.abs(b.pos - b.zone), [lab, n] = d < 0.05 ? ['완벽!', 3] : d < 0.13 ? ['좋음', 2] : ['아쉬움', 1], [k, nm] = BCUTS[b.i], amt = n + b.bonus;
@@ -413,7 +406,7 @@ function butcherCut() {
 function updateButcher() {
   const b = BT; if (!b) return lobbyBack();
   b.t++;
-  if (b.done) { b.endT++; if (b.endT > 30 && (pressed.Enter || pressed.Space || pressed.KeyI || pressed.Escape)) { BT = null; lobbyBack(); } return; }
+  if (b.done) { b.endT++; if (b.endT > 30 && (pressed.Enter || pressed.Space || pressed.KeyI) && b.again) { BT = null; return b.again(); } if (b.endT > 30 && (pressed.Escape || ((pressed.Enter || pressed.Space || pressed.KeyI) && !b.again))) { BT = null; lobbyBack(); } return; }
   b.pos += b.dir * (0.013 + b.i * 0.004); if (b.pos > 1) { b.pos = 1; b.dir = -1; } if (b.pos < 0) { b.pos = 0; b.dir = 1; }
   if (pressed.Space || pressed.Enter || pressed.KeyI || pressed.KeyJ) butcherCut();
 }
@@ -445,7 +438,7 @@ function drawButcher() {
     ctx.fillStyle = 'rgba(0,0,0,0.75)'; rr(W / 2 - 240, 150, 480, 200, 16); ctx.fill();
     txt('🥩 해체 끝!', W / 2, 186, 28, '#ffd740', '#000', 5);
     b.res.forEach(([k, nm, amt, lab], i) => txt(`${nm} +${amt}  (${lab})`, W / 2, 228 + i * 30, 18, MEAT3[k][1] === '#c62828' ? '#ff8a80' : MEAT3[k][1], '#000', 3));
-    if (b.endT > 30) { txt('Enter: 로비로', W / 2, 332, 13, '#bbb', null); addHot(0, 0, W, H, () => { pressed.Enter = true; }); }
+    if (b.endT > 30) { txt(b.again ? 'Enter: 바로 다음 사냥 · Esc: 로비로' : 'Enter: 로비로', W / 2, 332, 13, '#bbb', null); addHot(0, 0, W, H, () => { pressed.Enter = true; }); }
   }
 }
 
@@ -523,14 +516,14 @@ function stockDone() {
 function updateStock() {
   SK.t++;
   if (SK.phase === 'run') { if (SK.t >= 150) stockDone(); return; }
-  if (SK.phase === 'result') { if (SK.t > 20 && (pressed.Enter || pressed.Space || pressed.KeyI)) { SK.phase = 'pick'; SK.t = 0; } else if (pressed.Escape) openLobby(3, true); return; }
+  if (SK.phase === 'result') { if (SK.t > 20 && (pressed.Enter || pressed.Space || pressed.KeyI)) { SK.phase = 'pick'; SK.t = 0; } else if (pressed.Escape) toTitle(); return; }
   const n = STOCKS.length;
   if (pressed.KeyA || pressed.ArrowLeft) { SK.sel = (SK.sel + n - 1) % n; SFX.select(); }
   if (pressed.KeyD || pressed.ArrowRight) { SK.sel = (SK.sel + 1) % n; SFX.select(); }
   if (pressed.KeyW || pressed.ArrowUp) { SK.amt = Math.min(ST_PCT.length - 1, SK.amt + 1); SFX.select(); }
   if (pressed.KeyS || pressed.ArrowDown) { SK.amt = Math.max(0, SK.amt - 1); SFX.select(); }
   if (pressed.Enter || pressed.Space || pressed.KeyI) stockBuy();
-  else if (pressed.Escape) openLobby(3, true);
+  else if (pressed.Escape) toTitle();
 }
 function drawStock() {
   ctx.fillStyle = '#07131f'; ctx.fillRect(0, 0, W, H);
@@ -565,6 +558,70 @@ function drawStock() {
     const r = SK.res, d = SK.pay - SK.stake;
     txt(r.name, W / 2, 425, 38, r.col, '#000', 7);
     txt(r.k === 'delist' ? `${STOCKS[SK.sel][1]} 상장폐지... 투자한 ${fmtN(SK.stake)} 코인이 사라졌어요` : `${fmtN(SK.stake)} → ${fmtN(SK.pay)} 코인 (${d >= 0 ? '+' : ''}${fmtN(d)})${r.k === 'jackpot' ? ' · 💎 +5' : ''}`, W / 2, 468, 18, '#fff', null);
-    if (SK.t > 20) { txt('Enter: 다시 투자 · Esc: 로비로', W / 2, 506, 13, '#bbb', null); addHot(0, 150, W, H - 150, () => { pressed.Enter = true; }); }
+    if (SK.t > 20) { txt('Enter: 다시 투자 · Esc: 타이틀로', W / 2, 506, 13, '#bbb', null); addHot(0, 150, W, H - 150, () => { pressed.Enter = true; }); }
   }
 }
+
+// ================= 📈 월드3 · 증권가: 월드1과 같은 게임 (랭크전·연승·장사·은행…) + 다른 이야기 + 💵 돼지달러 =================
+// 돈·빚·은행·냉장고는 월드3 전용 칸에 따로 저장 (02의 wKey) · 돼지·스킨·티어·아이템은 같이 씀
+const W3_DEBT = 1000000000;   // 증권사 빚 10억 달러
+const w3Txt = s => s.replace(/🪙/g, '💵').replace(/(?<!돼지)코인/g, '달러').replace(/사채업자 멧돼지 실장/g, '증권사 곰 부장').replace(/멧돼지 실장/g, '곰 부장').replace(/사채/g, '증권사 빚');
+const W3_MENU = ['📈 증권거래소', '돼지 주식에 달러 투자 · 대박 1% · 상장폐지 40%', () => openStock()];
+function w3Menu(on) { const i = MENU.indexOf(W3_MENU); if (on && i < 0) MENU.splice(MENU.findIndex(m => m[0] === '🌍 월드') + 1, 0, W3_MENU); if (!on && i >= 0) MENU.splice(i, 1); titleSel = Math.min(titleSel, MENU.length - 1); }
+function setWorld(w) {
+  if (WORLD === w) return;
+  WORLD = w; localStorage.setItem('sgf_world', JSON.stringify(w));
+  if (w === 3 && localStorage.getItem('sgf_debt_w3') === null) { lsSet('sgf_coin', 1000); lsSet('sgf_debt', W3_DEBT); lsSet('sgf_debtbase', W3_DEBT); lsSet('sgf_bank', 0); lsSet('sgf_fridge', []); }   // 처음 오면 💵 1000달러 · 빚 10억
+  coins = fixCoins(lsGet('sgf_coin', 100)); debt = lsGet('sgf_debt', DEBT_START); bankDebt = lsGet('sgf_bank', 0); debtBase = lsGet('sgf_debtbase', DEBT_START); fridge = lsGet('sgf_fridge', []);
+  w3Menu(w === 3);
+}
+function enterW3() {
+  setWorld(3); toTitle();
+  if (!lsGet('sgf_w3intro', false)) { lsSet('sgf_w3intro', true); startStory('w3intro', 'title'); }
+  else toast('📈 월드3 · 증권가 · 💵 돼지달러로 해요');
+}
+function w3Reset() { coins = 1000; lsSet('sgf_coin', coins); debt = W3_DEBT; bankDebt = 0; debtBase = W3_DEBT; saveDebt(); lsSet('sgf_w3chap', []); }
+function w3Chapters() {   // 월드3 이야기: 빚을 갚은 만큼 · 다 갚으면 월드3 클리어 · 파산하면 처음부터
+  const seen = lsGet('sgf_w3chap', []), r = Math.max(0, debt) / W3_DEBT;
+  for (const [k, th] of [['w3ch1', 0.75], ['w3ch2', 0.5], ['w3ch3', 0.25], ['w3end', 0]]) {
+    if (seen.includes(k)) continue;
+    if (k === 'w3end' ? totalDebt() <= 0 : r <= th) { seen.push(k); lsSet('sgf_w3chap', seen); if (k === 'w3end') { lsSet('sgf_w3clear', true); addDia(30); } startStory(k, scene); return true; }
+  }
+  if (isBroke()) { w3Reset(); startStory('w3bad', 'title'); return true; }
+  return false;
+}
+Object.assign(STORY, {
+  w3intro: [
+    { sp: '내레이션', tx: '포장마차를 동네 명물로 만든 {name}님. 통장엔 처음으로 큰돈이 생겼어요.', art: 'stall' },
+    { sp: '증권사 곰 부장', tx: '"사장님, 이 돈 그냥 두면 손해예요. 신용으로 10배 빌려 드릴 테니 주식 한번 하시죠?"', art: 'whisper' },
+    { sp: '{name}', tx: '"삼겹전자... 포차홀딩스... 전부 다 사!! 신용 끝까지!!"', art: 'pump' },
+    { sp: '내레이션', tx: '...그리고 그날 오후. 주가 폭락. 반대매매. 계좌가 텅 비었습니다.', art: 'crash' },
+    { sp: '증권사 곰 부장', tx: '"갚으셔야 할 돈 10억 달러입니다. 이자는 판마다 붙어요. 못 갚으시면... 아시죠?"', art: 'boss' },
+    { sp: '내레이션', tx: '여긴 증권가. 돈은 💵 돼지달러로 따로 세요. 다시 싸우고, 장사하고, 📈 증권거래소에서 한 방을 노려라!', art: 'fight' },
+    { sp: 'TIP', tx: '월드1 코인은 그대로 남아 있어요. 🌍 월드 메뉴에서 월드1로 돌아가면 다시 코인으로 해요.', art: 'bank' }
+  ],
+  w3ch1: [{ sp: '증권사 곰 부장', tx: '"4분의 1이나 갚으셨다고요? 주식은 이제 안 하시는 거죠? ...그쵸?"', art: 'boss' }],
+  w3ch2: [{ sp: '증권사 곰 부장', tx: '"벌써 절반이요?! 사장님, 혹시 다시 신용 쓰실 생각은..."', art: 'boss' }, { sp: '{name}', tx: '"절대 안 해!!"', art: 'fight' }],
+  w3ch3: [{ sp: '증권사 곰 부장', tx: '"이제 4분의 1만 남았네요. 증권가에 소문났어요. 싸움 잘하는 돼지 투자자라고."', art: 'boss' }],
+  w3end: [
+    { sp: '증권사 곰 부장', tx: '"10억 달러... 전부 상환 확인했습니다. 대단하십니다."', art: 'boss' },
+    { sp: '{name}', tx: '"이제 주식은 재미로만 할 거야. 진짜로."', art: 'rich' },
+    { sp: '내레이션', tx: '📈 월드3 클리어! 💎 다이아 30개를 받았어요.', art: 'ending' }
+  ],
+  w3bad: [
+    { sp: '증권사 곰 부장', tx: '"달러가 한 푼도 없으시네요. ...계좌를 처음부터 다시 만들어 드리죠."', art: 'bankrupt' },
+    { sp: '내레이션', tx: '💀 월드3 파산! 💵 1000달러 · 빚 10억 달러로 처음부터 (월드1 코인은 그대로)', art: 'bankrupt' }
+  ]
+});
+if (WORLD === 3) w3Menu(true);   // 월드3에서 게임을 껐다 켜도 증권거래소 메뉴
+
+// ---- 🎯 저격장 조준: 마우스는 움직이면 조준 · 클릭 발사 / 손가락은 끌어서 조준 · 떼면 발사 ----
+const snXY = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
+function snPoint(e) { const [x, y] = snXY(e); SN.cx = clamp(x, 20, W - 20); SN.cy = clamp(y, 160, H - 40); }
+const snOn = () => scene === 'snipe' && SN && !SN.done;
+cv.addEventListener('pointermove', e => { if (snOn() && (e.pointerType === 'mouse' || SN.held === e.pointerId)) snPoint(e); });
+cv.addEventListener('pointerdown', e => {
+  if (!snOn()) return; const [x, y] = snXY(e); if (x < 120 && y < 50) return;   // 나가기 버튼
+  snPoint(e); if (e.pointerType === 'mouse') snipeFire(); else SN.held = e.pointerId;
+});
+cv.addEventListener('pointerup', e => { if (snOn() && SN.held === e.pointerId) { SN.held = null; snipeFire(); } });
