@@ -193,7 +193,8 @@ function drawHUD() {
   rr(W / 2 - 38, 12, 76, 54, 10); ctx.fill(); ctx.stroke();
   txt(String(Math.max(0, Math.ceil(timer / 60))), W / 2, 40, 36, timer < 600 ? '#ff5252' : '#fff', null);
   if (mode === 1) txt(`${ranked ? "랭크전 · " : ""}${streak}연승 중`, W / 2, 82, 15, '#ffeb3b', '#000', 4);
-  if (mode === 1 && (scene === 'fight' || scene === 'intro')) drawQuitBtn(W / 2 - 60, 94, 120, 28);
+  if ((mode === 1 || mode === 8) && (scene === 'fight' || scene === 'intro')) drawQuitBtn(W / 2 - 60, 94, 120, 28);   // 🌍 사냥터도 그만하기 (모바일)
+  if (mode === 8 && (scene === 'fight' || scene === 'intro')) drawWorldFightHud();
   if (mode === 6 && (scene === 'fight' || scene === 'intro')) drawQuitBtn(W / 2 - 85, 94, 170, 34);   // 🥊 연습 모드 나가기   // 모바일에서도 그만둘 수 있게
   if (mode === 4) {
     txt(bet4.stake ? `🎲 ${(bet4.side ? p2 : p1).base}에 ${fmtN(bet4.stake)}코인` : '👀 구경 중', W / 2, 82, 14, '#ffd740', '#000', 4);

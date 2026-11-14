@@ -238,6 +238,7 @@ function step() {
     if (sceneT === 75) { SFX.bell(); speak('파이트!', 1.4); }
     if (sceneT >= 120) scene = 'fight';
   } else if (scene === 'fight') {
+    if (mode === 8) worldFightTick();
     if (superFreeze > 2 && mode !== 3 && superKind !== 'tf' && (pressed.Enter || pressed.Space)) skipCut();   // 컷신 건너뛰기
     if (superFreeze > 0) { superFreeze--; if (superKind === 'rasen' && superFreeze === 1) SFX.special(); if (superKind === 'ult' && superOwner && superOwner.ch.ult.type === 'timeStop') tsCutSfx(TS_CUT - superFreeze); }
     else if (hitstop > 0) hitstop--;

@@ -44,6 +44,10 @@ function updateWorlds() {
   else if (pressed.KeyB) { WD.shop = true; WD.ssel = 0; SFX.select(); }
   else if (pressed.Escape) toTitle();
 }
+function wBtns(y, L) {   // 가운데 버튼 줄 (모바일에서도 누르기 쉽게)
+  const bw = 200, gap = 20, x0 = W / 2 - (L.length * bw + (L.length - 1) * gap) / 2;
+  L.forEach(([t, c, fn], i) => { const x = x0 + i * (bw + gap); ctx.fillStyle = c; rr(x, y, bw, 44, 12); ctx.fill(); txt(t, x + bw / 2, y + 22, fitSize(t, 16, bw - 12), '#fff', '#000', 3); addHot(x, y, bw, 44, fn); });
+}
 function wBack(fn) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(14, 10, 90, 30, 8); ctx.fill(); txt('← 나가기', 59, 25, 13, '#fff', null); addHot(14, 10, 90, 30, fn); }
 function wDia() { txt(`💎 ${fmtN(diaGet())}  ·  🪙 ${fmtN(coins)}`, W - 20, 26, 16, '#b3e5fc', '#000', 4, 'right'); }
 function drawWorlds() {
@@ -310,16 +314,23 @@ function drawLobby() {
 // ---- 🥊 월드2 사냥터 싸움: 진짜 싸움 엔진 (mode 8) ----
 const W2_FOES = ['분홍이', '깜돌이', '멧돌이', '꼬미', '얼음이', '족발왕', '오겹장군', '양념이', '항정', '목살', '갈비', '감자탕', '냉삼'];
 let WF = { w: 2 };
-function worldFight(w) {
+function worldFight(w, o = {}) {   // o.angry: 저격에서 헤드샷·치명타가 아니면 그 돼지가 화나서 칼 들고 덤빔 (대신 출혈 · 체력 75%)
   const pool = CHARS.filter(c => W2_FOES.includes(c.name));
-  WF = { w }; mode = 8; ranked = false;
-  p1.setChar(withCos(getChar(sel.c1))); p2.setChar(pool[Math.random() * pool.length | 0]); startMatch();
-  p2.cpuLv = 1 + w2Stage() * 2; p1.reset(); p2.reset();
+  WF = { w, from: o.angry ? 'snipe' : 'hunt' }; mode = 8; ranked = false;
+  p1.setChar(withCos(getChar(sel.c1))); p2.setChar(o.angry || pool[Math.random() * pool.length | 0]); startMatch();
+  p2.cpuLv = 1 + w2Stage() * 2; p1.reset(); p2.reset(); p2.wBleed = false;
   p1.name = playerName; p2.name = '야생 ' + p2.base;
+  if (o.angry) { p2.cpuLv += 3; p2.reset(); p2.hp = p2.dispHp = Math.round(p2.maxHp * 0.75); p2.wBleed = true; p2.condDmg = 1.3; p2.C = { ...p2.C, wpn: 'katana' }; p2.name = '😡 화난 ' + p2.base; }
 }
+function worldFightTick() {   // 출혈: 화난 돼지는 계속 피를 흘려 체력이 줄어듦 (1에서 멈춤)
+  const f = p2; if (!f.wBleed || f.state === 'ko' || f.hp <= 1) return;
+  f.hp = Math.max(1, f.hp - f.maxHp * 0.0004);
+  if (gT % 5 === 0) parts.push({ x: f.x + rand(-30, 30) * f.sc, y: f.y - rand(40, 120) * f.sc, vx: rand(-0.5, 0.5), vy: rand(0.5, 1.5), life: 34, max: 34, c: '#c62828', s: rand(2, 4), g: 0.18, type: 'dot' });
+}
+function drawWorldFightHud() { if (p2.wBleed) txt('🩸 출혈 중 · 😡 화나서 칼 들고 세게 때려요', W / 2, 136, 14, '#ff8a80', '#000', 4); }
 function worldFightEnd(win) {   // 싸움이 끝나면 (afterRound에서 부름)
   sizzleOff(); const foe = p2;
-  if (win) return startButcher({ bonus: 1, look: foe.C, name: foe.base, how: '🥊 사냥 성공! (싸움 보너스: 부위마다 +1)', again: () => worldFight(2) });
+  if (win) return startButcher({ bonus: 1, look: foe.C, name: foe.base, how: WF.from === 'snipe' ? '😡 화난 돼지를 잡았다! (싸움 보너스: 부위마다 +1)' : '🥊 사냥 성공! (싸움 보너스: 부위마다 +1)', again: WF.from === 'snipe' ? () => startSnipe() : () => worldFight(2) });
   openLobby(2, true); toast('😵 사냥 실패... 다시 도전!');
 }
 function worldFightQuit() { sizzleOff(); openLobby(WF.w, true); toast('싸움을 그만뒀어요'); }
@@ -339,8 +350,10 @@ function snipeFire() {
   const tg = [...SN.tg].sort((a, b) => b.y - a.y).find(t => !t.dead && Math.abs(ax - t.x) < 66 * t.s / 0.3 * 0.3 + 26 && ay > t.y - 150 * t.s && ay < t.y + 6);
   if (tg) {
     const f = Math.sign(tg.vx) || 1, head = Math.hypot(ax - (tg.x + f * 52 * tg.s), ay - (tg.y - 100 * tg.s)) < 34 * tg.s + 8;
-    tg.dead = true; SN.hit = { tg, head }; SN.done = true; SN.endT = 0; burst(ax, ay, 16, ['#ff5252', '#ff8a80', '#fff'], 7);
-    popText(ax, ay - 30, head ? '🎯 헤드샷!!' : '명중!', head ? '#ffd740' : '#fff', head ? 34 : 28);
+    const crit = !head && Math.random() < 0.3, angry = !head && !crit;
+    SN.hit = { tg, head, crit, angry }; SN.done = true; SN.endT = 0; burst(ax, ay, 16, ['#ff5252', '#ff8a80', '#fff'], 7);
+    if (angry) { tg.angry = true; popText(ax, ay - 30, '명중! 그런데... 😡 돼지가 화났다!', '#ff5252', 26); }
+    else { tg.dead = true; popText(ax, ay - 30, head ? '🎯 헤드샷!!' : '💥 치명타!!', '#ffd740', 34); }
   } else {
     popText(ax, ay - 30, '빗나감!', '#ff8a80', 24); for (const t of SN.tg) { t.vx = (Math.sign(t.vx) || 1) * Math.min(4.5, Math.abs(t.vx) * 1.7); t.stopT = 0; }   // 놀라서 도망
     if (SN.ammo <= 0) { SN.done = true; SN.endT = 0; }
@@ -351,7 +364,8 @@ function updateSnipe() {
  
   if (s.done) {
     s.endT++;
-    if (s.hit && s.endT > 70) { const { tg, head } = s.hit; SN = null; return startButcher({ again: () => startSnipe(), bonus: head ? 1 : 0, look: tg.ch.look, name: tg.ch.name, how: head ? '🎯 헤드샷! (부위마다 +1)' : '🎯 저격 성공!' }); }
+    if (s.hit && s.hit.angry && s.endT > 70) { const tg = s.hit.tg; SN = null; return worldFight(2, { angry: tg.ch }); }   // 화난 돼지가 칼 들고 덤빔 → 싸움
+    if (s.hit && s.endT > 70) { const { tg, head } = s.hit; SN = null; return startButcher({ again: () => startSnipe(), bonus: head ? 1 : 0, look: tg.ch.look, name: tg.ch.name, how: head ? '🎯 헤드샷! (부위마다 +1)' : '💥 치명타로 잡았다!' }); }
     if (!s.hit && s.endT > 30 && (pressed.Enter || pressed.Space)) return startSnipe();   // 바로 다시 (안 끊기게)
     if (!s.hit && s.endT > 30 && pressed.Escape) { SN = null; lobbyBack(); }
     return;
@@ -375,6 +389,7 @@ function drawSnipe() {
   ctx.fillStyle = '#2e7d32'; for (let i = 0; i < 14; i++) { const x = i * 72 + 20; ctx.beginPath(); ctx.moveTo(x, 248); ctx.lineTo(x + 18, 190 - (i % 3) * 14); ctx.lineTo(x + 36, 248); ctx.fill(); }
   for (const t of [...s.tg].sort((a, b) => a.y - b.y)) {
     const f = Math.sign(t.vx) || 1;
+    if (t.angry) { const k = 1 + s.endT * 0.012; drawPig(t.x, t.y + s.endT * 1.2, f, { ...t.ch.look, wpn: 'katana' }, { t: gT * 2, scale: t.s * k, filter: 'saturate(1.6) hue-rotate(-12deg)', move: 'walk', k: (gT % 15) / 15 }); txt('😡', t.x, t.y + s.endT * 1.2 - 170 * t.s * k, 30, '#fff', null); continue; }
     if (t.dead) { ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(f * Math.min(1.5, s.endT * 0.08)); drawPig(0, 0, f, t.ch.look, { t: gT, scale: t.s, hurt: true }); ctx.restore(); }
     else drawPig(t.x, t.y, f, t.ch.look, { t: gT, scale: t.s, move: t.stopT > 0 ? undefined : 'walk', k: (gT % 30) / 30 });
   }
@@ -389,7 +404,7 @@ function drawSnipe() {
   txt(`⏰ ${Math.ceil(Math.max(0, s.dur - s.t) / 60)}초`, W - 24, 64, 18, '#fff', '#000', 4, 'right');
   if (!s.done && s.t < 150) txt(TOUCH ? '손가락으로 끌어서 조준 · 떼면 발사 · 3발 · 머리를 맞히면 헤드샷' : '마우스로 조준 · 클릭 발사 (WASD/화살표 + Space도 돼요) · 3발 · 헤드샷', W / 2, 500, 15, '#fff', '#000', 4);
   if (s.done && !s.hit) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 200, 220, 400, 100, 16); ctx.fill(); txt('😢 사냥 실패...', W / 2, 256, 28, '#ff8a80', '#000', 5); if (s.endT > 30) txt('Enter: 다시 사냥 · Esc: 로비로', W / 2, 294, 14, '#bbb', null); }
-  if (s.done && !s.hit && s.endT > 30) addHot(0, 0, W, H, () => { pressed.Enter = true; });
+  if (s.done && !s.hit && s.endT > 30) wBtns(330, [['🎯 다시 사냥', '#2e7d32', () => { pressed.Enter = true; }], ['🏳️ 그만하기', '#616161', () => { pressed.Escape = true; }]]);
 }
 
 // ---- 🔪 해체: 칼이 지나갈 때 맞춰 눌러 부위별로 자르기 (목살 → 항정살 → 삼겹살) ----
@@ -438,7 +453,7 @@ function drawButcher() {
     ctx.fillStyle = 'rgba(0,0,0,0.75)'; rr(W / 2 - 240, 150, 480, 200, 16); ctx.fill();
     txt('🥩 해체 끝!', W / 2, 186, 28, '#ffd740', '#000', 5);
     b.res.forEach(([k, nm, amt, lab], i) => txt(`${nm} +${amt}  (${lab})`, W / 2, 228 + i * 30, 18, MEAT3[k][1] === '#c62828' ? '#ff8a80' : MEAT3[k][1], '#000', 3));
-    if (b.endT > 30) { txt(b.again ? 'Enter: 바로 다음 사냥 · Esc: 로비로' : 'Enter: 로비로', W / 2, 332, 13, '#bbb', null); addHot(0, 0, W, H, () => { pressed.Enter = true; }); }
+    if (b.endT > 30) wBtns(362, b.again ? [['▶ 다음 사냥 (Enter)', '#2e7d32', () => { pressed.Enter = true; }], ['🏳️ 그만하기 (Esc)', '#616161', () => { pressed.Escape = true; }]] : [['로비로 (Enter)', '#2e7d32', () => { pressed.Enter = true; }]]);
   }
 }
 

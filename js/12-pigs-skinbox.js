@@ -207,13 +207,14 @@ function pigSkins(c) {
   const MC = [L.band || L.brow || '#e91e63', '#ffffff'], RC = [L.brow || '#212121', L.band || '#ffd740'];   // 그 돼지의 포인트 색
   const G = SIG_SKIN[base.name] || [`스페셜 ${base.name}`, hueShift(L.body, 180, 1.2, 1), '#ffd740', 'star', 2];
   const sig = { body: G[1], dark: hueShift(G[1], 0, 1, 0.45), belly: hueShift(G[1], 0, 0.8, 1.35), snout: hueShift(G[1], 0, 1, 0.85), hoof: hueShift(G[1], 0, 1, 0.3), brow: G[2] };
-  return [
+  const all = [
     { key: 'hue', deco: 'combo', combo: { head: FT[0], body: FT[1], col: MC }, name: `${cbName(CB_HEAD, FT[0])} ${cbName(CB_BODY, FT[1])} ${base.name}`, rare: 0, pal: {}, whue: (i * 53) % 360, fx: [recolor.body, '#ffffff', recolor.dark], kind: 'star', aura: recolor.body },
     { key: 'shadow', deco: 'combo', combo: { head: FT[2], body: FT[3], back: FT[4], col: RC }, name: `${cbName(CB_BACK, FT[4])} ${cbName(CB_HEAD, FT[2])} ${base.name}`, rare: 1, pal: {}, whue: (i * 71 + 90) % 360, fxTint: true, fx: ['#212121', '#9e9e9e', '#000000'], kind: 'shadow', aura: '#616161' },
     { key: 'sig', deco: FT[5], combo: { back: FT[4] === 'scarf' ? 'minicape' : 'scarf', col: [G[2], G[1]] }, name: `${FANCY[FT[5]]} ${base.name}`, rare: G[4], c2: G[1], whue: (hueOfHex(G[2]) + 300) % 360, fxTint: true, pal: sig, fx: [G[1], G[2], '#ffffff'], kind: G[3], aura: G[2] },
     ...(base.name === '야구돈' ? TEAM_SKINS.map(([key, nm, main, sub, em, cap, brim]) => ({ key, deco: 'uniform', team: { main, sub, em, cap, brim }, name: `${nm} 야구돈`, rare: 3, w: 0.15, pal: {}, fx: [main, sub, '#ffffff'], kind: 'star', aura: sub })) : []),
     ...UPDATES.filter(u => u.skins.includes(base.name)).map(u => ({ key: 'u_' + u.id, deco: FANCY_K[(UPDATES.indexOf(u) + 4) % FANCY_K.length], combo: { back: CB_BACK[(UPDATES.indexOf(u) * 3 + i) % 8][0], col: [u.col, '#ffffff'] }, name: `${u.icon} ${FANCY[FANCY_K[(UPDATES.indexOf(u) + 4) % FANCY_K.length]]} ${base.name}`, rare: 2, pal: {}, c2: u.col, whue: (hueOfHex(u.col) + 300) % 360, fxTint: true, fx: [u.col, '#ffffff', u.col], kind: 'star', aura: u.col, rel: u.id }))   // 🎉 업데이트 스킨
   ];
+  return base.name === '야구돈' ? all.filter(s => s.team) : [];   // 스킨은 야구돈 야구단 유니폼 4개만 (나머지 돼지 스킨은 뺐음)
 }
 const SKIN_RANK = [['일반', '#b0bec5', 62], ['희귀', '#40c4ff', 28], ['영웅', '#e040fb', 9], ['전설', '#ffd740', 1]];   // 전설 1%
 const skinOn = (c, s) => (IS_TESTER && isMember()) || ((!c.relId || isRel(c.relId)) && (!s.rel || isRel(s.rel)));   // 테스트 계정은 공개 전 돼지·스킨도 다 보임   // 테스트 계정은 공개 전 돼지·스킨도 다 보임   // 공개 안 된 업데이트의 돼지·스킨은 안 나옴
@@ -240,11 +241,14 @@ function openSkinBox(n = 1, minRk = 0) {   // minRk 2: 프리미엄 상자 (영�
     let r = Math.random() * 100, rk = 0; for (let j = 0; j < SKIN_RANK.length; j++) { if (r < SKIN_RANK[j][2]) { rk = j; break; } r -= SKIN_RANK[j][2]; rk = j; }
     if (rk < minRk) rk = Math.random() < 0.1 ? 3 : 2;   // 프리미엄 상자: 전설 10%
     const pool = []; for (const c of CHARS) for (const s of pigSkins(c)) if (s.rare === rk && skinOn(c, s)) pool.push([c, s]);
-    const [c, s] = (() => { const P = pool.length ? pool : [[CHARS[0], pigSkins(CHARS[0])[0]]], tot = P.reduce((a, x) => a + (x[1].w || 1), 0); let r = Math.random() * tot; for (const x of P) { r -= x[1].w || 1; if (r <= 0) return x; } return P[P.length - 1]; })(), id = 'ps:' + c.name + ':' + s.key, dup = !!inv.own[id];
+    const anyP = pool.length ? pool : CHARS.flatMap(c => pigSkins(c).filter(s => skinOn(c, s)).map(s => [c, s]));   // 그 등급 스킨이 없으면 남은 스킨 중에서
+    if (!anyP.length) { addCoins(SKIN_BOX_PRICE); continue; }   // 받을 스킨이 하나도 없으면 돈 돌려줌
+    const [c, s] = (() => { const P = anyP, tot = P.reduce((a, x) => a + (x[1].w || 1), 0); let r = Math.random() * tot; for (const x of P) { r -= x[1].w || 1; if (r <= 0) return x; } return P[P.length - 1]; })(), id = 'ps:' + c.name + ':' + s.key, dup = !!inv.own[id];
     if (dup) addCoins(Math.round(SKIN_BOX_PRICE * 0.3)); else inv.own[id] = true;
-    res.push({ c, s, rk, dup });
+    res.push({ c, s, rk: s.rare, dup });
   }
   saveInv(); cloudDirty();
+  if (!res.length) { toast('🎨 아직 받을 수 있는 스킨이 없어요 · 코인을 돌려 드렸어요'); return res; }
   const best = res.reduce((b, x) => x.rk > b.rk ? x : b, res[0]);
   const lines = res.map(x => `[${SKIN_RANK[x.rk][0]}] ${x.s.name}${x.dup ? ` (중복 → 🪙 ${fmtN(SKIN_BOX_PRICE * 0.3)})` : ' 🆕'}`);
   popup({ icon: '🎨', title: best.rk === 3 ? '✨ 전설 스킨!!! ✨' : best.rk === 2 ? '영웅 스킨!' : '스킨 상자 열기', lines: lines.length > 6 ? [...lines.slice(0, 6), `외 ${lines.length - 6}개 · 🐷 돼지 도감에서 장착`] : [...lines, '🐷 돼지 도감에서 그 돼지를 골라 장착'], big: best.rk >= 2 });

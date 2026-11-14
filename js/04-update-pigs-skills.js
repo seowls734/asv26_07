@@ -3,6 +3,11 @@
 // 필살기: nx로 시작하는 type → nxUlt · 물체 그림: drawNxObj · 물체 움직임: nxObjTick · 무기 그림: drawWeapon
 const NX_SKILL = {
   // 때리는 스킬 (SKILLDEF와 같은 모양)
+  // 무기로 때리는 스킬 (무기 든 돼지는 무기 스킬이 1개 이상)
+  xSaCane: { sfx: 'heavy', startup: 10, active: 8, recovery: 18, dmg: 12, range: 200, height: 'mid', kb: 8, stun: 28, launch: 9, dash: 4, pose: 'punch', hitstop: 8, shake: 6, txt: ['딱!', '사탕 지팡이!'] },
+  xNeLaser: { startup: 8, active: 10, recovery: 16, dmg: 6, hits: 2, hitEvery: 5, range: 330, height: 'mid', kb: 4, stun: 18, slow: 60, pose: 'punch', hitstop: 5, txt: ['지잉!', '레이저!'] },
+  xFrSword: { sfx: 'heavy', startup: 11, active: 8, recovery: 20, dmg: 13, range: 210, height: 'mid', kb: 9, stun: 26, burn: 90, dash: 3, pose: 'punch', hitstop: 9, shake: 7, txt: ['화르륵!', '불꽃 베기!'] },
+  xMgCane: { startup: 9, active: 7, recovery: 18, dmg: 10, range: 190, height: 'mid', kb: 6, stun: 40, dash: 3, pose: 'punch', hitstop: 8, txt: ['탁!', '짠!'] },
   xKnSlash: { sfx: 'heavy', startup: 11, active: 8, recovery: 20, dmg: 12, range: 215, height: 'mid', kb: 9, stun: 28, dash: 3, pose: 'punch', hitstop: 9, shake: 7, txt: ['챙!', '베기!'] },
   xKnBash: { sfx: 'heavy', startup: 10, active: 12, recovery: 22, dmg: 10, range: 140, height: 'mid', kb: 18, stun: 30, dash: 9, armor: true, pose: 'dash', hitstop: 10, shake: 10, txt: ['방패 밀치기!'] },
   xPkSmash: { sfx: 'heavy', startup: 16, active: 8, recovery: 22, dmg: 14, range: 175, height: 'mid', kb: 10, stun: 34, knockdown: true, guardBreak: true, pose: 'punch', hitstop: 12, shake: 14, txt: ['쾅!!', '기타 박살!'] },
@@ -38,6 +43,10 @@ function nxSkillStart(f, s) {
   const P = o => addObj({ owner: f, x: hx, y: hy, vx: F * 10, delay: D, dir: F, clash: true, height: 'mid', ...o });
   switch (t) {
     case 'xKnSlash': nxFx(f, 'slash', f.x + F * 110 * k, hy, 14, { delay: D, col: '#eceff1' }); break;
+    case 'xSaCane': nxFx(f, 'slash', f.x + F * 100 * k, hy, 14, { delay: D, col: '#ff8a80' }); break;
+    case 'xFrSword': nxFx(f, 'slash', f.x + F * 110 * k, hy, 14, { delay: D, col: '#ff9100' }); nxFx(f, 'fireRing', f.x + F * 120 * k, hy, 20, { delay: D }); break;
+    case 'xMgCane': nxFx(f, 'slash', f.x + F * 95 * k, hy, 12, { delay: D, col: '#fff59d' }); break;
+    case 'xNeLaser': for (let i = 0; i < 2; i++) { nxFx(f, 'muzzle', hx, hy, 6, { delay: D + i * 5 }); nxFx(f, 'tracer', hx + F * 160 * k, hy, 6, { delay: D + i * 5, len: 300 }); } break;
     case 'xKnBash': nxFx(f, 'shield', f.x + F * 60 * k, hy, 26, { delay: 2 }); break;
     case 'xKnWave': P({ kind: 'xSwordWave', vx: F * 11, w: 46, h: 100, dmg: 10, kb: 8, stun: 26, life: 90 }); break;
     case 'xSaGift': P({ kind: 'xGift', vx: F * 6, vy: -9, g: 0.42, boom: 90, dmg: 12, kb: 9, stun: 28, life: 140, clash: false }); break;
