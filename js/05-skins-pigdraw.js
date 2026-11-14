@@ -388,6 +388,7 @@ function drawPig(x, y, face, C, p = {}) {
   else if (mv === 'dash' || p.roll !== undefined) ba = [-32, -58 + by];
   else ba = [70, -58 + by];   // 서 있을 때 뒷팔: 몸 뒤에서 턱 아래로 발굽만 살짝 나온 가드
   if (C.wpn && p.wpnOut && POLES.includes(C.wpn)) { const fh = handAt(mv, k, by), a = Math.atan2(fh[1] - (-64 + by), fh[0] - 20 * bw); ba = [fh[0] - Math.cos(a) * 42, fh[1] - Math.sin(a) * 42]; }   // 창은 양손으로: 뒷손이 앞손 뒤 자루를 잡음
+  if (C.wpn === 'guitar' && p.wpnOut && p.strum) ba = [76, -66 + by];   // 🎸 기타 치기: 뒷손은 넥 끝을 잡음
   limb(-4, -64 + by, ba[0], ba[1], 12, CB, hc, hr);
 
   // tail
@@ -744,11 +745,12 @@ function drawPig(x, y, face, C, p = {}) {
   else if (mv === 'dash' || p.roll !== undefined) fa = [-26, -50 + by];
   else if (air) fa = [44, -80 + by];
   else fa = [50, -84 + by];
-  if (C.wpn === 'guitar' && p.strum) fa = [52, -92 + by + Math.sin(t * 0.8) * 3];   // 🎸 기타 치기: 앞손은 넥을 잡고 기타를 몸 앞에 멤
+  if (C.wpn && p.wpnOut && GUNS.includes(C.wpn)) fa = [GUN_FA[0], GUN_FA[1] + by];   // 🔫 총은 팔을 내려 수평으로 겨눔
+  if (C.wpn === 'guitar' && p.strum) fa = [22 + Math.sin(t * 1.4) * 6, -54 + by + Math.cos(t * 1.4) * 4];   // 🎸 기타 치기: 기타는 배 앞에 메고 앞손으로 몸통 줄을 튕김 (뒷손은 넥 끝)
   if (C.wpn && !p.weapon) {   // 업데이트 돼지 무기: 공격할 때만 손에 (팔 방향 그대로 · 팔보다 먼저 그려서 발굽이 손잡이를 쥠), 아니면 허리에 참
     const arm = Math.atan2(fa[1] - (-64 + by), fa[0] - 20 * bw);
     const batSwing = C.wpn === 'bat' && p.wpnOut && (mv === 'punch' || mv === 'jab' || mv === 'uppercut');   // 배트: 뒤에서 앞으로 옆으로 휘두름 (타격)
-    if (p.wpnOut || FIST_W.includes(C.wpn)) drawWeapon(C.wpn, fa[0], fa[1], p.strum ? Math.PI - 0.5 + Math.sin(t * 0.8) * 0.06 : batSwing ? lerp(-2.5, 0.35, clamp(k || 0, 0, 1)) : arm + (GUNS.includes(C.wpn) || POLES.includes(C.wpn) ? 0 : -0.3), t, false);
+    if (p.wpnOut || FIST_W.includes(C.wpn)) drawWeapon(C.wpn, p.strum ? 80 : fa[0], p.strum ? -68 + by : fa[1], p.strum ? Math.PI - 0.25 + Math.sin(t * 0.8) * 0.04 : batSwing ? lerp(-2.5, 0.35, clamp(k || 0, 0, 1)) : arm + (GUNS.includes(C.wpn) || POLES.includes(C.wpn) ? 0 : -0.3), t, false);
   }
   limb(20 * bw, -64 + by, fa[0], fa[1], 13, C, hc, hr);
   skinDeco('front', C, { bw, by, t });   // 🎨 스킨: 어깨 갑옷·고리 앞쪽

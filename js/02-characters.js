@@ -168,7 +168,7 @@ const CHARS = [
   { name: '카우돈', title: '황야의 돼지 총잡이', type: '총잡이', hp: 132, power: 1.09, speed: 1.05, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big5', buy: 3240000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🤠 황야의 총잡이)', perk: '업데이트 돼지', costume: 'cowboy', costumeCol: '#8d6e63',
     look: look('#e6b89c', '#8f7261', '#f1d8c9', '#ecad95', '#514037', '#3e2723', '#c62828', ['mustache', 'bold'], 1.04),
     skill: { name: '리볼버 2연발', type: 'xCwShot', cd: 150, desc: 'U: 빠른 총알 두 발' },
-    skills: [{ name: '리볼버 2연발', type: 'xCwShot', cd: 150, desc: 'U: 빠른 총알 두 발' }, { name: '올가미', type: 'xCwLasso', cd: 300, desc: '↓+U: 맞으면 꽁꽁 묶임' }, { name: '구르며 쏘기', type: 'xCwRoll', cd: 240, desc: '←→+U: 굴러서 피한 뒤 한 발' }], wpn: 'revolver',
+    skills: [{ name: '리볼버 2연발', type: 'xCwShot', cd: 150, desc: 'U: 빠른 총알 두 발' }, { name: '올가미', type: 'xCwLasso', cd: 300, desc: '↓+U: 맞으면 꽁꽁 묶어서 내 앞으로 끌고 옴' }, { name: '구르며 쏘기', type: 'xCwRoll', cd: 240, desc: '←→+U: 굴러서 피한 뒤 한 발' }], wpn: 'revolver',
     tf: { name: '총잡이 모드', type: 'champion', color: '#8d6e63', desc: '펀치 피해·속도↑' },
     ult: { name: '정오의 결투', type: 'nxHighNoon', desc: '석양 아래 여섯 발을 연달아 쏨' } },
   { name: '펑크돈', title: '무대를 부수는 돼지 로커', type: '로커', hp: 75, power: 0.93, speed: 1.08, ultRate: 0.95, scale: 1.12, unlock: 'admin', relId: 'big6', buy: 5830000000000000, how: '🪙 돼지 도감에서 코인으로 사요 (🎸 록 페스티벌)', perk: '업데이트 돼지', costume: 'punk', costumeCol: '#e040fb',

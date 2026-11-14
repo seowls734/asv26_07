@@ -53,7 +53,7 @@ function nxSkillStart(f, s) {
     case 'xSaSnow': for (let i = 0; i < 3; i++) P({ kind: 'xSnow', vx: F * (8 + i * 1.2), vy: (i - 1) * 1.6, w: 24, h: 24, dmg: 4, slow: 70, kb: 3, stun: 14, life: 90, delay: D + i * 3 }); break;
     case 'xSaCookie': nxHeal(f, 12, ['#d7a86e', '#fff8e1', '#8d6e63']); nxFx(f, 'cookie', f.x + F * 30 * k, f.y - 130 * k, 30); break;
     case 'xCwShot': for (let i = 0; i < 2; i++) P({ kind: 'xBullet', vx: F * 19, w: 22, h: 10, dmg: 5, kb: 4, stun: 16, life: 60, delay: D + i * 8 }); nxFx(f, 'muzzle', hx, hy, 6, { delay: D }); break;
-    case 'xCwLasso': P({ kind: 'xLasso', vx: F * 11, w: 50, h: 50, dmg: 4, stun: 62, kb: 0, life: 42, clash: false, txt: ['묶었다!'] }); break;
+    case 'xCwLasso': P({ kind: 'xLasso', vx: F * 11, w: 50, h: 50, dmg: 4, stun: 62, kb: 0, pull: true, life: 42, clash: false, txt: ['묶었다!', '이리 와!'] }); break;
     case 'xCwRoll': addObj({ owner: f, kind: 'xBullet', x: f.x + F * 230 * k, y: f.y - 80 * f.sc, vx: F * 19, w: 22, h: 10, dmg: 6, kb: 5, stun: 18, life: 50, delay: 18, dir: F, clash: true }); break;
     case 'xPkRiff': for (let i = 0; i < 2; i++) P({ kind: 'xRiff', vx: F * 8, w: 44, h: 120, dmg: 5, multi: 10, maxHits: 2, kb: 4, stun: 16, life: 80, delay: D + i * 10, clash: false }); break;
     case 'xPkSmash': nxFx(f, 'sparks', f.x + F * 120 * k, f.y - 30, 18, { delay: D + 2 }); break;
@@ -290,8 +290,9 @@ function drawNxObj(o) {
 // ---- 무기 돼지 기본 공격 ----
 const WPN_COL = { sword: '#eceff1', katana: '#e8eaf6', flamesword: '#ff9100', bat: '#d7a86e', candycane: '#ff8a80', guitar: '#e040fb', scepter: '#ffd740', wand: '#fff59d', fan: '#f8bbd0', lantern: '#69f0ae', spear: '#b3e5fc', trident: '#d500f9', rockfist: '#ff6d00' };
 const MUZ_FA = { jab: [88, -82], punch: [104, -72], throw: [98, -92], counter: [60, -104] };   // 공격이 다 뻗었을 때 앞손 자리 (drawPig의 fa)
+const GUN_FA = [100, -70];   // 총 쏠 때 앞손: 팔을 내려 거의 수평으로 겨눔 (drawPig와 같음)
 function gunMuzzle(f, pose) {   // 총구 위치 (세상 좌표)
-  const fa = MUZ_FA[pose] || MUZ_FA.punch, ang = Math.atan2(fa[1] + 64, fa[0] - 20), L = f.ch.wpn === 'watergun' ? 40 : f.ch.wpn === 'laser' ? 40 : 40;
+  const fa = GUN_FA, ang = Math.atan2(fa[1] + 64, fa[0] - 20), L = f.ch.wpn === 'watergun' ? 40 : f.ch.wpn === 'laser' ? 40 : 40;
   return [f.x + f.facing * (fa[0] + Math.cos(ang) * L) * f.sc, f.y + (fa[1] + Math.sin(ang) * L - 4) * f.sc];
 }
 function wpnAttack(f) {   // 공격 시작: 사거리·외침만 (이펙트는 실제로 휘두르는 순간 wpnFx)

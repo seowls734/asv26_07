@@ -100,6 +100,7 @@ function dealHit(a, d, h) {
   }
   // 스킬 쓰는 중엔 맞아도 끊기지 않음 (모든 돼지). 넘어뜨리거나 띄우는 공격만 끊김
   const skillArmor = d.state === 'attack' && d.atk && d.atk.skill && !h.knockdown && h.kind !== 'ult' && !h.ult;   // 띄우는 공격·반사에도 안 끊김 (넘어뜨리기·필살기만 끊김)
+  if (h.pull && !h.noReact && ((!h.force && !h.launch && d.armored(dmg)) || skillArmor)) { d.pullT = 12; d.pullX = clamp(a.x + (Math.sign(d.x - a.x) || a.facing) * 100 * a.sc / 1.15, 40, W - 40); }   // 버티는 중이어도 갈고리·사슬·채찍·올가미에는 끌려옴
   if ((!h.force && !h.launch && d.armored(dmg)) || skillArmor) { if (gT - (d.armorTxtT || -99) > 20) { d.armorTxtT = gT; popText(d.x, d.y - 150, skillArmor ? '버팀!' : '슈퍼아머', '#ddd', 18); } return 'armor'; }
   if (h.noReact) return 'hit';
   const dir = Math.sign(d.x - h.src) || -d.facing;
