@@ -22,16 +22,16 @@ const WORLDS = [
   { icon: '🐷', name: '월드1 · 기본 월드', desc: '랭크전·연승·장사로 사채 1억 갚기 (타이틀 메뉴가 곧 월드1)', lock: () => '', clear: w1Clear,
     go: () => { toTitle(); toast('🐷 월드1은 타이틀 메뉴 그대로예요 · 사채 1억을 다 갚으면 클리어'); } },
   { icon: '🎄', name: '크리스마스 월드', desc: '🎁 선물 받기: 산타 썰매에서 떨어지는 선물을 받아요 (석탄은 피하기)', lock: () => xmasOpen() ? '' : '🔒 12월 1일 ~ 25일에만 열려요', clear: () => !!lsGet('sgf_xmas_got', false),
-    go: () => startCatch('gift') },
-  { icon: '🏮', name: '월드2 · 포장마차 (대규모 업데이트)', desc: () => `삼겹살·목살·항정살 모으기 · 이야기 ${Math.min(w2Stage(), W2_N)}/${W2_N}장`, lock: () => w1Clear() ? '' : '🔒 월드1 클리어(사채 빚 다 갚기 엔딩)가 필요해요', clear: w2Clear,
-    go: () => w2Go() },
-  { icon: '📈', name: '월드3 · 주식 시장', desc: '돼지 주식에 코인 투자 · 대박 아니면 상장폐지?!', lock: () => w2Clear() ? '' : '🔒 월드2 클리어가 필요해요', clear: () => false,
-    go: () => openStock() }
+    go: () => startCatch() },
+  { icon: '🏮', name: '월드2 · 포장마차 (대규모 업데이트)', desc: () => `🚶 로비: 🥊 사냥터·🎯 저격장 → 🔪 해체 → 🏮 납품 · 이야기 ${Math.min(w2Stage(), W2_N)}/${W2_N}장`, lock: () => w1Clear() ? '' : '🔒 월드1 클리어(사채 빚 다 갚기 엔딩)가 필요해요', clear: w2Clear,
+    go: () => openLobby(2) },
+  { icon: '📈', name: '월드3 · 증권가', desc: '🚶 로비: 🥊 증권가 결투장 · 📈 증권거래소(주식)', lock: () => w2Clear() ? '' : '🔒 월드2 클리어가 필요해요', clear: () => false,
+    go: () => openLobby(3) }
 ];
 const wLock = w => wTest() ? '' : w.lock();
 function openWorlds() {
-  scene = 'worlds'; WD.shop = false;
-  if ((w1Clear() || wTest()) && !lsGet('sgf_w2seen', false)) { lsSet('sgf_w2seen', true); popup({ icon: '🏮', title: '대규모 업데이트 · 월드2 포장마차!', lines: ['삼겹살·목살·항정살을 모아 포장마차를 키워요', '이야기 5장을 다 깨면 📈 월드3 주식 시장이 열려요'], big: true }); }
+  scene = 'worlds'; WD.shop = false; mode = 1;
+  if ((w1Clear() || wTest()) && !lsGet('sgf_w2seen', false)) { lsSet('sgf_w2seen', true); popup({ icon: '🏮', title: '대규모 업데이트 · 월드2 포장마차!', lines: ['🥊 싸우거나 🎯 총으로 사냥 → 🔪 해체해서 고기 모으기', '이야기 5장을 다 깨면 📈 월드3 주식 시장이 열려요'], big: true }); }
 }
 function worldGo(i) { const w = WORLDS[i], lk = wLock(w); WD.sel = i; if (lk) { SFX.block(); toast(lk); return; } SFX.confirm(); w.go(); }
 function updateWorlds() {
@@ -100,93 +100,62 @@ function drawDiaShop() {
   txt('W/S 고르기 · Enter 사기 · Esc 돌아가기', W / 2, 522, 12, '#90a4ae', null);
 }
 
-// ================= 받기 게임: 🎁 선물 받기(크리스마스) · 🥩 고기 모으기(월드2) =================
+// ================= 🎁 선물 받기 (크리스마스 월드) =================
 const MEAT3 = { sam: ['삼겹살', '#f48fb1'], mok: ['목살', '#c62828'], hang: ['항정살', '#ffcdd2'] };
-const w2Need = s => ({ sam: 5 + s * 2, mok: 3 + s * 2, hang: 2 + s });
+const w2Need = s => ({ sam: 4 + s * 2, mok: 3 + s * 2, hang: 2 + s });   // 포장마차 N장 주문
 const CATCH_Y = GROUND - 140;
 let CG = null;
-function startCatch(kind, stage = 0) {
-  CG = { kind, stage, t: 0, dur: (kind === 'gift' ? 45 : 50) * 60, x: W / 2, vx: 0, face: 1, items: [], score: 0, got: { sam: 0, mok: 0, hang: 0 }, stun: 0, combo: 0,
-    ch: withCos(getChar(sel.c1)), done: false, endT: 0, win: false, res: [], need: kind === 'meat' ? w2Need(stage) : null,
+function startCatch() {
+  CG = { kind: 'gift', t: 0, dur: 45 * 60, x: W / 2, vx: 0, face: 1, items: [], score: 0, stun: 0, ch: withCos(getChar(sel.c1)), done: false, endT: 0, win: false, res: [],
     snow: Array.from({ length: 70 }, () => [Math.random() * W, Math.random() * H, rand(0.6, 2.2)]) };
   parts = []; texts = [];
   mode = 7; scene = 'wplay'; SFX.confirm();
 }
 const sleighX = t => W / 2 + Math.sin(t * 0.013) * 380 + Math.sin(t * 0.031) * 60;
-const needMet = () => Object.keys(CG.need).every(k => CG.got[k] >= CG.need[k]);
 function catchSpawn() {
-  const g = CG, sp = 1 + g.stage * 0.15;
-  if (g.kind === 'gift') {
-    if (g.t % Math.max(14, 26 - (g.t / 300 | 0)) !== 0) return;
-    const r = Math.random(), k = r < 0.09 ? 'gold' : r < 0.27 ? 'coal' : 'gift';
-    g.items.push({ k, x: sleighX(g.t), y: 96, vx: rand(-1.2, 1.2), vy: 1, rot: rand(-0.4, 0.4), c: ['#e53935', '#43a047', '#1e88e5', '#8e24aa'][Math.random() * 4 | 0] });
-  } else {
-    if (g.t % Math.max(10, 24 - g.stage * 3) !== 0) return;
-    const r = Math.random(), burnt = 0.12 + g.stage * 0.04;
-    const k = r < burnt ? 'burnt' : r < burnt + (1 - burnt) * 0.45 ? 'sam' : r < burnt + (1 - burnt) * 0.8 ? 'mok' : 'hang';
-    g.items.push({ k, x: rand(60, W - 60), y: -20, vx: rand(-0.8, 0.8), vy: 1.2 * sp, rot: rand(-0.5, 0.5) });
-  }
+  const g = CG; if (g.t % Math.max(14, 26 - (g.t / 300 | 0)) !== 0) return;
+  const r = Math.random(), k = r < 0.09 ? 'gold' : r < 0.27 ? 'coal' : 'gift';
+  g.items.push({ k, x: sleighX(g.t), y: 96, vx: rand(-1.2, 1.2), vy: 1, rot: rand(-0.4, 0.4), c: ['#e53935', '#43a047', '#1e88e5', '#8e24aa'][Math.random() * 4 | 0] });
 }
 function catchGet(it) {
   const g = CG, px = g.x, py = CATCH_Y;
-  if (it.k === 'coal' || it.k === 'burnt') {
-    g.stun = 36; g.combo = 0; SFX.thud();
-    if (it.k === 'coal') { g.score = Math.max(0, g.score - 2); popText(px, py - 40, '석탄! -2', '#9e9e9e', 26); }
-    else { const ks = Object.keys(g.got).filter(k => g.got[k] > 0); if (ks.length) { const k = ks[Math.random() * ks.length | 0]; g.got[k]--; popText(px, py - 40, `탄 고기! ${MEAT3[k][0]} -1`, '#8d6e63', 24); } else popText(px, py - 40, '탄 고기!', '#8d6e63', 24); }
-    burst(px, py, 12, ['#424242', '#757575', '#212121'], 6); return;
-  }
-  g.combo++;
-  if (g.kind === 'gift') { const v = it.k === 'gold' ? 3 : 1; g.score += v; popText(px, py - 40, it.k === 'gold' ? '황금 선물! +3' : '+1', it.k === 'gold' ? '#ffd740' : '#fff', it.k === 'gold' ? 28 : 22); burst(px, py, 10, it.k === 'gold' ? ['#ffd740', '#fff59d'] : [it.c, '#fff59d', '#fff'], 6); }
-  else { g.got[it.k]++; popText(px, py - 40, `${MEAT3[it.k][0]} +1`, MEAT3[it.k][1], 22); burst(px, py, 8, [MEAT3[it.k][1], '#fff'], 5); }
-  SFX.coin();
+  if (it.k === 'coal') { g.stun = 36; g.score = Math.max(0, g.score - 2); SFX.thud(); popText(px, py - 40, '석탄! -2', '#9e9e9e', 26); burst(px, py, 12, ['#424242', '#757575', '#212121'], 6); return; }
+  const v = it.k === 'gold' ? 3 : 1; g.score += v; SFX.coin();
+  popText(px, py - 40, it.k === 'gold' ? '황금 선물! +3' : '+1', it.k === 'gold' ? '#ffd740' : '#fff', it.k === 'gold' ? 28 : 22);
+  burst(px, py, 10, it.k === 'gold' ? ['#ffd740', '#fff59d'] : [it.c, '#fff59d', '#fff'], 6);
 }
 function catchFinish() {
-  const g = CG; g.done = true; g.endT = 0;
-  if (g.kind === 'gift') {
-    const n = g.score, d = Math.floor(n / 10), tot = lsGet('sgf_gifts', 0) + n, best = Math.max(lsGet('sgf_giftbest', 0), n);
-    lsSet('sgf_gifts', tot); lsSet('sgf_giftbest', best); addDia(d); nqAdd('gift', n); g.win = true;
-    g.res = [`🎁 받은 선물 ${n}개 (최고 ${best}개)`, `💎 다이아 +${d}`, `크리스마스 퀘스트 선물: ${Math.min(100, (qState(QUESTS.find(q => q.key === 'sgf_q_xmas')).gift || 0))}/100`];
-  } else {
-    g.win = needMet();
-    if (g.win) {
-      const first = g.stage >= w2Stage(), d = first ? 3 + g.stage : 1, c = Math.round(2000 * (g.stage + 1) * EARN);
-      if (first) lsSet('sgf_w2', g.stage + 1); addDia(d); addCoins(c);
-      g.res = [`🏮 ${g.stage + 1}장 클리어!`, `💎 다이아 +${d} · 🪙 +${fmtN(c)}`];
-      if (first && g.stage + 1 >= W2_N) g.res.push('🎉 월드2 클리어! 📈 월드3 주식 시장이 열렸어요');
-    } else g.res = ['⏰ 시간 끝! 주문을 다 못 채웠어요', 'R: 다시 하기'];
-  }
-  SFX[g.win ? 'gong' : 'thud']();
+  const g = CG; g.done = true; g.endT = 0; g.win = true;
+  const n = g.score, d = Math.floor(n / 10), tot = lsGet('sgf_gifts', 0) + n, best = Math.max(lsGet('sgf_giftbest', 0), n);
+  lsSet('sgf_gifts', tot); lsSet('sgf_giftbest', best); addDia(d); nqAdd('gift', n);
+  const XQ = QUESTS.find(q => q.key === 'sgf_q_xmas');
+  g.res = [`🎁 받은 선물 ${n}개 (최고 ${best}개)`, `💎 다이아 +${d}`, `크리스마스 퀘스트 선물: ${Math.min(100, qState(XQ).gift || 0)}/100`];
+  SFX.gong();
 }
-function catchExit() {
-  const g = CG; CG = null; mode = 1;
-  if (g && g.kind === 'meat' && g.win && g.stage + 1 >= W2_N && w2Stage() >= W2_N && !lsGet('sgf_w2end', false)) { lsSet('sgf_w2end', true); WS = { lines: W2_END, i: 0, next: () => openWorlds() }; scene = 'wstory'; return; }
-  if (g && g.kind === 'meat' && g.win && w2Stage() < W2_N) return w2Go();
-  openWorlds();
-}
+function catchExit() { CG = null; mode = 1; openWorlds(); }
 function updateCatch() {
   const g = CG; if (!g) return openWorlds();
   if (g.done) {
-    g.endT++; updParts();
+    g.endT++;
     if (g.endT > 30 && (pressed.Enter || pressed.Space || pressed.KeyI)) catchExit();
-    else if (g.endT > 30 && pressed.KeyR) startCatch(g.kind, g.stage);
-    else if (pressed.Escape) { CG = null; mode = 1; openWorlds(); }
+    else if (g.endT > 30 && pressed.KeyR) startCatch();
+    else if (pressed.Escape) catchExit();
     return;
   }
-  if (pressed.Escape) { CG = null; mode = 1; openWorlds(); toast('그만뒀어요 (보상 없음)'); return; }
-  g.t++; updParts();
+  if (pressed.Escape) { catchExit(); toast('그만뒀어요 (보상 없음)'); return; }
+  g.t++;
   const L = keys.KeyA || keys.ArrowLeft, R = keys.KeyD || keys.ArrowRight;
   if (g.stun > 0) { g.stun--; g.vx *= 0.8; }
   else { const want = (R ? 1 : 0) - (L ? 1 : 0); g.vx += (want * 9.5 - g.vx) * 0.35; if (want) g.face = want; }
   g.x = clamp(g.x + g.vx, 50, W - 50);
   catchSpawn();
-  const grav = g.kind === 'gift' ? 0.07 : 0.07 * (1 + g.stage * 0.15);
   for (let i = g.items.length - 1; i >= 0; i--) {
-    const it = g.items[i]; it.vy += grav; it.y += it.vy; it.x += it.vx; it.rot += it.vx * 0.02;
+    const it = g.items[i]; it.vy += 0.07; it.y += it.vy; it.x += it.vx; it.rot += it.vx * 0.02;
     if (Math.abs(it.x - g.x) < 66 && Math.abs(it.y - CATCH_Y) < 26) { g.items.splice(i, 1); catchGet(it); continue; }
-    if (it.y > GROUND + 30) { g.items.splice(i, 1); if (it.k !== 'coal' && it.k !== 'burnt') g.combo = 0; }
+    if (it.y > GROUND + 30) g.items.splice(i, 1);
   }
   for (const s of g.snow) { s[1] += s[2]; s[0] += Math.sin((gT + s[1]) * 0.01) * 0.3; if (s[1] > H) { s[1] = -5; s[0] = Math.random() * W; } }
-  if ((g.kind === 'meat' && needMet()) || g.t >= g.dur) catchFinish();
+  if (g.t >= g.dur) catchFinish();
 }
 function drawGiftItem(it) {
   ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
@@ -236,59 +205,51 @@ function drawCatchBg() {
 function drawCatch() {
   const g = CG; if (!g) return;
   drawCatchBg();
-  for (const it of g.items) g.kind === 'gift' ? drawGiftItem(it) : drawMeatItem(it);
+  for (const it of g.items) drawGiftItem(it);
   const moving = Math.abs(g.vx) > 1;
-  drawPig(g.x, GROUND, g.face, g.ch.look, { t: gT, scale: g.ch.scale * 0.9, hurt: g.stun > 0, victory: g.done && g.win, move: moving && !g.done ? 'walk' : undefined, k: (gT % 30) / 30 });
-  ctx.save(); ctx.translate(g.x, CATCH_Y + 14);   // 받는 그릇: 선물 자루 / 고기 쟁반
-  if (g.kind === 'gift') { ctx.fillStyle = '#6d4c41'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-58, -6); ctx.quadraticCurveTo(0, 34, 58, -6); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#a1887f'; ctx.fillRect(-58, -10, 116, 6); }
-  else { ctx.fillStyle = '#90a4ae'; ctx.strokeStyle = '#263238'; ctx.lineWidth = 2; ell(0, 0, 62, 12); ctx.fill(); ctx.stroke(); ctx.strokeStyle = '#455a64'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 22, -8); ctx.lineTo(i * 22, 8); ctx.stroke(); } }
+  drawPig(g.x, GROUND, g.face, g.ch.look, { t: gT, scale: g.ch.scale * 0.9, hurt: g.stun > 0, victory: g.done, move: moving && !g.done ? 'walk' : undefined, k: (gT % 30) / 30 });
+  ctx.save(); ctx.translate(g.x, CATCH_Y + 14);   // 선물 자루
+  ctx.fillStyle = '#6d4c41'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-58, -6); ctx.quadraticCurveTo(0, 34, 58, -6); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#a1887f'; ctx.fillRect(-58, -10, 116, 6);
   ctx.restore();
   drawParts();
-  // HUD
   const left = Math.max(0, g.dur - g.t) / 60;
   ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 160, 112, 320, 14, 7); ctx.fill(); ctx.fillStyle = left < 10 ? '#ff5252' : '#69f0ae'; rr(W / 2 - 158, 114, 316 * (left * 60 / g.dur), 10, 5); ctx.fill();
   txt(`⏰ ${Math.ceil(left)}초`, W / 2, 140, 16, '#fff', '#000', 4);
-  if (g.kind === 'gift') txt(`🎁 ${g.score}`, 24, 150, 30, '#ffd740', '#000', 6, 'left');
-  else {
-    txt(`🏮 ${g.stage + 1}장 주문`, 24, 140, 18, '#ffe0b2', '#000', 4, 'left');
-    Object.keys(MEAT3).forEach((k, i) => { const y = 172 + i * 36, ok = g.got[k] >= g.need[k]; drawMeatItem({ k }, 46, y, 0, 0.7); txt(`${MEAT3[k][0]} ${Math.min(g.got[k], g.need[k])}/${g.need[k]}${ok ? ' ✅' : ''}`, 76, y, 16, ok ? '#69f0ae' : '#fff', '#000', 4, 'left'); });
-  }
+  txt(`🎁 ${g.score}`, 24, 150, 30, '#ffd740', '#000', 6, 'left');
   wBack(() => { pressed.Escape = true; });
   if (!g.done && g.t < 120) txt(TOUCH ? '조이스틱으로 좌우 이동' : 'A/D 또는 ←→ 로 움직여서 받기', W / 2, 240, 20, '#fff', '#000', 5);
   if (g.done) {
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 260, 170, 520, 200, 18); ctx.fill();
-    txt(g.win ? (g.kind === 'gift' ? '🎄 선물 받기 끝!' : '🏮 주문 완료!') : '😢 실패...', W / 2, 210, 32, g.win ? '#ffd740' : '#ff8a80', '#000', 6);
+    txt('🎄 선물 받기 끝!', W / 2, 210, 32, '#ffd740', '#000', 6);
     g.res.forEach((l, i) => txt(l, W / 2, 256 + i * 30, fitSize(l, 18, 480), '#fff', null));
-    if (g.endT > 30) { txt('Enter: 계속 · R: 다시 하기 · Esc: 월드로', W / 2, 352, 13, '#bbb', null); addHot(W / 2 - 260, 170, 520, 200, () => { pressed.Enter = true; }); }
+    if (g.endT > 30) { txt('Enter: 월드로 · R: 다시 하기', W / 2, 352, 13, '#bbb', null); addHot(W / 2 - 260, 170, 520, 200, () => { pressed.Enter = true; }); }
   }
 }
 
-// ================= 🏮 월드2 이야기: 포장마차 고기 모으기 =================
+// ================= 🏮 월드2 이야기 =================
 const W2_STORY = [
-  [['내레이션', '사채를 다 갚은 돼지. 하지만 통장엔 동전 몇 개뿐이다...'], ['포장마차 할머니', '"이 포차 네가 맡아 볼래? 고기만 잘 모으면 손님은 알아서 온단다."'], ['내레이션', '1장 · 첫 장사 준비: 쏟아지는 고기를 쟁반으로 받아라! (탄 고기는 피하기)']],
+  [['내레이션', '사채를 다 갚은 돼지. 하지만 통장엔 동전 몇 개뿐이다...'], ['포장마차 할머니', '"이 포차 네가 맡아 볼래? 고기는 네가 직접 구해 와야 한단다."'], ['포장마차 할머니', '"사냥터에서 싸우거나 저격장에서 총으로 잡아서, 해체해 오렴."'], ['내레이션', '1장 · 첫 장사 준비: 삼겹살·목살·항정살을 모아 납품하자!']],
   [['손님', '"사장님! 삼겹살 2인분이요! 목살도 주세요!"'], ['내레이션', '2장 · 첫 손님들: 손님이 늘었다. 고기가 모자라!']],
-  [['옆집 고깃집 사장', '"흥, 포차 주제에. 탄 고기 맛 좀 봐라!"'], ['내레이션', '3장 · 방해 공작: 탄 고기가 더 많이 날아온다!']],
-  [['손님들', '"여기 포차 항정살이 기가 막힌대!"'], ['내레이션', '4장 · 긴 줄: 고기가 더 빨리 떨어진다!']],
+  [['옆집 고깃집 사장', '"흥, 포차 주제에. 사냥터 멧돼지들을 세게 풀어 놨지!"'], ['내레이션', '3장 · 방해 공작: 사냥터 돼지들이 더 강해졌다!']],
+  [['손님들', '"여기 포차 항정살이 기가 막힌대!"'], ['내레이션', '4장 · 긴 줄: 주문이 더 많아졌다!']],
   [['포장마차 할머니', '"오늘은 동네 포차 축제란다. 최고의 고기를 모아 보렴."'], ['내레이션', '5장 · 포차 축제의 밤: 마지막 주문을 채워라!']]
 ];
 const W2_END = [['내레이션', '포장마차가 동네 명물이 됐다!'], ['포장마차 할머니', '"이제 너는 진짜 고기 장인이야. 번 돈으로... 주식이라도 해 볼래?"'], ['내레이션', '🏮 월드2 클리어! 📈 월드3 주식 시장이 열렸어요']];
 let WS = null;
-function w2Go() {
-  const s = w2Stage();
-  if (s >= W2_N) { startCatch('meat', W2_N - 1); toast('🏮 월드2 클리어! 마지막 장을 다시 해요 (다이아 +1)'); return; }
-  WS = { lines: W2_STORY[s], i: 0, next: () => startCatch('meat', s) }; scene = 'wstory';
-}
 function updateWStory() {
   if (!WS) return openWorlds();
   if (pressed.Enter || pressed.Space || pressed.KeyI) { SFX.select(); if (++WS.i >= WS.lines.length) WS.next(); }
   else if (pressed.Escape) WS.next();
 }
-function drawWStory() {
-  if (!WS) return;
+function drawStallBg() {
   ctx.fillStyle = '#140b0d'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#e64a19'; ctx.fillRect(200, 120, 560, 40); ctx.fillStyle = '#4e342e'; ctx.fillRect(220, 160, 520, 200); ctx.fillStyle = '#ffb74d'; ctx.fillRect(250, 190, 460, 110);
   for (let i = 0; i < 9; i++) { ctx.fillStyle = (gT / 15 + i) % 2 < 1 ? '#ffd740' : '#ff7043'; ell(220 + i * 65, 120, 6, 6); ctx.fill(); }
   txt('🏮 포 장 마 차', W / 2, 140, 22, '#fff3e0', '#5d1a00', 5);
+}
+function drawWStory() {
+  if (!WS) return;
+  drawStallBg();
   drawMeatItem({ k: 'sam' }, 330, 245, 0.1, 1.2); drawMeatItem({ k: 'mok' }, 480, 250, -0.1, 1.2); drawMeatItem({ k: 'hang' }, 630, 245, 0.05, 1.2);
   drawPig(150, 372, 1, withCos(getChar(sel.c1)).look, { t: gT, scale: 0.62 });
   const [sp, tx] = WS.lines[Math.min(WS.i, WS.lines.length - 1)];
@@ -296,6 +257,240 @@ function drawWStory() {
   txt(sp, 84, 404, 16, '#ffab91', null, 0, 'left'); txt(tx, W / 2, 448, fitSize(tx, 20, 800), '#fff', null);
   txt(`${WS.i + 1}/${WS.lines.length} · Enter 다음 · Esc 건너뛰기`, W / 2, 488, 12, '#999', null);
   addHot(0, 0, W, H, () => { pressed.Enter = true; });
+}
+
+// ================= 🚶 로비 (월드2 포장마차 거리 · 월드3 증권가): 걸어 다니다 건물에 들어감 =================
+const w2Meat = () => ({ sam: 0, mok: 0, hang: 0, ...lsGet('sgf_w2meat', {}) });
+function addMeat(k, n) { const m = w2Meat(); m[k] = Math.max(0, m[k] + n); lsSet('sgf_w2meat', m); }
+const LOBBY = {
+  2: { name: '🏮 월드2 · 포장마차 거리', sky: ['#1a0f1f', '#4a1c2c'], spots: [
+    { x: 100, icon: '🚪', name: '월드로', col: '#546e7a', go: () => openWorlds() },
+    { x: 330, icon: '🥊', name: '사냥터 (싸우기)', col: '#c62828', go: () => worldFight(2) },
+    { x: 580, icon: '🎯', name: '저격장 (총 사냥)', col: '#2e7d32', go: () => startSnipe() },
+    { x: 830, icon: '🏮', name: '포장마차', col: '#e65100', go: () => openStall() }] },
+  3: { name: '📈 월드3 · 증권가', sky: ['#07131f', '#1a3a5c'], spots: [
+    { x: 100, icon: '🚪', name: '월드로', col: '#546e7a', go: () => openWorlds() },
+    { x: 420, icon: '🥊', name: '증권가 결투장', col: '#6a1b9a', go: () => worldFight(3) },
+    { x: 760, icon: '📈', name: '증권거래소 (주식)', col: '#1565c0', go: () => openStock() }] }
+};
+const LB = { w: 2, x: 200, vx: 0, face: 1, near: -1 };
+function openLobby(w, keepX) {
+  if (LB.w !== w || !keepX) { LB.x = 200; LB.vx = 0; LB.face = 1; }
+  LB.w = w; mode = 7; scene = 'lobby'; parts = []; texts = [];
+  if (w === 2 && !lsGet('sgf_w2tip', false)) { lsSet('sgf_w2tip', true); popup({ icon: '🏮', title: '포장마차 거리', lines: ['🥊 사냥터에서 싸우거나 🎯 저격장에서 총으로 사냥', '🔪 이기면 해체해서 삼겹살·목살·항정살을 얻어요', '🏮 포장마차에 납품하면 이야기가 이어져요'] }); }
+}
+const lobbyBack = () => openLobby(LB.w, true);
+function lobbyEnter(i) { const s = LOBBY[LB.w].spots[i]; LB.x = s.x; SFX.confirm(); s.go(); }
+function updateLobby() {
+  const L = LOBBY[LB.w], left = keys.KeyA || keys.ArrowLeft, right = keys.KeyD || keys.ArrowRight, want = (right ? 1 : 0) - (left ? 1 : 0);
+  LB.vx += (want * 6 - LB.vx) * 0.3; if (want) LB.face = want; LB.x = clamp(LB.x + LB.vx, 50, W - 50);
+  LB.near = L.spots.findIndex(s => Math.abs(s.x - LB.x) < 75);
+  if (LB.near >= 0 && (pressed.Enter || pressed.Space || pressed.KeyI || pressed.KeyW || pressed.ArrowUp)) return lobbyEnter(LB.near);
+  if (pressed.Escape) openWorlds();
+}
+function drawLobby() {
+  const L = LOBBY[LB.w], gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, L.sky[0]); gr.addColorStop(1, L.sky[1]); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  if (LB.w === 3) { for (let i = 0; i < 12; i++) { const bh = 120 + (i * 53 % 140); ctx.fillStyle = 'rgba(30,60,90,0.8)'; ctx.fillRect(i * 82, GROUND - 120 - bh, 70, bh); ctx.fillStyle = 'rgba(255,235,59,0.5)'; for (let y = GROUND - 110 - bh; y < GROUND - 130; y += 22) for (let x = i * 82 + 8; x < i * 82 + 62; x += 18) if ((x + y + i) % 3) ctx.fillRect(x, y, 8, 10); }
+    const tk = '돼지코인 ▲3.2%  삼겹전자 ▼1.1%  포차홀딩스 ▲0.4%  꿀꿀식품 ▼7.7%  '; ctx.fillStyle = '#000'; ctx.fillRect(0, 70, W, 26); ctx.save(); ctx.beginPath(); ctx.rect(0, 70, W, 26); ctx.clip(); txt(tk + tk + tk, W - (gT * 2 % 700), 83, 15, '#69f0ae', null, 0, 'left'); ctx.restore(); }
+  else { for (let i = 0; i < 16; i++) { const on = (gT / 20 + i) % 3 < 2; ctx.fillStyle = on ? '#ffd740' : '#8d6e63'; ell(30 + i * 60, 96 + Math.sin(i) * 6, 5, 5); ctx.fill(); } ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 92); for (let i = 0; i <= 16; i++) ctx.lineTo(30 + i * 60, 96 + Math.sin(i) * 6); ctx.stroke(); }
+  ctx.fillStyle = LB.w === 3 ? '#263238' : '#3e2723'; ctx.fillRect(0, GROUND, W, H - GROUND); ctx.fillStyle = 'rgba(255,255,255,0.08)'; for (let x = 0; x < W; x += 60) ctx.fillRect(x, GROUND + 30, 30, 4);
+  L.spots.forEach((s, i) => {   // 건물
+    const on = LB.near === i, bw = 170, bx = s.x - bw / 2, by = GROUND - 190;
+    ctx.fillStyle = s.col; rr(bx, by, bw, 190, 10); ctx.fill(); ctx.strokeStyle = on ? '#ffd740' : '#000'; ctx.lineWidth = on ? 5 : 2; rr(bx, by, bw, 190, 10); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; rr(s.x - 34, GROUND - 84, 68, 84, 8); ctx.fill();   // 문
+    txt(s.icon, s.x, by + 46, 40, '#fff', null); txt(s.name, s.x, by + 96, fitSize(s.name, 17, 158), '#fff', '#000', 4);
+    addHot(bx, by, bw, 190, () => lobbyEnter(i));
+  });
+  const C = withCos(getChar(sel.c1));
+  drawPig(LB.x, GROUND + 40, LB.face, C.look, { t: gT, scale: C.scale * 0.7, move: Math.abs(LB.vx) > 1 ? 'walk' : undefined, k: (gT % 30) / 30 });
+  if (LB.near >= 0) txt(`▲ ${LOBBY[LB.w].spots[LB.near].name} 들어가기 (${TOUCH ? '건물 누르기' : 'W / Enter'})`, LB.x, GROUND - 210, 15, '#ffd740', '#000', 4);
+  txt(L.name, W / 2, 34, 26, '#fff', '#000', 6); wDia(); wBack(() => { pressed.Escape = true; });
+  if (LB.w === 2) {
+    const m = w2Meat(), s = w2Stage(), hud = `🥓 삼겹살 ${m.sam} · 목살 ${m.mok} · 항정살 ${m.hang}  ·  📖 이야기 ${Math.min(s, W2_N)}/${W2_N}장`;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(W / 2 - 300, 116, 600, 32, 10); ctx.fill(); txt(hud, W / 2, 132, fitSize(hud, 15, 580), '#ffe0b2', null);
+  }
+  txt(TOUCH ? '조이스틱으로 걷기 · 건물을 누르면 들어가요' : 'A/D 걷기 · W/Enter 들어가기 · Esc 월드', W / 2, 526, 12, '#bbb', null);
+}
+
+// ---- 🥊 월드 싸움 (월드2 사냥터 · 월드3 증권가 결투장): 진짜 싸움 엔진 (mode 8) ----
+const W2_FOES = ['분홍이', '깜돌이', '멧돌이', '꼬미', '얼음이', '족발왕', '오겹장군', '양념이', '항정', '목살', '갈비', '감자탕', '냉삼'];
+let WF = { w: 2 };
+function worldFight(w) {
+  const pool = w === 2 ? CHARS.filter(c => W2_FOES.includes(c.name)) : CHARS.filter(c => !c.relId || isRel(c.relId));
+  WF = { w }; mode = 8; ranked = false;
+  p1.setChar(withCos(getChar(sel.c1))); p2.setChar(pool[Math.random() * pool.length | 0]); startMatch();
+  p2.cpuLv = w === 2 ? 1 + w2Stage() * 2 : 9; p1.reset(); p2.reset();
+  p1.name = playerName; p2.name = (w === 2 ? '야생 ' : '라이벌 투자자 ') + p2.base;
+}
+function worldFightEnd(win) {   // 싸움이 끝나면 (afterRound에서 부름)
+  sizzleOff(); const foe = p2;
+  if (WF.w === 2) { if (win) return startButcher({ bonus: 1, look: foe.C, name: foe.base, how: '🥊 사냥 성공! (싸움 보너스: 부위마다 +1)' }); openLobby(2, true); toast('😵 사냥 실패... 다시 도전!'); return; }
+  openLobby(3, true);
+  if (win) { const c = Math.round(6000 * EARN); addCoins(c); addDia(1); SFX.coin(); popup({ icon: '🥊', title: '결투 승리!', lines: [`라이벌 투자자 ${foe.base}를 이겼어요`, `🪙 +${fmtN(c)} · 💎 +1`] }); }
+  else toast('😵 결투에서 졌어요...');
+}
+function worldFightQuit() { sizzleOff(); openLobby(WF.w, true); toast('싸움을 그만뒀어요'); }
+
+// ---- 🎯 저격장: 총으로 멀리 있는 돼지 사냥 ----
+let SN = null;
+function startSnipe() {
+  const pool = CHARS.filter(c => W2_FOES.includes(c.name));
+  SN = { t: 0, dur: 30 * 60, cx: W / 2, cy: 300, ammo: 3, hit: null, done: false, endT: 0,
+    tg: [0, 1, 2].map(i => ({ ch: pool[Math.random() * pool.length | 0], x: rand(140, W - 140), y: 300 + i * 50, vx: rand(0.8, 1.6) * (Math.random() < 0.5 ? -1 : 1), s: 0.3 + i * 0.07, stopT: 0, dead: false })) };
+  parts = []; texts = []; mode = 7; scene = 'snipe';
+}
+const snAim = () => [SN.cx + Math.sin(SN.t * 0.05) * 7, SN.cy + Math.cos(SN.t * 0.07) * 5];   // 조준이 살짝 흔들림
+function snipeFire() {
+  if (!SN || SN.done || SN.ammo <= 0) return;
+  const [ax, ay] = snAim(); SN.ammo--; SFX.boom(); shake = Math.max(shake, 6); burst(ax, ay, 8, ['#fff59d', '#fff'], 5);
+  const tg = [...SN.tg].sort((a, b) => b.y - a.y).find(t => !t.dead && Math.abs(ax - t.x) < 66 * t.s / 0.3 * 0.3 + 26 && ay > t.y - 150 * t.s && ay < t.y + 6);
+  if (tg) {
+    const f = Math.sign(tg.vx) || 1, head = Math.hypot(ax - (tg.x + f * 52 * tg.s), ay - (tg.y - 100 * tg.s)) < 34 * tg.s + 8;
+    tg.dead = true; SN.hit = { tg, head }; SN.done = true; SN.endT = 0; burst(ax, ay, 16, ['#ff5252', '#ff8a80', '#fff'], 7);
+    popText(ax, ay - 30, head ? '🎯 헤드샷!!' : '명중!', head ? '#ffd740' : '#fff', head ? 34 : 28);
+  } else {
+    popText(ax, ay - 30, '빗나감!', '#ff8a80', 24); for (const t of SN.tg) { t.vx = (Math.sign(t.vx) || 1) * Math.min(4.5, Math.abs(t.vx) * 1.7); t.stopT = 0; }   // 놀라서 도망
+    if (SN.ammo <= 0) { SN.done = true; SN.endT = 0; }
+  }
+}
+function updateSnipe() {
+  const s = SN; if (!s) return lobbyBack();
+ 
+  if (s.done) {
+    s.endT++;
+    if (s.hit && s.endT > 70) { const { tg, head } = s.hit; SN = null; return startButcher({ bonus: head ? 1 : 0, look: tg.ch.look, name: tg.ch.name, how: head ? '🎯 헤드샷! (부위마다 +1)' : '🎯 저격 성공!' }); }
+    if (!s.hit && s.endT > 30 && (pressed.Enter || pressed.Space || pressed.Escape)) { SN = null; lobbyBack(); }
+    return;
+  }
+  if (pressed.Escape) { SN = null; lobbyBack(); return; }
+  s.t++;
+  const sp = 7, dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), dy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
+  s.cx = clamp(s.cx + dx * sp, 20, W - 20); s.cy = clamp(s.cy + dy * sp, 160, H - 40);
+  for (const t of s.tg) {
+    if (t.dead) continue;
+    if (t.stopT > 0) t.stopT--; else { t.x += t.vx; if (Math.random() < 0.006) t.stopT = rand(40, 90); }
+    if (t.x < 80 || t.x > W - 80) { t.vx = -t.vx; t.x = clamp(t.x, 80, W - 80); }
+  }
+  if (pressed.Space || pressed.Enter || pressed.KeyI || pressed.KeyJ) snipeFire();
+  if (s.t >= s.dur && !s.done) { s.done = true; s.endT = 0; popText(W / 2, 260, '⏰ 시간 끝!', '#ff8a80', 32); }
+}
+function drawSnipe() {
+  const s = SN; if (!s) return;
+  const gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#81d4fa'); gr.addColorStop(0.45, '#e1f5fe'); gr.addColorStop(0.46, '#7cb342'); gr.addColorStop(1, '#33691e'); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#558b2f'; for (let i = 0; i < 7; i++) { ell(i * 160 + 40, 250, 120, 40); ctx.fill(); }
+  ctx.fillStyle = '#2e7d32'; for (let i = 0; i < 14; i++) { const x = i * 72 + 20; ctx.beginPath(); ctx.moveTo(x, 248); ctx.lineTo(x + 18, 190 - (i % 3) * 14); ctx.lineTo(x + 36, 248); ctx.fill(); }
+  for (const t of [...s.tg].sort((a, b) => a.y - b.y)) {
+    const f = Math.sign(t.vx) || 1;
+    if (t.dead) { ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(f * Math.min(1.5, s.endT * 0.08)); drawPig(0, 0, f, t.ch.look, { t: gT, scale: t.s, hurt: true }); ctx.restore(); }
+    else drawPig(t.x, t.y, f, t.ch.look, { t: gT, scale: t.s, move: t.stopT > 0 ? undefined : 'walk', k: (gT % 30) / 30 });
+  }
+  drawParts();
+  const [ax, ay] = snAim(), R = 110;   // 스코프
+  ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.82)'; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(ax, ay, R, 0, Math.PI * 2, true); ctx.fill();
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(ax, ay, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax - R, ay); ctx.lineTo(ax - 10, ay); ctx.moveTo(ax + 10, ay); ctx.lineTo(ax + R, ay); ctx.moveTo(ax, ay - R); ctx.lineTo(ax, ay - 10); ctx.moveTo(ax, ay + 10); ctx.lineTo(ax, ay + R); ctx.stroke();
+  ctx.fillStyle = '#ff1744'; ell(ax, ay, 3, 3); ctx.fill(); ctx.restore();
+  txt('🎯 저격장', W / 2, 30, 24, '#fff', '#000', 5); wBack(() => { pressed.Escape = true; });
+  txt('🔫'.repeat(s.ammo) + '▫️'.repeat(3 - s.ammo), 24, 64, 22, '#fff', null, 0, 'left');
+  txt(`⏰ ${Math.ceil(Math.max(0, s.dur - s.t) / 60)}초`, W - 24, 64, 18, '#fff', '#000', 4, 'right');
+  if (!s.done && s.t < 150) txt(TOUCH ? '돼지를 누르면 그 자리를 쏴요 · 3발' : 'WASD/화살표 조준 · Space 발사 · 3발 · 머리를 맞히면 헤드샷', W / 2, 500, 15, '#fff', '#000', 4);
+  if (s.done && !s.hit) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; rr(W / 2 - 200, 220, 400, 100, 16); ctx.fill(); txt('😢 사냥 실패...', W / 2, 256, 28, '#ff8a80', '#000', 5); if (s.endT > 30) txt('Enter: 로비로', W / 2, 294, 14, '#bbb', null); }
+  if (!s.done) for (let gy = 150; gy < H; gy += 40) for (let gx = 0; gx < W; gx += 40) addHot(gx, gy, 40, 40, () => { if (!SN) return; SN.cx = gx + 20 - Math.sin(SN.t * 0.05) * 7; SN.cy = gy + 20 - Math.cos(SN.t * 0.07) * 5; snipeFire(); });
+  else if (!s.hit) addHot(0, 0, W, H, () => { pressed.Enter = true; });
+}
+
+// ---- 🔪 해체: 칼이 지나갈 때 맞춰 눌러 부위별로 자르기 (목살 → 항정살 → 삼겹살) ----
+const BCUTS = [['mok', '목살'], ['hang', '항정살'], ['sam', '삼겹살']];
+let BT = null;
+function startButcher(o) { BT = { i: 0, t: 0, pos: 0, dir: 1, zone: rand(0.3, 0.7), res: [], bonus: o.bonus || 0, look: o.look, name: o.name, how: o.how || '', done: false, endT: 0 }; parts = []; texts = []; mode = 7; scene = 'butcher'; }
+function butcherCut() {
+  const b = BT; if (!b || b.done) return;
+  const d = Math.abs(b.pos - b.zone), [lab, n] = d < 0.05 ? ['완벽!', 3] : d < 0.13 ? ['좋음', 2] : ['아쉬움', 1], [k, nm] = BCUTS[b.i], amt = n + b.bonus;
+  b.res.push([k, nm, amt, lab]); addMeat(k, amt); SFX.chop(); shake = Math.max(shake, 4);
+  burst(W / 2, 250, 12, [MEAT3[k][1], '#fff'], 6); popText(W / 2, 200, `${nm} +${amt} (${lab})`, lab === '완벽!' ? '#ffd740' : '#fff', 28);
+  if (++b.i >= BCUTS.length) { b.done = true; b.endT = 0; } else { b.zone = rand(0.25, 0.75); b.pos = 0; b.dir = 1; }
+}
+function updateButcher() {
+  const b = BT; if (!b) return lobbyBack();
+  b.t++;
+  if (b.done) { b.endT++; if (b.endT > 30 && (pressed.Enter || pressed.Space || pressed.KeyI || pressed.Escape)) { BT = null; lobbyBack(); } return; }
+  b.pos += b.dir * (0.013 + b.i * 0.004); if (b.pos > 1) { b.pos = 1; b.dir = -1; } if (b.pos < 0) { b.pos = 0; b.dir = 1; }
+  if (pressed.Space || pressed.Enter || pressed.KeyI || pressed.KeyJ) butcherCut();
+}
+function drawButcher() {
+  const b = BT; if (!b) return;
+  ctx.fillStyle = '#3e2723'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#a1887f'; rr(130, 110, 700, 290, 24); ctx.fill(); ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 6; rr(130, 110, 700, 290, 24); ctx.stroke();   // 도마
+  ctx.strokeStyle = 'rgba(93,64,55,0.4)'; ctx.lineWidth = 2; for (let y = 140; y < 390; y += 26) { ctx.beginPath(); ctx.moveTo(150, y); ctx.quadraticCurveTo(480, y + 8, 810, y); ctx.stroke(); }
+  const cx = W / 2 + 40, cy = 255, cur = b.done ? -1 : b.i;   // 부위도 (돼지 몸 모양)
+  ctx.fillStyle = '#f8bbd0'; ctx.strokeStyle = '#ad1457'; ctx.lineWidth = 3;
+  ell(cx, cy, 230, 95); ctx.fill(); ctx.stroke(); ell(cx - 250, cy - 20, 70, 62); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#f48fb1'; ell(cx - 305, cy - 12, 22, 18); ctx.fill(); ctx.stroke();
+  const zones = { mok: [cx - 170, cy - 60, 110, 60], hang: [cx - 230, cy + 20, 100, 50], sam: [cx - 40, cy + 10, 230, 70] };
+  for (const [k, nm] of BCUTS) {
+    const [x, y, w, h] = zones[k], on = BCUTS[cur] && BCUTS[cur][0] === k, did = b.res.find(r => r[0] === k);
+    ctx.fillStyle = did ? 'rgba(76,175,80,0.45)' : on ? `rgba(255,215,64,${0.35 + Math.sin(gT * 0.2) * 0.15})` : 'rgba(255,255,255,0.2)';
+    rr(x, y, w, h, 12); ctx.fill(); ctx.setLineDash([8, 6]); ctx.strokeStyle = on ? '#ffd740' : '#880e4f'; ctx.lineWidth = on ? 4 : 2; rr(x, y, w, h, 12); ctx.stroke(); ctx.setLineDash([]);
+    txt(did ? `${nm} ✔` : nm, x + w / 2, y + h / 2, 17, '#fff', '#4a0d25', 4);
+  }
+  drawPig(80, 470, 1, b.look, { t: gT, scale: 0.4, hurt: true }); txt(`오늘의 사냥: ${b.name}`, 130, 470, 13, '#ffe0b2', null, 0, 'left');
+  txt('🔪 해체하기', W / 2, 40, 28, '#fff', '#000', 6); if (b.how) txt(b.how, W / 2, 78, 15, '#ffd740', '#000', 4);
+  const bx = 230, bw = 500, by = 430;   // 타이밍 막대
+  ctx.fillStyle = '#212121'; rr(bx, by, bw, 26, 13); ctx.fill();
+  if (!b.done) {
+    ctx.fillStyle = '#43a047'; ctx.fillRect(bx + bw * (b.zone - 0.13), by + 3, bw * 0.26, 20); ctx.fillStyle = '#ffd740'; ctx.fillRect(bx + bw * (b.zone - 0.05), by + 3, bw * 0.1, 20);
+    txt('🔪', bx + bw * b.pos, by + 10, 30, '#fff', null);
+    const tip = `${BCUTS[b.i][1]} 자르기: 칼이 노란 칸에 오면 ${TOUCH ? '화면을 누르기' : 'Space'}!`; txt(tip, W / 2, 500, fitSize(tip, 16, 700), '#fff', '#000', 4);
+    addHot(0, 100, W, H - 100, () => butcherCut());
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)'; rr(W / 2 - 240, 150, 480, 200, 16); ctx.fill();
+    txt('🥩 해체 끝!', W / 2, 186, 28, '#ffd740', '#000', 5);
+    b.res.forEach(([k, nm, amt, lab], i) => txt(`${nm} +${amt}  (${lab})`, W / 2, 228 + i * 30, 18, MEAT3[k][1] === '#c62828' ? '#ff8a80' : MEAT3[k][1], '#000', 3));
+    if (b.endT > 30) { txt('Enter: 로비로', W / 2, 332, 13, '#bbb', null); addHot(0, 0, W, H, () => { pressed.Enter = true; }); }
+  }
+}
+
+// ---- 🏮 포장마차: 이야기 보기 · 주문 납품 (월드2 클리어 뒤엔 고기 팔기) ----
+function openStall() {
+  const s = w2Stage();
+  if (s < W2_N && lsGet('sgf_w2story', -1) < s) { lsSet('sgf_w2story', s); WS = { lines: W2_STORY[s], i: 0, next: () => { scene = 'stall'; } }; scene = 'wstory'; return; }
+  mode = 7; scene = 'stall';
+}
+function stallAct() {
+  const s = w2Stage(), m = w2Meat();
+  if (s < W2_N) {
+    const need = w2Need(s);
+    if (!Object.keys(need).every(k => m[k] >= need[k])) { SFX.block(); toast('🥩 고기가 모자라요! 사냥터·저격장에서 사냥하고 해체해서 모아요'); return; }
+    for (const k in need) m[k] -= need[k]; lsSet('sgf_w2meat', m);
+    const d = 3 + s, c = Math.round(2000 * (s + 1) * EARN); lsSet('sgf_w2', s + 1); addDia(d); addCoins(c); SFX.gong();
+    popup({ icon: '🏮', title: `${s + 1}장 클리어!`, lines: ['주문한 고기를 다 납품했어요', `💎 다이아 +${d} · 🪙 +${fmtN(c)}`] });
+    if (s + 1 >= W2_N) { WS = { lines: W2_END, i: 0, next: () => { openWorlds(); popup({ icon: '📈', title: '월드2 클리어!', lines: ['📈 월드3 주식 시장이 열렸어요'], big: true }); } }; scene = 'wstory'; }
+    else openStall();
+    return;
+  }
+  const v = Math.round((m.sam * 300 + m.mok * 250 + m.hang * 400) * EARN);
+  if (!v) { SFX.block(); toast('팔 고기가 없어요'); return; }
+  addCoins(v); lsSet('sgf_w2meat', { sam: 0, mok: 0, hang: 0 }); SFX.coin(); toast(`🏮 고기를 전부 팔았어요! +${fmtN(v)} 코인`);
+}
+function updateStall() {
+  if (pressed.Enter || pressed.Space || pressed.KeyI) stallAct();
+  else if (pressed.Escape) lobbyBack();
+}
+function drawStall() {
+  drawStallBg();
+  const s = w2Stage(), m = w2Meat(), done = s >= W2_N;
+  ctx.fillStyle = 'rgba(0,0,0,0.78)'; rr(180, 196, 600, 250, 16); ctx.fill(); ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 3; rr(180, 196, 600, 250, 16); ctx.stroke();
+  txt(done ? '🏮 월드2 클리어! 남은 고기는 팔 수 있어요' : `📖 ${s + 1}장 주문`, W / 2, 226, 22, '#ffe0b2', '#000', 4);
+  const need = done ? null : w2Need(s);
+  Object.keys(MEAT3).forEach((k, i) => {
+    const y = 270 + i * 44, ok = !need || m[k] >= need[k];
+    drawMeatItem({ k }, 270, y, 0, 0.9);
+    txt(need ? `${MEAT3[k][0]}  ${m[k]} / ${need[k]}${ok ? ' ✅' : ''}` : `${MEAT3[k][0]}  ${m[k]}개`, 320, y, 19, ok ? '#69f0ae' : '#fff', '#000', 3, 'left');
+  });
+  const can = done ? m.sam + m.mok + m.hang > 0 : Object.keys(need).every(k => m[k] >= need[k]);
+  ctx.fillStyle = can ? '#2e7d32' : '#616161'; rr(W / 2 - 140, 456, 280, 42, 10); ctx.fill();
+  txt(done ? '🪙 고기 전부 팔기 (Enter)' : '📦 납품하기 (Enter)', W / 2, 477, 17, '#fff', null); addHot(W / 2 - 140, 456, 280, 42, () => stallAct());
+  if (!done && !can) txt('부족한 고기는 🥊 사냥터나 🎯 저격장에서 구해 와요', W / 2, 516, 13, '#ffab91', null);
+  wDia(); wBack(() => { pressed.Escape = true; });
 }
 
 // ================= 📈 월드3: 주식 시장 =================
@@ -310,7 +505,7 @@ function stockRoll(r = Math.random()) {
   if (r < 0.60) return { k: 'down', m: rand(0.3, 0.7), name: '📉 떨어졌다...', col: '#ff8a80' };
   return { k: 'delist', m: 0, name: '💀 상장폐지', col: '#ff1744' };
 }
-function openStock() { SK.phase = 'pick'; SK.t = 0; SK.res = null; scene = 'stock'; }
+function openStock() { SK.phase = 'pick'; SK.t = 0; SK.res = null; mode = 7; scene = 'stock'; }
 function stockBuy() {
   const stake = Math.floor(coins * ST_PCT[SK.amt]);
   if (stake < 1) { SFX.block(); toast('💸 투자할 코인이 없어요'); return; }
@@ -328,14 +523,14 @@ function stockDone() {
 function updateStock() {
   SK.t++;
   if (SK.phase === 'run') { if (SK.t >= 150) stockDone(); return; }
-  if (SK.phase === 'result') { if (SK.t > 20 && (pressed.Enter || pressed.Space || pressed.KeyI)) { SK.phase = 'pick'; SK.t = 0; } else if (pressed.Escape) openWorlds(); return; }
+  if (SK.phase === 'result') { if (SK.t > 20 && (pressed.Enter || pressed.Space || pressed.KeyI)) { SK.phase = 'pick'; SK.t = 0; } else if (pressed.Escape) openLobby(3, true); return; }
   const n = STOCKS.length;
   if (pressed.KeyA || pressed.ArrowLeft) { SK.sel = (SK.sel + n - 1) % n; SFX.select(); }
   if (pressed.KeyD || pressed.ArrowRight) { SK.sel = (SK.sel + 1) % n; SFX.select(); }
   if (pressed.KeyW || pressed.ArrowUp) { SK.amt = Math.min(ST_PCT.length - 1, SK.amt + 1); SFX.select(); }
   if (pressed.KeyS || pressed.ArrowDown) { SK.amt = Math.max(0, SK.amt - 1); SFX.select(); }
   if (pressed.Enter || pressed.Space || pressed.KeyI) stockBuy();
-  else if (pressed.Escape) openWorlds();
+  else if (pressed.Escape) openLobby(3, true);
 }
 function drawStock() {
   ctx.fillStyle = '#07131f'; ctx.fillRect(0, 0, W, H);
@@ -370,6 +565,6 @@ function drawStock() {
     const r = SK.res, d = SK.pay - SK.stake;
     txt(r.name, W / 2, 425, 38, r.col, '#000', 7);
     txt(r.k === 'delist' ? `${STOCKS[SK.sel][1]} 상장폐지... 투자한 ${fmtN(SK.stake)} 코인이 사라졌어요` : `${fmtN(SK.stake)} → ${fmtN(SK.pay)} 코인 (${d >= 0 ? '+' : ''}${fmtN(d)})${r.k === 'jackpot' ? ' · 💎 +5' : ''}`, W / 2, 468, 18, '#fff', null);
-    if (SK.t > 20) { txt('Enter: 다시 투자 · Esc: 월드로', W / 2, 506, 13, '#bbb', null); addHot(0, 150, W, H - 150, () => { pressed.Enter = true; }); }
+    if (SK.t > 20) { txt('Enter: 다시 투자 · Esc: 로비로', W / 2, 506, 13, '#bbb', null); addHot(0, 150, W, H - 150, () => { pressed.Enter = true; }); }
   }
 }

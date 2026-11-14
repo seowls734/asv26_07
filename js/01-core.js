@@ -233,7 +233,7 @@ for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if 
 padReady = true; fit();
 let padShown = false;
 function syncPad() {
-  const want = TOUCH && mode !== 0 && mode !== 4 && ['intro', 'fight', 'roundEnd', 'wplay'].includes(scene);   // CPU끼리 싸우는 모드(구경·AI 베팅)엔 패드 숨김
+  const want = TOUCH && mode !== 0 && mode !== 4 && ['intro', 'fight', 'roundEnd', 'wplay', 'lobby', 'snipe'].includes(scene);   // CPU끼리 싸우는 모드(구경·AI 베팅)엔 패드 숨김
   if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; if (!want) { joyEnd(); padReleaseAll(); } }   // 숨길 때 눌린 키가 남지 않게
   if (!padShown) return;
   // 특수 버튼 상태: 쓸 수 있으면 빛나고(필살기), 못 쓰면 흐리게

@@ -508,6 +508,10 @@ function draw() {
   else if (scene === 'wplay') drawCatch();
   else if (scene === 'wstory') drawWStory();
   else if (scene === 'stock') drawStock();
+  else if (scene === 'lobby') drawLobby();
+  else if (scene === 'snipe') drawSnipe();
+  else if (scene === 'butcher') drawButcher();
+  else if (scene === 'stall') drawStall();
   else if (scene === 'reward') drawReward();
   else if (scene === 'trailer') drawTrailer();
   else if (scene === 'nrtrailer') drawNrTrailer();

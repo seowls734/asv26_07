@@ -33,6 +33,7 @@ function nextOpponent() {
 // 랭크전 싸움 도중 나가면 패배 처리 (지는 중에 나가서 점수 지키기 방지)
 function rankedForfeit() { if (!lsGet("sgf_rkpending", false)) return; lsSet("sgf_rkpending", false); rankedResult(false, false); lsSet("sgf_ranked", true); uploadRank(); toast("⚠️ 랭크전 도중 나가서 패배로 처리됐어요"); }
 function quitRun() {
+  if (mode === 8) return worldFightQuit();
   if (mode === 1 && ranked && ["intro", "fight", "roundEnd"].includes(scene)) rankedForfeit(); if (mode === 1 && !runOver && streak > 0) { rankPos = saveRank({ name: playerName, streak, char: p1.base, time: Date.now(), rk: !!ranked }); runOver = true; } toTitle(); }
 function startMatch() {
   if (mode !== 3) sseed(Math.random() * 4294967296 >>> 0);
@@ -90,6 +91,7 @@ function timeOver() {
 function afterRound() {
   const champ = p1.wins >= 2 ? p1 : p2.wins >= 2 ? p2 : null;
   if (champ === p2 && mode === 1 && ((inv.use.bigRevive || 0) > 0 || (inv.use.revive || 0) > 0)) { RV.t = 0; RV.sel = 0; scene = 'revive'; return; }   // 졌을 때 부활권: 쓸지 물어봄
+  if (champ && mode === 8) return worldFightEnd(champ === p1);   // 🌍 월드 싸움: 해체·보상 뒤 로비로
   if (champ) startCutscene(champ, champ.opp);
   else { round++; startRound(); }
 }
@@ -194,6 +196,10 @@ function step() {
   else if (scene === 'wplay') updateCatch();
   else if (scene === 'wstory') updateWStory();
   else if (scene === 'stock') updateStock();
+  else if (scene === 'lobby') updateLobby();
+  else if (scene === 'snipe') updateSnipe();
+  else if (scene === 'butcher') updateButcher();
+  else if (scene === 'stall') updateStall();
   else if (scene === 'endings') updateEndings();
   else if (scene === 'reward') updateReward();
   else if (scene === 'trailer') updateTrailer();
