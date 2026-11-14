@@ -139,20 +139,28 @@ function orInput(a, b) { const o = {}; for (const k in a) o[k] = a[k] || b[k]; r
 // ---- 화면 탭(메뉴용 핫스팟) ----
 let hot = [];
 function addHot(x, y, w, h, fn) { hot.push({ x, y, w, h, fn }); }
+const tapPend = {};   // 목록 화면(손가락): 손을 뗄 때 눌림 · 끌어서 밀었으면 안 눌림 (다른 게임처럼)
+const cvXY = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
+function hitHot(x, y, e) { for (let i = hot.length - 1; i >= 0; i--) { const h = hot[i]; if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { h.fn(); if (e) e.preventDefault(); return; } } }
 cv.addEventListener('pointerdown', e => {
   initAudio();
-  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
-  for (let i = hot.length - 1; i >= 0; i--) { const h = hot[i]; if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { h.fn(); e.preventDefault(); return; } }
+  if (e.pointerType !== 'mouse' && canScroll()) { tapPend[e.pointerId] = { x0: e.clientX, y0: e.clientY }; return; }
+  const [x, y] = cvXY(e); hitHot(x, y, e);
 });
+cv.addEventListener('pointermove', e => { const t = tapPend[e.pointerId]; if (t && Math.hypot(e.clientX - t.x0, e.clientY - t.y0) > 10) delete tapPend[e.pointerId]; });
+cv.addEventListener('pointerup', e => { if (!tapPend[e.pointerId]) return; delete tapPend[e.pointerId]; const [x, y] = cvXY(e); hitHot(x, y, e); });
+addEventListener('pointercancel', e => { delete tapPend[e.pointerId]; });
 // 🖱️ 목록 화면 스크롤: PC는 마우스 휠, 모바일은 손가락으로 위아래로 밀기 → ↑↓ 키를 누른 것처럼 (고른 칸 따라 화면이 넘어감)
 const SCROLL_SCENES = ['select', 'pigs', 'market', 'tycoon', 'reward', 'cutlist', 'ranking', 'endings', 'keys', 'betpick', 'bank'];
 const canScroll = () => SCROLL_SCENES.includes(scene) && !(scene === 'tycoon' && TY.phase !== 'lobby') && !POP && !qm && !(typeof authOpen === 'function' && authOpen());
 function scrollStep(dir) { if (canScroll()) pressed[dir > 0 ? 'ArrowDown' : 'ArrowUp'] = true; }
 let wheelAcc = 0;
-cv.addEventListener('wheel', e => { if (!canScroll()) return; e.preventDefault(); wheelAcc += e.deltaY; if (Math.abs(wheelAcc) >= 50) { scrollStep(Math.sign(wheelAcc)); wheelAcc = 0; } }, { passive: false });
+// 돼지 도감·캐릭터 선택: 손가락·휠을 따라 그대로 밀림 (고른 칸은 안 바뀜)
+const FREE_SCROLL = { pigs: d => { PG.free = (PG.free ?? 0) + d / 112; }, select: d => { sel.free = (sel.free ?? 0) + d / 112; } };
+cv.addEventListener('wheel', e => { if (!canScroll()) return; e.preventDefault(); if (FREE_SCROLL[scene]) return FREE_SCROLL[scene](e.deltaY * 0.6); wheelAcc += e.deltaY; if (Math.abs(wheelAcc) >= 50) { scrollStep(Math.sign(wheelAcc)); wheelAcc = 0; } }, { passive: false });
 const swipe = {};
 cv.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') swipe[e.pointerId] = e.clientY; });
-cv.addEventListener('pointermove', e => { const y0 = swipe[e.pointerId]; if (y0 == null || !canScroll()) return; const r = cv.getBoundingClientRect(), dy = (y0 - e.clientY) * H / r.height; if (Math.abs(dy) >= 45) { scrollStep(Math.sign(dy)); swipe[e.pointerId] = e.clientY; } });
+cv.addEventListener('pointermove', e => { const y0 = swipe[e.pointerId]; if (y0 == null || !canScroll()) return; const r = cv.getBoundingClientRect(), dy = (y0 - e.clientY) * H / r.height; if (FREE_SCROLL[scene]) { FREE_SCROLL[scene](dy); swipe[e.pointerId] = e.clientY; return; } if (Math.abs(dy) >= 45) { scrollStep(Math.sign(dy)); swipe[e.pointerId] = e.clientY; } });
 addEventListener('pointerup', e => { delete swipe[e.pointerId]; }); addEventListener('pointercancel', e => { delete swipe[e.pointerId]; });
 
 // ---- 모바일 터치 패드 ----

@@ -79,7 +79,7 @@ function dealHit(a, d, h) {
   if (cursed(a) && !h.clone && !h.force && ['punch', 'kick'].includes(h.kind || (h.isPunch ? 'punch' : h.isKick ? 'kick' : ''))) a.cloneQ.push({ t: 6, dmg: h.dmg * 0.6, arm: true });   // 저주왕: 남은 팔로 한 번 더
   hitstop = Math.max(hitstop, h.hitstop ?? Math.round(3 + dmg * 0.4)); shake = Math.max(shake, h.shake ?? dmg * 0.6);
   const hx = h.hx ?? (h.src + d.x) / 2, hy = d.y - 95 * d.sc / 1.15;
-  burst(hx, hy, Math.min(30, 8 + dmg), skinOf(a) ? skinOf(a).fx : ['#fff176', '#ffffff', '#ff8a65'], Math.min(14, 6 + dmg * 0.4)); skinHitFx(a, hx, hy, dmg);   // 🎨 스킨마다 다른 타격 효과
+  burst(hx, hy, Math.min(30, 8 + dmg), skinOf(a) ? skinOf(a).fx : ['#fff176', '#ffffff', '#ff8a65'], Math.min(14, 6 + dmg * 0.4)); skinHitFx(a, hx, hy, dmg); wpnHitFx(a, hx, hy, dmg);   // 🎨 스킨마다 다른 타격 효과
   if (h.boltCrit) { bfT = 14; SFX.boom(); if (a === p1 && mode === 1 && a.ch.name === '이타돼리') nqAdd('itbolt', 1); if (a === p1 && mode === 1) awkAdd(a.ch.name, 'bolt'); popText(hx, hy - 90, '검은 번개!!', '#ff1744', 32); }
   if (h.cleave) { for (let i = 0; i < 5; i++) slash(hx + rand(-30, 30), hy + rand(-50, 50)); }   // 검은 번개: 화면이 검붉게 번쩍
   if (h.boltCrit) { for (let i = 0; i < 6; i++) slash(hx + rand(-40, 40), hy + rand(-40, 40)); burst(hx, hy, 30, ['#000', '#ff1744', '#b71c1c'], 14); shake = Math.max(shake, 20); }   // 검은 번개

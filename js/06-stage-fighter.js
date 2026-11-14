@@ -304,7 +304,7 @@ function startAtk(f, name, def, chain) {
 function startSkill(f, chain) {
   const s = pickSkill(f);   // 여러 스킬이 있는 돼지: U / ↓+U / →+U
   f.skillCD = Math.round(s.cd * (f.tfIs('spicy') ? 0.5 : 1));
-  startAtk(f, 'skill', { ...SKILLDEF[s.type], skill: true }, chain);
+  startAtk(f, 'skill', { ...SKILLDEF[s.type], skill: true, skType: s.type }, chain);
   newSkillStart(f, s);
   popText(f.x, f.y - 200 * f.sc / 1.15, s.name + '!', '#ffdd33', 26); castPunch(); const rsnd = s.type === 'spiritRush' && f.ch.standSnd && f.ch.standSnd.rush;   // 스탠드마다 다른 연타 기합 (PIO: 무다무다)
   if (rsnd) { if (!smp(rsnd, { v: 1.2 })) for (let i = 0; i < 40; i++) knock(1.1 + (i % 5) * 0.03, 0.5, i * 0.08); } else (SKILL_SFX[s.type] || SFX.special)();   // 스킬마다 고유한 소리 하나만 (공통 소리와 겹쳐 지저분하던 것 제거)
@@ -325,6 +325,7 @@ function attackUpdate(f, o, inp) {
     if (inp.skill && f.skillCD <= 0) return startSkill(f, false);
   }
   if (a.rasen && f.atkHit && f.af < a.startup + a.active) { f.af = a.startup + a.active; f.vx = 0; }   // 회오리 구슬: 맞히면 그 자리에서 멈춤
+  if (f.af === a.startup) wpnSwingFx(f);   // 무기로 휘두르는 순간 베기 이펙트
   if (a.rasen && f.af === a.startup) f.facing = Math.sign(f.opp.x - f.x) || f.facing;   // 달려가기 전에 상대 쪽을 봄
   if (a.dash && f.af >= a.startup && f.af < a.startup + a.active) {
     f.vx = f.facing * a.dash;

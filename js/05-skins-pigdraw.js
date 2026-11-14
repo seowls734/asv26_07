@@ -744,10 +744,11 @@ function drawPig(x, y, face, C, p = {}) {
   else if (mv === 'dash' || p.roll !== undefined) fa = [-26, -50 + by];
   else if (air) fa = [44, -80 + by];
   else fa = [50, -84 + by];
+  if (C.wpn === 'guitar' && p.strum) fa = [52, -92 + by + Math.sin(t * 0.8) * 3];   // 🎸 기타 치기: 앞손은 넥을 잡고 기타를 몸 앞에 멤
   if (C.wpn && !p.weapon) {   // 업데이트 돼지 무기: 공격할 때만 손에 (팔 방향 그대로 · 팔보다 먼저 그려서 발굽이 손잡이를 쥠), 아니면 허리에 참
     const arm = Math.atan2(fa[1] - (-64 + by), fa[0] - 20 * bw);
     const batSwing = C.wpn === 'bat' && p.wpnOut && (mv === 'punch' || mv === 'jab' || mv === 'uppercut');   // 배트: 뒤에서 앞으로 옆으로 휘두름 (타격)
-    if (p.wpnOut || FIST_W.includes(C.wpn)) drawWeapon(C.wpn, fa[0], fa[1], batSwing ? lerp(-2.5, 0.35, clamp(k || 0, 0, 1)) : arm + (GUNS.includes(C.wpn) || POLES.includes(C.wpn) ? 0 : -0.3), t, false);
+    if (p.wpnOut || FIST_W.includes(C.wpn)) drawWeapon(C.wpn, fa[0], fa[1], p.strum ? Math.PI - 0.5 + Math.sin(t * 0.8) * 0.06 : batSwing ? lerp(-2.5, 0.35, clamp(k || 0, 0, 1)) : arm + (GUNS.includes(C.wpn) || POLES.includes(C.wpn) ? 0 : -0.3), t, false);
   }
   limb(20 * bw, -64 + by, fa[0], fa[1], 13, C, hc, hr);
   skinDeco('front', C, { bw, by, t });   // 🎨 스킨: 어깨 갑옷·고리 앞쪽

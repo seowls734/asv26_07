@@ -354,6 +354,24 @@ function drawWeapon0(w, hx, hy, ang, t, sheath) {
 // ================= 🎉 대규모 업데이트 21~30 돼지 10마리: 새 스킬 30개 · 새 필살기 10개 · 새 무기 · 새 의상 =================
 // type은 y로 시작 (필살기는 ny) · 물체 그림 drawNyObj · 움직임 nyObjTick · 의상 skinDeco2
 const FIST_W = ['rockfist', 'mechafist'], HOLSTER_W = ['revolver', 'watergun', 'laser'];
+// 무기를 실제로 쓰는 스킬만 무기를 꺼냄 (수리검·사슬·공·선물 던지기처럼 무기와 상관없는 스킬은 맨손)
+const WPN_SKILLS = new Set(['xKnSlash', 'xKnWave', 'xSaCane', 'xCwShot', 'xCwRoll', 'xPkRiff', 'xPkSmash', 'xBcWater', 'xBbSwing', 'xNeLaser', 'xIcSpear', 'xEmBeam',
+  'xSkPetal', 'xSkBreeze', 'xShIai', 'xDvTrident', 'xFrSword', 'xMgCane', 'yWtBroom', 'yPkScythe', 'yFsHook', 'yArShot', 'yArRain', 'yThHammer', 'yThBolt', 'yThSlam', 'yBeSting']);
+function wpnShown(f) {   // 지금 무기를 손에 들고 있는지: 무기 스킬 · 필살기 · 근접 무기의 센 주먹(punch·uppercut)
+  const w = f.C && f.C.wpn, a = f.atk; if (!w) return false;
+  if (f.state === 'ult' || f.swingT > 0) return true;
+  if (f.state !== 'attack' || !a) return false;
+  if (a.skill) return WPN_SKILLS.has(a.skType);
+  return !GUNS.includes(w) && !FIST_W.includes(w) && ['punch', 'uppercut'].includes(a.pose);
+}
+function wpnSwingFx(f) { if (f.atk && !f.atk.skill && wpnShown(f)) wpnFx(f); }   // 센 주먹을 무기로 휘두르는 순간 베기 이펙트
+function wpnHitFx(a, hx, hy, dmg) {   // 무기로 맞힌 자리에 베인 자국 · 불꽃
+  if (!wpnShown(a)) return; const w = a.C.wpn, col = WPN_COL[w] || '#ffffff';
+  if (GUNS.includes(w)) { burst(hx, hy, 10, ['#ffecb3', '#ffab00', '#fff'], 8); return; }
+  if (POLES.includes(w)) { nxFx(a, 'thrust', hx, hy, 10, { col }); burst(hx, hy, 8, [col, '#fff'], 7); return; }
+  nxFx(a, 'slash', hx, hy, 12, { col }); if (dmg >= 9) nxFx(a, 'slash', hx + rand(-14, 14), hy + rand(-14, 14), 10, { col: '#ffffff' });
+  for (let i = 0; i < 2 + (dmg >= 9 ? 2 : 0); i++) parts.push({ x: hx, y: hy, vx: rand(-9, 9), vy: rand(-8, 3), life: 18, max: 18, c: i % 2 ? col : '#fff59d', s: rand(2, 4), g: 0.3, type: 'dot', glow: true });   // 쇠 불꽃
+}
 GUNS.push('bow'); POLES.push('stinger'); WPN_BACK.push('scythe', 'fishingrod', 'broom', 'hammer', 'bow');
 Object.assign(WPN_COL, { broom: '#ffca28', scythe: '#b0bec5', fishingrod: '#90caf9', bow: '#a1887f', cane: '#fafafa', hammer: '#ffee58', stinger: '#ffd740', mechafist: '#00e5ff' });
 const NY_SKILL = {

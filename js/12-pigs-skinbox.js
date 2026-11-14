@@ -54,7 +54,10 @@ function drawPigs() {
   const PL = pigList(), owned = PL.filter(c => isUnlocked(c)).length;
   txt(`모은 돼지 ${owned}/${PL.length}`, 20, 58, 13, '#ccc', null, 0, 'left');
   // 왼쪽: 돼지 칸 (7 × 3)
-  const pgRows = Math.ceil(PL.length / 7), pgOff = clamp((PG.sel / 7 | 0) - 2, 0, Math.max(0, pgRows - 4));   // 돼지가 많아서 고른 줄 따라 스크롤 (4줄씩)
+  const pgRows = Math.ceil(PL.length / 7), pgMax = Math.max(0, pgRows - 4), selRow = PG.sel / 7 | 0;   // 4줄씩 보임 · 손가락·휠로 자유롭게 밀고, 키보드로 고르면 고른 줄이 보이게
+  if (PG.free == null) PG.free = clamp(selRow - 2, 0, pgMax);
+  if (PG.lastSel !== PG.sel) { PG.lastSel = PG.sel; if (selRow < PG.free) PG.free = selRow; if (selRow > PG.free + 3) PG.free = selRow - 3; }
+  PG.free = clamp(PG.free, 0, pgMax); const pgOff = PG.free;
   PG.offS = PG.offS == null ? pgOff : PG.offS + (pgOff - PG.offS) * 0.22; if (Math.abs(PG.offS - pgOff) < 0.01) PG.offS = pgOff;   // 화면이 고른 줄로 부드럽게 미끄러짐
   if (pgOff > 0) txt('▲', 604, 76, 14, '#ffcc80', '#000', 3); if (pgOff + 4 < pgRows) txt('▼', 604, 512, 14, '#ffcc80', '#000', 3);
   ctx.save(); ctx.beginPath(); ctx.rect(0, 66, 612, 454); ctx.clip();

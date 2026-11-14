@@ -106,7 +106,7 @@ function drawFighter(f) {
   drawNewBack(f);
   if (f.tfIs('clone')) drawPig(f.x - f.facing * 45 * s, f.y, f.facing, f.C, { ...p, alpha: 0.35, aura: null });
   if (f.sukuna) p.curse = 1; else if (f.curseT > 0) p.curse = Math.min(1, f.curseT / 60); if (f.foxT > 0) p.foxTails = Math.min(1, f.foxT / 60);   // 몸에 붙는 효과
-  if (f.C.wpn) p.wpnOut = (f.state === 'attack' && f.atk && !['lowkick', 'highkick', 'sweep', 'roll', 'grab'].includes(f.atk.pose) && (f.atk.skill || (!GUNS.includes(f.C.wpn) && ['punch', 'uppercut'].includes(f.atk.pose)))) || f.state === 'ult' || f.swingT > 0;   /* 무기를 더 자주: 스킬은 전부 무기로 · 근접 무기는 센 주먹(punch·uppercut)도 무기로 */   // 무기는 스킬·필살기 때만 손에 (평타는 맨손 · 던지는 스킬은 빈손으로)
+  if (f.C.wpn) { p.wpnOut = wpnShown(f) && !(f.atk && ['lowkick', 'highkick', 'sweep', 'roll', 'grab'].includes(f.atk.pose) && f.state !== 'ult'); p.strum = f.C.wpn === 'guitar' && p.wpnOut && (f.state === 'ult' || (f.atk && f.atk.skType === 'xPkRiff')); }   /* 무기를 더 자주: 스킬은 전부 무기로 · 근접 무기는 센 주먹(punch·uppercut)도 무기로 */   // 무기는 스킬·필살기 때만 손에 (평타는 맨손 · 던지는 스킬은 빈손으로)
   drawPig(f.x, f.y, f.facing, f.C, p);
   drawNewFront(f);
   drawCurse(f);   // 저주왕
@@ -348,7 +348,10 @@ function drawSelect() {
   txt('캐릭터 선택', W / 2, 36, 36, '#fff', '#000', 7);
   txt('A/D/W/S 또는 방향키 이동 · I / Space / Enter 결정 · Esc 뒤로', W / 2, 64, 13, '#aaa', null);
   const sh = shownIdx(), SEL_COLS = selCols(), cw = Math.min(126, Math.floor((W - 20) / SEL_COLS)), ch = 112, gx = (W - SEL_COLS * cw) / 2, gy = 80;
-  const selRows = Math.ceil(sh.length / SEL_COLS), selOff = clamp((Math.max(0, sh.indexOf(sel.c1)) / SEL_COLS | 0) - 1, 0, Math.max(0, selRows - 2));   // 두 줄씩 보여 주고 고른 줄 따라 스크롤
+  const selRows = Math.ceil(sh.length / SEL_COLS), selMax = Math.max(0, selRows - 2), selRow = Math.max(0, sh.indexOf(sel.c1)) / SEL_COLS | 0;   // 2줄씩 보임 · 손가락·휠로 자유롭게
+  if (sel.free == null) sel.free = clamp(selRow - 1, 0, selMax);
+  if (sel.lastSel !== sel.c1) { sel.lastSel = sel.c1; if (selRow < sel.free) sel.free = selRow; if (selRow > sel.free + 1) sel.free = selRow - 1; }
+  sel.free = clamp(sel.free, 0, selMax); const selOff = sel.free;   // 두 줄씩 보여 주고 고른 줄 따라 스크롤
   sel.offS = sel.offS == null ? selOff : sel.offS + (selOff - sel.offS) * 0.22; if (Math.abs(sel.offS - selOff) < 0.01) sel.offS = selOff;
   if (selOff > 0) txt('▲', W - 10, 92, 14, '#ffcc80', '#000', 3); if (selOff + 2 < selRows) txt('▼', W - 10, 296, 14, '#ffcc80', '#000', 3);
   ctx.save(); ctx.beginPath(); ctx.rect(0, gy, W, ch * 2); ctx.clip();
