@@ -573,6 +573,7 @@ function setWorld(w) {
   WORLD = w; localStorage.setItem('sgf_world', JSON.stringify(w));
   if (w === 3 && localStorage.getItem('sgf_debt_w3') === null) { lsSet('sgf_coin', 1000); lsSet('sgf_debt', W3_DEBT); lsSet('sgf_debtbase', W3_DEBT); lsSet('sgf_bank', 0); lsSet('sgf_fridge', []); }   // 처음 오면 💵 1000달러 · 빚 10억
   coins = fixCoins(lsGet('sgf_coin', 100)); debt = lsGet('sgf_debt', DEBT_START); bankDebt = lsGet('sgf_bank', 0); debtBase = lsGet('sgf_debtbase', DEBT_START); fridge = lsGet('sgf_fridge', []);
+  tp = lsGet('sgf_tp', 0); promo = lsGet('sgf_promo', null); rk.all = [];   // 랭크도 월드마다 따로
   w3Menu(w === 3);
 }
 function enterW3() {

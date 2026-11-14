@@ -221,6 +221,7 @@ function resetAll() {
   toast('🗑️ 서버 기록 삭제 중...');
   let done = false; const reload = () => { if (!done) { done = true; location.reload(); } };
   const jobs = [];
+  if (RANK_DBS.length && myId) rankAll(`/rank/w3${myId}.json`, { method: 'DELETE', keepalive: true }).catch(() => {});   // 월드3 랭킹 기록도 지움
   if (RANK_DBS.length) jobs.push(rankAll(`/rank/${myId}.json`, { method: 'DELETE', keepalive: true })   // 연결된 모든 랭킹 서버에서 내 기록 삭제
     .then(rs => { if (rs.some(r => r.status === 'rejected')) toast('⚠️ 일부 서버의 랭킹 기록은 지우지 못했어요. 기기 기록은 지워졌어요'); }));
   if (isMember()) jobs.push(cloudPush());   // 계정에 저장된 진행 상황도 빈 기록으로 덮어씀
@@ -306,13 +307,15 @@ function rankSort() {
   else a.sort((x, y) => y.tp - x.tp || (y.streak || 0) - (x.streak || 0));
   rk.list = a.slice(0, 100); rk.page = 0;
 }
+const rankId = (w = WORLD) => (w === 3 ? 'w3' : '') + auth.uid;   // 🌍 월드3 랭킹은 같은 서버에 'w3' + 계정 번호로 따로
+const rankMine = id => id.startsWith('w3u') === (WORLD === 3);   // 지금 월드의 랭킹 줄만
 function uploadRank() {
   if (IS_TESTER) return Promise.resolve();   // 테스트 계정은 랭킹에 안 올림
   // 티어는 지금 티어(떨어지면 순위도 내려감), 연승은 랭크전 최고 연승(오르기만 함). 랭크전을 안 해 봤으면 올리지 않음
   // 게스트는 랭킹에 올리지 않음. 회원은 계정 번호(uid)로 올림 → 어느 기기에서 해도 같은 줄
   if (!RANK_DBS.length || !isMember() || !lsGet('sgf_ranked', false)) return Promise.resolve();
   const body = { name: playerName.slice(0, 16), tier: tierOf(tp), tp, v: 3, streak: lsGet('sgf_rbest', 0), t: Date.now() };   // v: 3 = 최고 17000 기준 점수
-  return rankAll(`/rank/${auth.uid}.json`, { method: 'PUT', body: JSON.stringify(body) });
+  return rankAll(`/rank/${rankId()}.json`, { method: 'PUT', body: JSON.stringify(body) });
 }
 // 계정 기능 전에 이 기기 번호(pid)로 올라가 있던 옛 랭킹 기록은 한 번 지움 (게스트 선택 또는 로그인 때)
 function dropLegacyRank() {
@@ -335,7 +338,7 @@ function fetchRank() {
   const s = Math.floor(Math.random() * RANK_DBS.length);
   const tryAt = i => i >= RANK_DBS.length ? Promise.reject(0) : rankGet(RANK_DBS[(s + i) % RANK_DBS.length]).catch(() => tryAt(i + 1));
   tryAt(0).then(d => {   // 빈 랭킹은 null이라 정상
-    rk.all = Object.entries(d || {}).filter(([, v]) => v && typeof v.tp === 'number' && (v.tp > 0 || v.streak > 0))   // 랭크전 기록이 없는 돼지는 숨김
+    rk.all = Object.entries(d || {}).filter(([id, v]) => rankMine(id) && v && typeof v.tp === 'number' && (v.tp > 0 || v.streak > 0))   // 랭크전 기록이 없는 돼지는 숨김
       .map(([id, v]) => ({ ...v, id }));
     rankSort(); rk.loading = false;
   }).catch(() => { rk.loading = false; rk.err = '랭킹을 불러오지 못했어요 (인터넷 확인)'; });
@@ -351,7 +354,7 @@ function updateRanking() {
 }
 function drawRanking() {
   drawStage(); ctx.fillStyle = 'rgba(10,5,20,0.85)'; ctx.fillRect(0, 0, W, H);
-  txt('🏆 랭킹', W / 2, 32, 32, '#ffd54f', '#000', 6);
+  txt(WORLD === 3 ? '🏆 월드3 랭킹 (증권가)' : '🏆 랭킹', W / 2, 32, 32, '#ffd54f', '#000', 6);
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(14, 16, 80, 32, 8); ctx.fill(); txt('← 나가기', 54, 32, 13, '#fff', null);
   addHot(14, 16, 80, 32, () => { pressed.Escape = true; });
   addHot(0, 100, W, H - 100, () => { pressed.Enter = true; });   // 빈 곳 탭 = 나가기 (쪽 넘김 버튼보다 먼저 등록해야 버튼이 우선)
@@ -372,7 +375,7 @@ function drawRanking() {
     else if (!list.length) txt('아직 아무도 없어요. 랭크전에서 첫 1등이 되어 보세요!', W / 2, 260, 20, '#fff', null);
     else {
       list.slice(rk.page * 10, rk.page * 10 + 10).forEach((v, r) => {
-        const i = rk.page * 10 + r, y = 140 + r * 32, me = isMember() && v.id === auth.uid;
+        const i = rk.page * 10 + r, y = 140 + r * 32, me = isMember() && v.id === rankId();
         if (me) { ctx.fillStyle = 'rgba(255,213,79,0.25)'; rr(60, y - 14, 840, 28, 8); ctx.fill(); }
         const col = i === 0 ? '#ffd700' : i === 1 ? '#e0e0e0' : i === 2 ? '#ffab91' : '#fff';
         txt(`${i + 1}`, 120, y, 18, col, '#000', 4); txt(String(v.name || '?').slice(0, 16) + (me ? ' (나)' : ''), 320, y, fitSize(String(v.name || '?').slice(0, 16) + (me ? ' (나)' : ''), 17, 300), col, '#000', 3);
@@ -385,7 +388,7 @@ function drawRanking() {
       txt(`${rk.page * 10 + 1}~${Math.min(list.length, rk.page * 10 + 10)}위 / ${list.length}명`, W / 2, 481, 14, '#ccc', null);
       pb(W / 2 + 80, '다음 ▶', rk.page < pages - 1, () => { pressed.ArrowRight = true; });
     }
-    const meIdx = isMember() ? list.findIndex(v => v.id === auth.uid) : -1;
+    const meIdx = isMember() ? list.findIndex(v => v.id === rankId()) : -1;
     if (!isMember()) txt('👤 게스트는 랭킹에 오르지 않아요 · 타이틀의 🔑 로그인·가입에서 회원이 되면 올라가요', W / 2, 522, 13, '#ffe082', null);
     else txt(`나: ${playerName} · ${tierLabel(tp)} ${tp}점 · 최고 ${lsGet('sgf_rbest', 0)}연승 · ${meIdx >= 0 ? `${meIdx + 1}위` : '순위 밖'}`, W / 2, 522, 13, '#ffe082', null);
   } else {

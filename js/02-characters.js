@@ -373,7 +373,7 @@ const WEAPON = { head: '목살 몽둥이', belly: '삼겹 채찍', legs: '족발
 // ---- 로컬 저장 (연승 랭킹 · 닉네임) ----
 // 🌍 월드3는 월드1과 같은 게임이지만 돈(💵 돼지달러)·빚·냉장고를 따로 저장: 월드3에 있으면 이 키들은 '_w3'이 붙은 칸을 씀
 let WORLD = 1; try { WORLD = JSON.parse(localStorage.getItem('sgf_world')) === 3 ? 3 : 1; } catch (e) {}
-const W3_KEYS = ['sgf_coin', 'sgf_debt', 'sgf_bank', 'sgf_debtbase', 'sgf_fridge'];
+const W3_KEYS = ['sgf_coin', 'sgf_debt', 'sgf_bank', 'sgf_debtbase', 'sgf_fridge', 'sgf_tp', 'sgf_rbest', 'sgf_ranked', 'sgf_rank', 'sgf_promo'];   // 돈·빚·냉장고 + 랭크(티어 점수·최고 연승·승급전)
 const wKey = k => WORLD === 3 && W3_KEYS.includes(k) ? k + '_w3' : k;
 function lsGet(k, d) { try { const v = localStorage.getItem(wKey(k)); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(wKey(k), JSON.stringify(v)); } catch (e) {} if (!SAVE_SKIP.includes(k)) cloudDirty(); }
@@ -506,6 +506,7 @@ function fetchConfig() {
       const had = tp > 0 || lsGet('sgf_rbest', 0) > 0;
       tp = 0; promo = null;
       for (const [k, v] of [['sgf_tp', 0], ['sgf_rbest', 0], ['sgf_ranked', false], ['sgf_rank', []], ['sgf_promo', null], ['sgf_rkpending', false], ['sgf_season', s]]) lsSet(k, v);
+      for (const k of ['sgf_tp', 'sgf_rbest', 'sgf_ranked', 'sgf_rank', 'sgf_promo']) try { localStorage.removeItem(WORLD === 3 ? k : k + '_w3'); } catch (e) {}   // 다른 월드 랭크도 새 시즌
       if (had) toast('🏆 새 랭킹 시즌 시작! 티어와 연승 기록이 초기화됐어요');
     }
     // 내 계정 기록이 서버에서 바뀌었는지: 관리자가 고친 거면 기다리던 저장도 버리고 바로 받음, 다른 기기면 저장할 게 없을 때 받음
