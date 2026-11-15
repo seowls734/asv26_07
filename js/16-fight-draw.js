@@ -512,6 +512,7 @@ function draw() {
   else if (scene === 'wplay') drawCatch();
   else if (scene === 'xmas') drawXmas();
   else if (scene === 'snowball') drawSnow();
+  else if (scene === 'derby') drawDerby();
   else if (scene === 'wstory') drawWStory();
   else if (scene === 'stock') drawStock();
   else if (scene === 'lobby') drawLobby();

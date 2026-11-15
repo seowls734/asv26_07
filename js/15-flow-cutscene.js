@@ -196,6 +196,7 @@ function step() {
   else if (scene === 'wplay') updateCatch();
   else if (scene === 'xmas') updateXmas();
   else if (scene === 'snowball') updateSnow();
+  else if (scene === 'derby') updateDerby();
   else if (scene === 'wstory') updateWStory();
   else if (scene === 'stock') updateStock();
   else if (scene === 'lobby') updateLobby();

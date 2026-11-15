@@ -165,7 +165,7 @@ const MENU = [
   ['🥊 연습 모드', '가만히 있는 상대에게 기술 연습 · 시간·체력·필살 무한', () => { mode = 6; ranked = false; selFor = 'run'; scene = 'select'; }],
   ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; ranked = false; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
-  ['🌍 월드', () => `${xmasOpen() ? '🎄 크리스마스 업데이트! · ' : ''}월드2 포장마차 · 월드3 주식 · 💎 ${fmtN(diaGet())}`, () => openWorlds()],
+  ['🌍 월드', () => `${xmasOpen() ? '🎄 크리스마스 업데이트! · ' : ''}${isRel('big8') ? '⚾ 홈런 더비 · ' : ''}월드2 포장마차 · 월드3 주식 · 💎 ${fmtN(diaGet())}`, () => openWorlds()],
   ['🎁 보상 센터', () => rewardBadge() ? (spinFree() ? `출석·미션 · 🎟️ 룰렛 티켓 ${spinFree()}장!` : '받을 보상이 있어요!') : '출석 체크 · 행운 룰렛 · 일일 미션', () => openReward()],
   ['🐷 돼지 도감', () => `모은 돼지 ${pigList().filter(c => isUnlocked(c)).length}/${pigList().length} · 강화 · 레벨업`, () => openPigs()],
   ['🏮 포장마차 시장', '장사로 돈 벌기 · 요리 팔기 · 상점', () => openMarket()],

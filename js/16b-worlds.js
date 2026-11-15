@@ -23,6 +23,8 @@ const WORLDS = [
     go: () => { toTitle(); toast('🐷 월드1 · 사채 1억을 다 갚으면 클리어'); } },
   { id: 'xmas', icon: '🎄', name: '🎉 대규모 업데이트 · 크리스마스', desc: '🎁 선물 받기 · ⛄ 눈싸움 · 📅 크리스마스 달력 · 🎅 산타돈·❄️ 눈꽃돈 퀘스트', lock: () => '', hide: () => !xmasOpen(), clear: () => !!lsGet('sgf_xmas_got', false),
     go: () => openXmas() },
+  { id: 'hr', icon: '⚾', name: '대규모 업데이트 · 야구장: 홈런 더비', desc: () => `야구돈 타석! 타이밍 맞춰 홈런 · 🔥 3연속 피버 · 최고 ${lsGet('sgf_hrbest', 0)}점`, lock: () => '', hide: () => !(isRel('big8') || wTest()), clear: () => lsGet('sgf_hrbest', 0) >= 20,
+    go: () => startDerby() },
   { id: 'w2', icon: '🏮', name: '월드2 · 포장마차 (대규모 업데이트)', desc: () => `🚶 로비: 🥊 사냥터·🎯 저격장 → 🔪 해체 → 🏮 납품 · 이야기 ${Math.min(w2Stage(), W2_N)}/${W2_N}장`, lock: () => w1Clear() ? '' : '🔒 월드1 클리어(사채 빚 다 갚기 엔딩)가 필요해요', clear: w2Clear,
     go: () => openLobby(2) },
   { id: 'w3', icon: '📈', name: '월드3 · 증권가', desc: '월드1과 같은 게임 · 💵 돼지달러 따로 · 증권사 빚 10억 갚기 · 📈 주식', lock: () => w2Clear() ? '' : '🔒 월드2 클리어가 필요해요', clear: () => false,
@@ -55,17 +57,17 @@ function drawWorlds() {
   if (WD.shop) return drawDiaShop();
   drawStage(); ctx.fillStyle = 'rgba(8,10,30,0.82)'; ctx.fillRect(0, 0, W, H);
   txt('🌍 월드', W / 2, 40, 34, '#fff', '#000', 7); wDia(); wBack(() => { pressed.Escape = true; });
-  const WL = wList(), gap = WL.length > 4 ? 76 : 96;
+  const WL = wList(), gap = Math.min(96, 388 / WL.length), ch = gap - 10;   // 월드가 늘면 칸을 줄여서 화면 안에
   WL.forEach((w, i) => {
     const y = 76 + i * gap, on = WD.sel === i, lk = wLock(w), cl = w.clear();
-    ctx.fillStyle = lk ? 'rgba(40,40,50,0.85)' : on ? 'rgba(120,40,30,0.92)' : 'rgba(30,20,50,0.88)'; rr(110, y, 740, 84, 14); ctx.fill();
-    ctx.strokeStyle = on ? '#ffd740' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = on ? 4 : 2; rr(110, y, 740, 84, 14); ctx.stroke();
-    txt(w.icon, 160, y + 42, 40, '#fff', null);
-    txt(w.name, 210, y + 28, fitSize(w.name, 22, 480), lk ? '#9e9e9e' : '#fff', '#000', 4, 'left');
-    const d = lk || wVal(w.desc); txt(d, 210, y + 60, fitSize(d, 14, 560), lk ? '#ff8a80' : '#ddd', null, 0, 'left');
-    if (cl) txt('✅ 클리어', 830, y + 28, 15, '#69f0ae', '#000', 3, 'right');
-    if ((w.id === 'w3' && WORLD === 3) || (w.id === 'w1' && WORLD === 1)) txt('📍 지금 여기', 830, y + 60, 14, '#ffd740', '#000', 3, 'right');
-    addHot(110, y, 740, 84, () => worldGo(i));
+    ctx.fillStyle = lk ? 'rgba(40,40,50,0.85)' : on ? 'rgba(120,40,30,0.92)' : 'rgba(30,20,50,0.88)'; rr(110, y, 740, ch, 14); ctx.fill();
+    ctx.strokeStyle = on ? '#ffd740' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = on ? 4 : 2; rr(110, y, 740, ch, 14); ctx.stroke();
+    txt(w.icon, 160, y + ch / 2, ch > 76 ? 40 : 32, '#fff', null);
+    txt(w.name, 210, y + ch * 0.33, fitSize(w.name, 22, 480), lk ? '#9e9e9e' : '#fff', '#000', 4, 'left');
+    const d = lk || wVal(w.desc); txt(d, 210, y + ch * 0.72, fitSize(d, 14, 560), lk ? '#ff8a80' : '#ddd', null, 0, 'left');
+    if (cl) txt('✅ 클리어', 830, y + ch * 0.33, 15, '#69f0ae', '#000', 3, 'right');
+    if ((w.id === 'w3' && WORLD === 3) || (w.id === 'w1' && WORLD === 1)) txt('📍 지금 여기', 830, y + ch * 0.72, 14, '#ffd740', '#000', 3, 'right');
+    addHot(110, y, 740, ch, () => worldGo(i));
   });
   ctx.fillStyle = '#1565c0'; rr(W / 2 - 120, 466, 240, 36, 10); ctx.fill(); txt('💎 다이아 상점 [B]', W / 2, 484, 16, '#fff', null);
   addHot(W / 2 - 120, 466, 240, 36, () => { WD.shop = true; WD.ssel = 0; SFX.select(); });
