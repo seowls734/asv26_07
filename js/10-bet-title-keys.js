@@ -165,7 +165,7 @@ const MENU = [
   ['🥊 연습 모드', '가만히 있는 상대에게 기술 연습 · 시간·체력·필살 무한', () => { mode = 6; ranked = false; selFor = 'run'; scene = 'select'; }],
   ['🌐 온라인 1:1', '4자리 코드로 친구와 대전', () => { mode = 1; ranked = false; selFor = 'online'; NET.err = ''; scene = 'online'; }],
   ['🎲 AI 경기 베팅', 'CPU끼리 싸움에 코인 걸기', () => openBet()],
-  ['🌍 월드', () => `${xmasOpen() ? '🎄 크리스마스 월드 열림! · ' : ''}월드2 포장마차 · 월드3 주식 · 💎 ${fmtN(diaGet())}`, () => openWorlds()],
+  ['🌍 월드', () => `${xmasOpen() ? '🎄 크리스마스 업데이트! · ' : ''}월드2 포장마차 · 월드3 주식 · 💎 ${fmtN(diaGet())}`, () => openWorlds()],
   ['🎁 보상 센터', () => rewardBadge() ? (spinFree() ? `출석·미션 · 🎟️ 룰렛 티켓 ${spinFree()}장!` : '받을 보상이 있어요!') : '출석 체크 · 행운 룰렛 · 일일 미션', () => openReward()],
   ['🐷 돼지 도감', () => `모은 돼지 ${pigList().filter(c => isUnlocked(c)).length}/${pigList().length} · 강화 · 레벨업`, () => openPigs()],
   ['🏮 포장마차 시장', '장사로 돈 벌기 · 요리 팔기 · 상점', () => openMarket()],
@@ -235,6 +235,7 @@ function updateTitle() {
 function drawTitle() {
   drawStage();
   ctx.fillStyle = 'rgba(10,5,25,0.5)'; ctx.fillRect(0, 0, W, H);
+  xmasTitleFx();   // 🎄 크리스마스 기간엔 눈이 내림
   const b = Math.sin(gT * 0.05) * 4;
   drawParts();
   ctx.save(); ctx.shadowColor = '#ff4081'; ctx.shadowBlur = 28;
@@ -279,6 +280,7 @@ function drawTitle() {
   addHot(W - 90, 6, 84, 28, () => { toggleMute(); });
   { const nd = !lsGet('sgf_tut_done', false); ctx.fillStyle = nd && gT % 40 < 20 ? 'rgba(255,145,0,0.85)' : 'rgba(255,255,255,0.15)'; rr(W - 112, TOUCH ? 36 : 66, 100, 26, 8); ctx.fill(); txt(nd ? '📖 튜토리얼!' : '📖 튜토리얼', W - 62, TOUCH ? 49 : 79, 13, '#fff', null); addHot(W - 112, TOUCH ? 36 : 66, 100, 26, () => startTutorial()); }   // 꿀선생 튜토리얼
   if (!TOUCH) { ctx.fillStyle = 'rgba(255,255,255,0.15)'; rr(W - 112, 36, 100, 26, 8); ctx.fill(); txt('⌨️ 키 설정', W - 62, 49, 13, '#fff', null); addHot(W - 112, 36, 100, 26, () => openKeys()); }   // 키 바꾸기
+  drawInstallBtn();   // 📥 게임 다운로드 (앱처럼 설치)
   if (toastT > 0) {
     ctx.globalAlpha = clamp(toastT / 20); ctx.fillStyle = 'rgba(0,0,0,0.85)'; rr(W / 2 - 230, 446, 460, 32, 10); ctx.fill();
     txt(toastMsg, W / 2, 462, 15, '#fff', null); ctx.globalAlpha = 1;

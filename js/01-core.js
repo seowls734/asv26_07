@@ -141,7 +141,8 @@ let hot = [];
 function addHot(x, y, w, h, fn) { hot.push({ x, y, w, h, fn }); }
 const tapPend = {};   // 목록 화면(손가락): 손을 뗄 때 눌림 · 끌어서 밀었으면 안 눌림 (다른 게임처럼)
 const cvXY = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; };
-function hitHot(x, y, e) { for (let i = hot.length - 1; i >= 0; i--) { const h = hot[i]; if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { h.fn(); if (e) e.preventDefault(); return; } } }
+let tapXY = [0, 0];   // 마지막으로 탭한 자리 (눈싸움: 탭한 쪽으로 던지기)
+function hitHot(x, y, e) { tapXY = [x, y]; for (let i = hot.length - 1; i >= 0; i--) { const h = hot[i]; if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { h.fn(); if (e) e.preventDefault(); return; } } }
 cv.addEventListener('pointerdown', e => {
   initAudio();
   if (e.pointerType !== 'mouse' && canScroll()) { tapPend[e.pointerId] = { x0: e.clientX, y0: e.clientY }; return; }
@@ -242,7 +243,7 @@ for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { if 
 padReady = true; fit();
 let padShown = false;
 function syncPad() {
-  const want = TOUCH && mode !== 0 && mode !== 4 && ['intro', 'fight', 'roundEnd', 'wplay', 'lobby'].includes(scene);   // CPU끼리 싸우는 모드(구경·AI 베팅)엔 패드 숨김
+  const want = TOUCH && mode !== 0 && mode !== 4 && ['intro', 'fight', 'roundEnd', 'wplay', 'snowball', 'lobby'].includes(scene);   // CPU끼리 싸우는 모드(구경·AI 베팅)엔 패드 숨김
   if (want !== padShown) { padShown = want; padEl.style.display = want ? 'block' : 'none'; if (!want) { joyEnd(); padReleaseAll(); } }   // 숨길 때 눌린 키가 남지 않게
   if (!padShown) return;
   // 특수 버튼 상태: 쓸 수 있으면 빛나고(필살기), 못 쓰면 흐리게

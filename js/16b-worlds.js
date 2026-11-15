@@ -14,29 +14,30 @@ const wVal = v => typeof v === 'function' ? v() : v;
 // ---- 🎄 크리스마스 퀘스트: 다 깨면 산타돈 + 눈꽃돈 둘 다 ----
 QUESTS.push({ ch: '산타돈', icon: '🎄', key: 'sgf_q_xmas', unlockKey: 'sgf_xmas_got', also: ['산타돈', '눈꽃돈'], prize: '산타돈 · 눈꽃돈', msg: '🎄 산타돈과 눈꽃돈을 둘 다 받았어요! 캐릭터 선택에서 골라 보세요', open: () => xmasOpen(),
   steps: [{ id: 'gift', name: '크리스마스 월드에서 선물 100개 받기', goal: 100 }, { id: 'streak', name: '연승 모드에서 10연승 하기', goal: 10 }, { id: 'gold', name: '랭크전 골드 티어 찍기', goal: 1 }, { id: 'ultko', name: '필살기로 K.O. 10번', goal: 10 }] });
-function xmasTick() { if (tierOf(tp) >= 3) nqAdd('gold', 1, true); }   // 골드 티어 이상이면 퀘스트 칸 채움
+function xmasTick() { if (xmasOpen() && tierOf(tp) >= 3) nqAdd('gold', 1, true); if (typeof xmasBigPop === 'function') xmasBigPop(); }   // 골드 티어 이상이면 퀘스트 칸 채움
 
 // ================= 월드 고르기 화면 =================
 const WD = { sel: 0, shop: false, ssel: 0 };
 const WORLDS = [
-  { icon: '🐷', name: '월드1 · 기본 월드', desc: '랭크전·연승·장사로 사채 1억 갚기 (타이틀 메뉴가 곧 월드1)', lock: () => '', clear: w1Clear,
+  { id: 'w1', icon: '🐷', name: '월드1 · 기본 월드', desc: '랭크전·연승·장사로 사채 1억 갚기 (타이틀 메뉴가 곧 월드1)', lock: () => '', clear: w1Clear,
     go: () => { toTitle(); toast('🐷 월드1 · 사채 1억을 다 갚으면 클리어'); } },
-  { icon: '🎄', name: '크리스마스 월드', desc: '🎁 선물 받기: 산타 썰매에서 떨어지는 선물을 받아요 (석탄은 피하기)', lock: () => xmasOpen() ? '' : '🔒 12월 1일 ~ 25일에만 열려요', clear: () => !!lsGet('sgf_xmas_got', false),
-    go: () => startCatch() },
-  { icon: '🏮', name: '월드2 · 포장마차 (대규모 업데이트)', desc: () => `🚶 로비: 🥊 사냥터·🎯 저격장 → 🔪 해체 → 🏮 납품 · 이야기 ${Math.min(w2Stage(), W2_N)}/${W2_N}장`, lock: () => w1Clear() ? '' : '🔒 월드1 클리어(사채 빚 다 갚기 엔딩)가 필요해요', clear: w2Clear,
+  { id: 'xmas', icon: '🎄', name: '🎉 대규모 업데이트 · 크리스마스', desc: '🎁 선물 받기 · ⛄ 눈싸움 · 📅 크리스마스 달력 · 🎅 산타돈·❄️ 눈꽃돈 퀘스트', lock: () => '', hide: () => !xmasOpen(), clear: () => !!lsGet('sgf_xmas_got', false),
+    go: () => openXmas() },
+  { id: 'w2', icon: '🏮', name: '월드2 · 포장마차 (대규모 업데이트)', desc: () => `🚶 로비: 🥊 사냥터·🎯 저격장 → 🔪 해체 → 🏮 납품 · 이야기 ${Math.min(w2Stage(), W2_N)}/${W2_N}장`, lock: () => w1Clear() ? '' : '🔒 월드1 클리어(사채 빚 다 갚기 엔딩)가 필요해요', clear: w2Clear,
     go: () => openLobby(2) },
-  { icon: '📈', name: '월드3 · 증권가', desc: '월드1과 같은 게임 · 💵 돼지달러 따로 · 증권사 빚 10억 갚기 · 📈 주식', lock: () => w2Clear() ? '' : '🔒 월드2 클리어가 필요해요', clear: () => false,
+  { id: 'w3', icon: '📈', name: '월드3 · 증권가', desc: '월드1과 같은 게임 · 💵 돼지달러 따로 · 증권사 빚 10억 갚기 · 📈 주식', lock: () => w2Clear() ? '' : '🔒 월드2 클리어가 필요해요', clear: () => false,
     go: () => enterW3() }
 ];
 const wLock = w => wTest() ? '' : w.lock();
+const wList = () => WORLDS.filter(w => !w.hide || !w.hide());   // 🎄 크리스마스는 12월 1~25일에만 목록에 보임 (그 전엔 있는지도 모르게 · 테스트 계정은 보임)
 function openWorlds() {
   scene = 'worlds'; WD.shop = false; mode = 1;
   if ((w1Clear() || wTest()) && !lsGet('sgf_w2seen', false)) { lsSet('sgf_w2seen', true); popup({ icon: '🏮', title: '대규모 업데이트 · 월드2 포장마차!', lines: ['🥊 싸우거나 🎯 총으로 사냥 → 🔪 해체해서 고기 모으기', '이야기 5장을 다 깨면 📈 월드3 주식 시장이 열려요'], big: true }); }
 }
-function worldGo(i) { const w = WORLDS[i], lk = wLock(w); WD.sel = i; if (lk) { SFX.block(); toast(lk); return; } SFX.confirm(); if (i !== 3) setWorld(1); w.go(); }   // 월드3 말고는 월드1 지갑으로
+function worldGo(i) { const w = wList()[i]; if (!w) return; const lk = wLock(w); WD.sel = i; if (lk) { SFX.block(); toast(lk); return; } SFX.confirm(); if (w.id !== 'w3') setWorld(1); w.go(); }   // 월드3 말고는 월드1 지갑으로
 function updateWorlds() {
   if (WD.shop) return updateDiaShop();
-  const n = WORLDS.length;
+  const n = wList().length; if (WD.sel >= n) WD.sel = 0;
   if (pressed.KeyW || pressed.ArrowUp) { WD.sel = (WD.sel + n - 1) % n; SFX.select(); }
   if (pressed.KeyS || pressed.ArrowDown) { WD.sel = (WD.sel + 1) % n; SFX.select(); }
   for (let i = 0; i < n; i++) if (pressed['Digit' + (i + 1)] || pressed['Numpad' + (i + 1)]) return worldGo(i);
@@ -54,15 +55,16 @@ function drawWorlds() {
   if (WD.shop) return drawDiaShop();
   drawStage(); ctx.fillStyle = 'rgba(8,10,30,0.82)'; ctx.fillRect(0, 0, W, H);
   txt('🌍 월드', W / 2, 40, 34, '#fff', '#000', 7); wDia(); wBack(() => { pressed.Escape = true; });
-  WORLDS.forEach((w, i) => {
-    const y = 76 + i * 96, on = WD.sel === i, lk = wLock(w), cl = w.clear();
+  const WL = wList(), gap = WL.length > 4 ? 76 : 96;
+  WL.forEach((w, i) => {
+    const y = 76 + i * gap, on = WD.sel === i, lk = wLock(w), cl = w.clear();
     ctx.fillStyle = lk ? 'rgba(40,40,50,0.85)' : on ? 'rgba(120,40,30,0.92)' : 'rgba(30,20,50,0.88)'; rr(110, y, 740, 84, 14); ctx.fill();
     ctx.strokeStyle = on ? '#ffd740' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = on ? 4 : 2; rr(110, y, 740, 84, 14); ctx.stroke();
     txt(w.icon, 160, y + 42, 40, '#fff', null);
     txt(w.name, 210, y + 28, fitSize(w.name, 22, 480), lk ? '#9e9e9e' : '#fff', '#000', 4, 'left');
     const d = lk || wVal(w.desc); txt(d, 210, y + 60, fitSize(d, 14, 560), lk ? '#ff8a80' : '#ddd', null, 0, 'left');
     if (cl) txt('✅ 클리어', 830, y + 28, 15, '#69f0ae', '#000', 3, 'right');
-    if ((i === 3 && WORLD === 3) || (i === 0 && WORLD === 1)) txt('📍 지금 여기', 830, y + 60, 14, '#ffd740', '#000', 3, 'right');
+    if ((w.id === 'w3' && WORLD === 3) || (w.id === 'w1' && WORLD === 1)) txt('📍 지금 여기', 830, y + 60, 14, '#ffd740', '#000', 3, 'right');
     addHot(110, y, 740, 84, () => worldGo(i));
   });
   ctx.fillStyle = '#1565c0'; rr(W / 2 - 120, 466, 240, 36, 10); ctx.fill(); txt('💎 다이아 상점 [B]', W / 2, 484, 16, '#fff', null);
@@ -137,7 +139,7 @@ function catchFinish() {
   g.res = [`🎁 받은 선물 ${n}개 (최고 ${best}개)`, `💎 다이아 +${d}`, `크리스마스 퀘스트 선물: ${Math.min(100, qState(XQ).gift || 0)}/100`];
   SFX.gong();
 }
-function catchExit() { CG = null; mode = 1; openWorlds(); }
+function catchExit() { const k = CG && CG.kind; CG = null; mode = 1; if (k === 'gift' && xmasOpen()) openXmas(); else openWorlds(); }   // 선물 받기는 크리스마스 화면으로
 function updateCatch() {
   const g = CG; if (!g) return openWorlds();
   if (g.done) {

@@ -375,7 +375,7 @@ function releaseTick() {
   if (TRAILER_SAFE.includes(scene) && !POP && !authOpen()) startTrailer();
 }
 // 새 버전이 올라오면 자동으로 받기 (1분마다 version.txt 확인). 싸우는 중이면 이긴 걸로 하고 끝난 뒤 새로 불러옴
-const BUILD = '20261114-8';
+const BUILD = '20261115-1';
 let newBuild = false;
 function checkVersion() {
   if (AUTH_TEST || location.protocol === 'file:' || newBuild) return;
@@ -508,7 +508,7 @@ function drawNrTrailer() {
 // 저주를 몸에 품은 돼지 고등학생. 분홍 삐죽 머리 · 남색 교복 · 빨간 후드. 맨주먹 격투 (스킬 3개) + 필살기 '저주 결계'
 // 공개(REL.itadori)되면: 모두에게 무료 해금 + 예고편 한 번 (싸우는 중이면 그 판은 승리)
 let REL = lsGet('sgf_rel', {});   // 관리자가 공개한 업데이트 { itadori: 공개 시각 } — 서버가 10초마다 알려 줌
-const xmasOpen = () => { const d = new Date(); return (d.getMonth() === 11 && d.getDate() <= 25) || /xmas/.test(location.search); };   // 🎄 크리스마스 업데이트: 해마다 12월 1~25일 자동
+const xmasOpen = () => { const d = new Date(); return (d.getMonth() === 11 && d.getDate() <= 25) || /xmas/.test(location.search) || (IS_TESTER && isMember()); };   // 🎄 크리스마스 대규모 업데이트: 해마다 12월 1~25일 자동 · 그 전엔 아무도 모르게 숨김 (테스트 계정만 미리 보임)
 const isRel = id => id === 'xmas' ? xmasOpen() || !!lsGet('sgf_unlock_산타돈', false) || !!lsGet('sgf_unlock_눈꽃돈', false) : !!REL[id] || /newchars/.test(location.search);
 function setRel(r) { if (!r || typeof r !== 'object') return; const was = { ...REL }; REL = { ...REL, ...r }; lsSet('sgf_rel', REL); if (!was.itadori && REL.itadori) toast('🆕 새 돼지 이타돼리 공개! 10일 안에 퀘스트를 깨면 해금'); else if (was.itadoriWin && REL.itadoriWin > was.itadoriWin) toast('👊 이타돼리 퀘스트 기간이 다시 열렸어요! (10일)'); if (!was.big1 && REL.big1) toast('🎉 대규모 업데이트 공개! 새 돼지 3마리'); if (!was.big2 && REL.big2) toast('🎉 대규모 업데이트 · 해적과 마법사 공개! 새 돼지 2마리');
   for (const u of UPDATES) if (!was[u.id] && REL[u.id]) { const c = CHARS.find(x => x.name === u.ch); if (c && c.relId !== u.id) continue;

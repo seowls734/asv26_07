@@ -8,7 +8,7 @@ function fuzzRun() {
   const out = [], seen = {}; let errs = 0;
   window.prompt = () => null; window.confirm = () => false; window.alert = () => {};   // 창이 뜨면 멈추니까 막음
   coins = 1e13; tyU.auto = true;
-  const JUMPS = [() => openCutList(), () => startTutorial(), () => openPigs(), () => { coins = 1e8; openSkinBox(3); }, () => openTycoon(), () => openReward(), () => { GIFT = { id: Date.now(), coins: 100, spins: 1, items: 0, msg: '', until: 0 }; claimGift(); }, () => openMarket(), () => { scene = 'bank'; }, () => openBet(), () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }, () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; },
+  const JUMPS = [() => openCutList(), () => openXmas(), () => startSnow(), () => { openXmas(); XM.cal = true; }, () => startTutorial(), () => openPigs(), () => { coins = 1e8; openSkinBox(3); }, () => openTycoon(), () => openReward(), () => { GIFT = { id: Date.now(), coins: 100, spins: 1, items: 0, msg: '', until: 0 }; claimGift(); }, () => openMarket(), () => { scene = 'bank'; }, () => openBet(), () => { mode = 1; ranked = true; selFor = 'run'; scene = 'select'; }, () => { mode = 1; ranked = false; selFor = 'run'; scene = 'select'; },
     () => openRanking(false), () => { scene = 'endings'; }, () => { mode = 0; p1.setChar(CHARS[rnd() * CHARS.length | 0]); p2.setChar(CHARS[rnd() * CHARS.length | 0]); startMatch(); }, () => { tyU.auto = !tyU.auto; }, () => toTitle(),
     () => { mode = 1; ranked = true; p1.setChar(CHARS[rnd() * CHARS.length | 0]); p2.setChar(CHARS[rnd() * CHARS.length | 0]); p1.meter = p2.meter = 100; startMatch(); }];
   for (let f = 0; f < 60 * 60 * 6; f++) {
@@ -179,7 +179,7 @@ if (/autotest/.test(location.search)) {
         if (DEBT_START !== 1e8 || EARN !== 0.5) throw new Error('빚·수입 설정 실패');
         const w2s = lsGet('sgf_w2', 0); lsSet('sgf_dia', 3); openWorlds(); POPQ.length = 0; POP = null; draw(); WD.shop = true; draw(); buyDia(0); if (diaGet() !== 0) throw new Error('다이아 상점 실패'); WD.shop = false;
         startCatch(); for (let n = 0; n < 900; n++) { if (CG.items.length) CG.x = CG.items[0].x; updateCatch(); if (n % 90 === 0) draw(); }
-        CG.t = CG.dur - 1; updateCatch(); draw(); out.push(`world gift: score=${CG.score} dia=${diaGet()} done=${CG.done}`); if (!CG.done || !(CG.score > 0)) throw new Error('선물 받기 실패'); catchExit(); if (scene !== 'worlds') throw new Error('선물 받기 뒤 월드로 안 감');
+        CG.t = CG.dur - 1; updateCatch(); draw(); out.push(`world gift: score=${CG.score} dia=${diaGet()} done=${CG.done}`); if (!CG.done || !(CG.score > 0)) throw new Error('선물 받기 실패'); catchExit(); if (scene !== (xmasOpen() ? 'xmas' : 'worlds')) throw new Error('선물 받기 뒤 월드로 안 감');
         const w2m = lsGet('sgf_w2meat', null); lsSet('sgf_w2', 0); lsSet('sgf_w2meat', { sam: 0, mok: 0, hang: 0 }); localStorage.removeItem('sgf_w2story');
         openLobby(2); POPQ.length = 0; POP = null; draw(); if (scene !== 'lobby' || LB.w !== 2) throw new Error('월드2 로비 실패');
         LB.x = 330; keys.KeyD = true; for (let n = 0; n < 10; n++) updateLobby(); keys.KeyD = false; LB.x = 330; updateLobby(); draw(); if (LB.near !== 1) throw new Error('로비 건물 앞 인식 실패');
@@ -216,7 +216,18 @@ if (/autotest/.test(location.search)) {
         const sa = CHARS.find(c => c.name === '산타돈'), nu = CHARS.find(c => c.name === '눈꽃돈'); if (sa.buy || nu.buy || sa.relId !== 'xmas') throw new Error('크리스마스 돼지가 아직 코인으로 팔림');
         ['sgf_unlock_산타돈', 'sgf_unlock_눈꽃돈', 'sgf_xmas_got'].forEach(k => localStorage.removeItem(k)); if (isUnlocked(sa) && !xmasOpen()) throw new Error('크리스마스 돼지가 그냥 열림');
         qGrant(XQ, ''); POPQ.length = 0; POP = null; if (!isUnlocked(sa) || !isUnlocked(nu)) throw new Error('크리스마스 퀘스트 보상(둘 다) 실패'); out.push('xmas reward: 산타돈+눈꽃돈 OK');
-        ['sgf_unlock_산타돈', 'sgf_unlock_눈꽃돈', 'sgf_xmas_got'].forEach(k => localStorage.removeItem(k)); scene = 'title'; draw(); }
+        ['sgf_unlock_산타돈', 'sgf_unlock_눈꽃돈', 'sgf_xmas_got'].forEach(k => localStorage.removeItem(k)); scene = 'title'; draw();
+        // 🎄 크리스마스 대규모 업데이트: 12월 전엔 숨김 · 눈싸움 · 달력
+        if (!xmasOpen() && (wList().some(w => w.id === 'xmas') || openQuests().some(q => q.key === 'sgf_q_xmas') || pigList().some(c => c.relId === 'xmas'))) throw new Error('12월 전인데 크리스마스가 보임');
+        const isT = IS_TESTER, au = auth; IS_TESTER = true; auth = { token: 't', login: 'test' };
+        if (!xmasOpen() || !wList().some(w => w.id === 'xmas')) throw new Error('테스트 계정에 크리스마스가 안 보임');
+        openXmas(); for (let n = 0; n < 5; n++) { updateXmas(); draw(); } if (scene !== 'xmas') throw new Error('크리스마스 화면 실패');
+        startSnow(); if (scene !== 'snowball') throw new Error('눈싸움 시작 실패');
+        for (let n = 0; n < 900; n++) { const o = SB.tg.find(t => !t.hit && t.up >= 1 && !t.santa); if (o) { SB.x = o.x; SB.cd = 0; snowThrow(o.x); } updateSnow(); if (n % 90 === 0) draw(); }
+        out.push(`snowball: score=${SB.score} hits=${SB.hits} combo=${SB.maxCombo}`); if (!(SB.hits > 0)) throw new Error('눈싸움 명중 실패');
+        const d0 = diaGet(); SB.score = 80; SB.t = SB.dur - 1; updateSnow(); draw(); if (!SB.done || diaGet() !== d0 + 10) throw new Error('눈싸움 보상 실패'); for (let n = 0; n < 31; n++) updateSnow(); pressed.Enter = true; updateSnow(); delete pressed.Enter; if (scene !== 'xmas') throw new Error('눈싸움 뒤 크리스마스로 안 감');
+        localStorage.removeItem(advKey()); XM.cal = true; draw(); const xc0 = coins, d1 = diaGet(); advOpen(25); POPQ.length = 0; POP = null; if (!advGot().includes(25) || diaGet() !== d1 + 25 || !(coins > xc0)) throw new Error("크리스마스 달력 실패"); advOpen(25); if (advGot().length !== 1) throw new Error('달력 두 번 열림');
+        localStorage.removeItem(advKey()); XM.cal = false; out.push('xmas update: hidden + snowball + advent OK'); IS_TESTER = isT; auth = au; scene = 'title'; draw(); }
       { mode = 0; p1.setChar(IT); p2.setChar(CHARS[0]); startMatch(); for (let n = 0; n < 130 && scene !== 'fight'; n++) step(); applyItForm(p1, 'modulo'); p1.facing = -1; p1.curseT = 600; p1.inp = { right: true }; const cs = pickSkill(p1).type; p1.inp = { left: true }; if (pickSkill(p1).type !== 'bloodShot') throw new Error('왼쪽+U 세 번째 스킬 실패'); out.push(`it skill3: ${cs}`); if (cs !== 'bloodShot') throw new Error('피의 관통탄 실패');
         p1.x = 420; p2.x = 540; p2.state = 'idle'; const h0 = p2.hp; dealHit(p1, p2, { dmg: 5, kind: 'punch', src: p1.x, height: 'mid', stun: 20 }); for (let n = 0; n < 10; n++) step(); out.push(`arm extra: ${(h0 - p2.hp).toFixed(1)}`); if (!(h0 - p2.hp > 5.5)) throw new Error('팔 한 번 더 실패');
         p2.hp = p2.maxHp; p2.state = 'idle'; p1.state = 'idle'; p1.meter = 100; const h1 = p2.hp; startUlt(p1); for (let n = 0; n < IT_CUT + 120 && scene === 'fight'; n++) { step(); if (n % 30 === 0) draw(); } out.push(`dismantle: type=${p1.ch.ult.type} dmg=${(h1 - p2.hp).toFixed(1)}`); if (p1.ch.ult.type !== 'dismantle' || !(h1 - p2.hp > 20 || scene !== 'fight')) throw new Error('베어 가르기 실패'); }
